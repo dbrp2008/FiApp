@@ -974,15 +974,18 @@ function loadTaxCarryover(){
 
 async function _incomeMonthTotalUSD(incomeState, mk2){
   await fetchExpRates();
-  if(!incomeState||!incomeState.rows||!incomeState.cols) return 0;
+  if(!incomeState) return 0;
+  const rows=(incomeState.rowsByMonth&&incomeState.rowsByMonth[mk2])||incomeState.rows||[];
+  const cols=(incomeState.colsByMonth&&incomeState.colsByMonth[mk2])||incomeState.cols||[];
+  if(!rows.length||!cols.length) return 0;
   const mrCur=incomeState.monthRowCurrencies||{};
   let total=0;
-  for(const r of incomeState.rows.filter(r=>!r.parentId)){
-    const kids=incomeState.rows.filter(c=>c.parentId===r.id);
+  for(const r of rows.filter(r=>!r.parentId)){
+    const kids=rows.filter(c=>c.parentId===r.id);
     const leaves=kids.length?kids:[r];
     for(const leaf of leaves){
       const cur=mrCur[mk2+'|'+leaf.id]||'USD';
-      for(const col of (incomeState.cols||[])){
+      for(const col of cols){
         const v=parseFloat(incomeState.cells[mk2+'|'+leaf.id+'|'+col.id])||0;
         if(!v) continue;
         total+= cur==='USD' ? v : (expRatesCache[cur] ? v/expRatesCache[cur] : v);
