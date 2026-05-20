@@ -254,7 +254,8 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 
-const _LS_TTL_MS=7*24*3600*1000;
+const _LS_TTL_MS=7*24*3600*1000;    // 7 days  — refresh interval
+const _DEAD_TTL_MS=14*24*3600*1000; // 14 days — delete if unused
 let _ratesTick=null;
 
 function updateRatesDateBtn(d){
@@ -271,13 +272,16 @@ function _getUserCurrencies(){
 }
 
 function _getCachedBases(){
-  const bases=[];
+  const bases=[], now=Date.now();
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
     if(!k||!k.startsWith('fiapp_exchange_rates_')) continue;
     try{
       const obj=JSON.parse(localStorage.getItem(k));
-      if(obj&&obj.fetched_at) bases.push({base:k.replace('fiapp_exchange_rates_',''),fetched_at:obj.fetched_at});
+      if(!obj||!obj.fetched_at) continue;
+      const lastUsed=obj.last_used_at?new Date(obj.last_used_at).getTime():new Date(obj.fetched_at).getTime();
+      if(now-lastUsed>_DEAD_TTL_MS){ localStorage.removeItem(k); continue; } // clean up dead entry
+      bases.push({base:k.replace('fiapp_exchange_rates_',''),fetched_at:obj.fetched_at,last_used_at:obj.last_used_at||obj.fetched_at});
     }catch(e){}
   }
   return bases.sort((a,b)=>a.base.localeCompare(b.base));
@@ -305,14 +309,17 @@ function _buildRatesPanel(){
   } else {
     bases.forEach(b=>{
       const fetched=new Date(b.fetched_at);
-      const msLeft=fetched.getTime()+_LS_TTL_MS-now;
+      const msRefresh=fetched.getTime()+_LS_TTL_MS-now;
+      const msExpire=new Date(b.last_used_at).getTime()+_DEAD_TTL_MS-now;
       html+='<div class="rates-info-row"><span class="rates-info-label">Base: '+b.base+'</span>'
         +'<span style="display:flex;align-items:center;gap:.5rem;">'
         +'<span>'+fetched.toLocaleDateString()+' '+fetched.toLocaleTimeString()+'</span>'
         +'<button type="button" class="btn-ghost btn-sm" style="padding:.1rem .4rem;font-size:.75rem;" onclick="_refreshBase(\''+b.base+'\')">↻</button>'
         +'</span></div>'
         +'<div style="font-size:.77rem;padding-bottom:.38rem;color:var(--muted);">'
-        +'Next refresh: <span class="rates-countdown" id="rcd-'+b.base+'">'+_fmtCountdown(msLeft)+'</span></div>';
+        +'Next refresh: <span class="rates-countdown" id="rcd-ref-'+b.base+'">'+(msRefresh<=0?'<span style="color:var(--accent)">overdue</span>':_fmtCountdown(msRefresh))+'</span>'
+        +' &nbsp;·&nbsp; Expires in: <span class="rates-countdown" id="rcd-exp-'+b.base+'">'+_fmtCountdown(msExpire)+'</span>'
+        +'</div>';
     });
   }
   html+='<hr style="border:none;border-top:1px solid var(--panel-border);margin:.4rem -.1rem .45rem;">'
@@ -325,10 +332,21 @@ function _buildRatesPanel(){
 
 function _tickCountdowns(){
   const now=Date.now();
+  let anyDead=false;
   _getCachedBases().forEach(b=>{
-    const el=document.getElementById('rcd-'+b.base);
-    if(el) el.textContent=_fmtCountdown(new Date(b.fetched_at).getTime()+_LS_TTL_MS-now);
+    const msRefresh=new Date(b.fetched_at).getTime()+_LS_TTL_MS-now;
+    const msExpire=new Date(b.last_used_at).getTime()+_DEAD_TTL_MS-now;
+    if(msExpire<=0){
+      localStorage.removeItem('fiapp_exchange_rates_'+b.base);
+      anyDead=true;
+    } else {
+      const elRef=document.getElementById('rcd-ref-'+b.base);
+      const elExp=document.getElementById('rcd-exp-'+b.base);
+      if(elRef) elRef.innerHTML=msRefresh<=0?'<span style="color:var(--accent)">overdue</span>':_fmtCountdown(msRefresh);
+      if(elExp) elExp.textContent=_fmtCountdown(msExpire);
+    }
   });
+  if(anyDead) _buildRatesPanel();
 }
 
 function toggleRatesPanel(){
