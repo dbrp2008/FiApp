@@ -372,30 +372,36 @@ function _mksForYear(y){ const r=[]; for(let m=0;m<12;m++) if(_inRng(y,m)) r.pus
 function _getInc(){ try{ return JSON.parse(localStorage.getItem(_IK))||null; }catch{ return null; } }
 
 
-function _salaryLeafs(inc){
-  if(!inc||!inc.rows) return [];
-  const ps = inc.rows.filter(r=>!r.parentId&&r.label.trim().toLowerCase()==='salary');
+// Per-month row/col helpers — income tracker forks rows/cols per month after first edit
+function _iRows(inc, mk){ return (mk&&inc.rowsByMonth&&inc.rowsByMonth[mk])||inc.rows||[]; }
+function _iCols(inc, mk){ return (mk&&inc.colsByMonth&&inc.colsByMonth[mk])||inc.cols||[]; }
+
+function _salaryLeafs(inc, mk){
+  const rows = _iRows(inc, mk);
+  if(!rows.length) return [];
+  const ps = rows.filter(r=>!r.parentId&&(r.label||'').trim().toLowerCase()==='salary');
   function collectLeafs(id){
-    const kids = inc.rows.filter(r=>r.parentId===id);
-    if(!kids.length) return [inc.rows.find(r=>r.id===id)].filter(Boolean);
+    const kids = rows.filter(r=>r.parentId===id);
+    if(!kids.length) return [rows.find(r=>r.id===id)].filter(Boolean);
     return kids.flatMap(k=>collectLeafs(k.id));
   }
   return ps.flatMap(p=>collectLeafs(p.id));
 }
 
 
-function _incRowsByType(inc){
-  if(!inc||!inc.rows) return {ordinary:[],capitalGains:[],rental:[],exempt:[]};
+function _incRowsByType(inc, mk){
+  const rows = _iRows(inc, mk);
+  if(!rows.length) return {ordinary:[],capitalGains:[],rental:[],exempt:[]};
   const CG_LBLS  = ['capital gains'];
   const RNT_LBLS = ['rental income'];
   const EX_LBLS  = ['dividends','interest income'];
   const res = {ordinary:[],capitalGains:[],rental:[],exempt:[]};
   function leafs(id){
-    const kids = inc.rows.filter(r=>r.parentId===id);
-    if(!kids.length) return [inc.rows.find(r=>r.id===id)].filter(Boolean);
+    const kids = rows.filter(r=>r.parentId===id);
+    if(!kids.length) return [rows.find(r=>r.id===id)].filter(Boolean);
     return kids.flatMap(k=>leafs(k.id));
   }
-  for(const top of inc.rows.filter(r=>!r.parentId)){
+  for(const top of rows.filter(r=>!r.parentId)){
     for(const lf of leafs(top.id)){
       const lb = (lf.label||'').trim().toLowerCase();
       if(CG_LBLS.includes(lb))       res.capitalGains.push(lf);
@@ -407,16 +413,17 @@ function _incRowsByType(inc){
   return res;
 }
 
-function _getTopParent(rowId, inc){
-  let r = inc.rows.find(x=>x.id===rowId);
-  while(r&&r.parentId) r = inc.rows.find(x=>x.id===r.parentId);
+function _getTopParent(rowId, inc, mk){
+  const rows = _iRows(inc, mk);
+  let r = rows.find(x=>x.id===rowId);
+  while(r&&r.parentId) r = rows.find(x=>x.id===r.parentId);
   return r||null;
 }
 
 
 function _rowTotal(mk, inc, rowList, targetCcy){
   let t=0;
-  for(const row of rowList) for(const col of (inc.cols||[])){
+  for(const row of rowList) for(const col of _iCols(inc, mk)){
     const v = parseFloat(inc.cells[`${mk}|${row.id}|${col.id}`]||0)||0;
     if(!v) continue;
     const cur = (inc.monthRowCurrencies||{})[`${mk}|${row.id}`]||'USD';
@@ -433,8 +440,8 @@ function _rowTotal(mk, inc, rowList, targetCcy){
 
 
 function _mthTotal(mk, inc){
-  const rows = _salaryLeafs(inc); let t=0;
-  for(const row of rows) for(const col of (inc.cols||[])){
+  const rows = _salaryLeafs(inc, mk); let t=0;
+  for(const row of rows) for(const col of _iCols(inc, mk)){
     const v = parseFloat(inc.cells[`${mk}|${row.id}|${col.id}`]||0)||0;
     if(!v) continue;
     const cur = (inc.monthRowCurrencies||{})[`${mk}|${row.id}`]||'USD';
@@ -446,11 +453,11 @@ function _mthTotal(mk, inc){
 
 function _mthTotalForCountry(mk, inc){
   if(_country==='US') return _mthTotal(mk, inc);
-  const rows = _incRowsByType(inc);
+  const rows = _incRowsByType(inc, mk);
   const tgt  = _country==='IN' ? 'INR' : 'HKD';
   let ordRows = rows.ordinary;
   if(_country==='IN' && _inResidency==='NRI' && _nriSourced!==null){
-    ordRows = ordRows.filter(r=>{ const top=_getTopParent(r.id,inc); return top&&_nriSourced.has(top.id); });
+    ordRows = ordRows.filter(r=>{ const top=_getTopParent(r.id,inc,mk); return top&&_nriSourced.has(top.id); });
   }
   const ordinary = _rowTotal(mk, inc, ordRows, tgt);
   const rental   = _rowTotal(mk, inc, rows.rental, tgt);
@@ -459,21 +466,21 @@ function _mthTotalForCountry(mk, inc){
 }
 
 function _mthCGForCountry(mk, inc){
-  return _rowTotal(mk, inc, _incRowsByType(inc).capitalGains, 'INR');
+  return _rowTotal(mk, inc, _incRowsByType(inc, mk).capitalGains, 'INR');
 }
 function _mthRentalForCountry(mk, inc){
-  return _rowTotal(mk, inc, _incRowsByType(inc).rental, _country==='HK'?'HKD':'INR');
+  return _rowTotal(mk, inc, _incRowsByType(inc, mk).rental, _country==='HK'?'HKD':'INR');
 }
 
 function _mthHas(mk, inc){
-  for(const row of _salaryLeafs(inc))
-    for(const col of (inc.cols||[]))
+  for(const row of _salaryLeafs(inc, mk))
+    for(const col of _iCols(inc, mk))
       if((parseFloat(inc.cells[`${mk}|${row.id}|${col.id}`]||0)||0)>0) return true;
   return false;
 }
 function _mthHasForCountry(mk, inc){
   if(_country==='US') return _mthHas(mk, inc);
-  const rows = _incRowsByType(inc);
+  const rows = _incRowsByType(inc, mk);
   const all  = [...rows.ordinary,...rows.capitalGains,...rows.rental,...rows.exempt];
   return _rowTotal(mk, inc, all, _country==='IN'?'INR':'HKD') > 0;
 }
