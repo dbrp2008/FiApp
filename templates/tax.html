@@ -1134,6 +1134,19 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     if(e.key==='Escape') document.getElementById('tax-explainer-overlay').style.display='none';
   });
 
+  // Fetch income from server if not yet in localStorage (e.g. after logout/login without visiting income.html)
+  if(!_getInc()){
+    try{
+      const _ir=await fetch('/api/load/income');
+      if(_ir.ok){
+        const _id=await _ir.json();
+        if(_id&&typeof _id==='object'&&(Array.isArray(_id.rows)||_id.cells||_id.rowsByMonth)){
+          localStorage.setItem('fiapp_income_v1',JSON.stringify(_id));
+        }
+      }
+    }catch(e){}
+  }
+
   const inc = _getInc();
   _buildUI(inc);
   _loadRates().then(()=>_buildUI(_getInc())).catch(()=>{});
