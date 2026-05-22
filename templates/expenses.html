@@ -540,14 +540,16 @@ async function loadSubsFromServer(){
     }
   }catch(e){}
 }
-function save(){
+function saveLocal(){
   try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
   catch(e){
     if(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'){
-      console.error('FiApp: localStorage quota exceeded');
-      showSaveQuotaWarning();
+      console.error('FiApp: localStorage quota exceeded'); showSaveQuotaWarning();
     } else { throw e; }
   }
+}
+function save(){
+  saveLocal();
   syncToServer();
 }
 function showSaveQuotaWarning(){
@@ -608,7 +610,7 @@ function shiftMonth(d){
   let y=state.currentYear, m=state.currentMonth+d;
   if(m<0){y--;m=11;} if(m>11){y++;m=0;}
   state.currentYear=y; state.currentMonth=m;
-  save(); updateMonthNav(); render(); syncIncomeInputs();
+  saveLocal(); updateMonthNav(); render(); syncIncomeInputs();
 }
 function populateMonthJump(){
   const sel=document.getElementById('month-jump'); if(!sel) return;
@@ -629,7 +631,7 @@ function jumpToMonth(mkStr){
   const parts=mkStr.split('-');
   state.currentYear=parseInt(parts[0],10);
   state.currentMonth=parseInt(parts[1],10)-1;
-  save(); updateMonthNav(); render(); syncIncomeInputs();
+  saveLocal(); updateMonthNav(); render(); syncIncomeInputs();
 }
 function updateMonthNav(){
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
@@ -1010,7 +1012,7 @@ async function syncFromIncomeTracker(mk2){
       document.getElementById('inp-gross').value=obj.gross;
       const hasData=!!(obj.gross||obj.tax);
       document.getElementById('apply-year-btn').style.display=hasData?'inline-block':'none';
-      save(); updateIncomeSummary();
+      saveLocal(); updateIncomeSummary();
     }
     const tFmt='$'+total.toFixed(2);
     if(alreadySynced||obj.fromIncome){
