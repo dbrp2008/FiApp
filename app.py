@@ -66,10 +66,23 @@ _db_pool = None
 
 def init_pool():
     global _db_pool
-    _db_pool = _pgpool.ThreadedConnectionPool(2, 10, os.environ["DATABASE_URL"])
+    _db_pool = _pgpool.ThreadedConnectionPool(
+        2, 10, os.environ["DATABASE_URL"],
+        keepalives=1, keepalives_idle=30, keepalives_interval=5, keepalives_count=3
+    )
 
 def get_db():
-    return _db_pool.getconn()
+    conn = _db_pool.getconn()
+    try:
+        conn.cursor().execute("SELECT 1")
+        conn.rollback()
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        try:
+            _db_pool.putconn(conn, close=True)
+        except Exception:
+            pass
+        conn = _db_pool.getconn()
+    return conn
 
 def release_db(conn):
     if conn and _db_pool:
