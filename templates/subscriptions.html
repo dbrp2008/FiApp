@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Subscription Tracker{% endblock %}
-{% block head_scripts %}<script src="/static/rates-utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>{% endblock %}
+{% block head_scripts %}<script src="/static/rates-utils.js"></script>{% endblock %}
 {% block head_styles %}
 <style>
     
@@ -100,15 +99,6 @@
     .lb-cost{font-weight:700;color:var(--link);}
 
     
-    .chart-section{display:none;margin-bottom:1rem;padding:.75rem 1rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;}
-    .chart-mode-btns{display:flex;gap:.4rem;margin-bottom:.5rem;}
-    .chart-mode-btn{padding:.28rem .65rem;font-size:.8rem;border:1px solid var(--input-border);border-radius:5px;cursor:pointer;background:var(--th-bg);color:var(--fg);}
-    .chart-mode-btn.active{background:#0366d6;color:#fff;border-color:#0366d6;}
-    .chart-wrap{max-width:500px;margin:0 auto;}
-    .top3{margin-top:.75rem;}
-    .top3 h4{margin:0 0 .4rem;font-size:.88rem;color:var(--fg);}
-    .top3 ol{margin:0;padding-left:1.2rem;font-size:.85rem;}
-    .top3 li{margin-bottom:.2rem;color:var(--fg);}
 
     
     .sheet-wrap{overflow-x:auto;margin-top:.5rem;-webkit-overflow-scrolling:touch;}
@@ -295,16 +285,7 @@
     <button class="btn btn-sm" id="reset-btn" onclick="resetAll()" style="background:#dc2626">Reset</button>
   </div>
 
-  <div class="chart-section" id="chart-section">
-    <div class="chart-mode-btns">
-      <button class="chart-mode-btn active" id="chart-mode-m" onclick="setChartMode('monthly')">Monthly</button>
-      <button class="chart-mode-btn" id="chart-mode-y" onclick="setChartMode('yearly')">Yearly</button>
-    </div>
-    <div class="chart-wrap"><canvas id="sub-chart"></canvas></div>
-    <div class="top3" id="top3"></div>
-  </div>
-
-  <div class="sheet-wrap"><table class="sheet" id="sheet"></table></div>
+<div class="sheet-wrap"><table class="sheet" id="sheet"></table></div>
 {% endblock %}
 {% block body_scripts %}
 <script>
@@ -324,7 +305,6 @@ const TRIAL_OPTS  = [
   {v:'3months',l:'1st 3 months free'},
 ];
 const STATUS_CLR  = {Active:'#15803d',Trial:'#0369a1',Paused:'#b45309',Cancelled:'#dc2626'};
-const CHART_PAL   = ['#60a5fa','#34d399','#f97316','#a78bfa','#fb7185','#fbbf24','#2dd4bf','#e879f9','#4ade80','#38bdf8'];
 const CELL_CURRENCIES = ['USD','EUR','GBP','AED','HKD','SGD','CAD','AUD','JPY','CNY','INR','CHF','MYR','THB','KRW','BRL','MXN'];
 const MEDALS = ['🥇','🥈','🥉'];
 const MEDAL_CLS = ['medal-gold','medal-silver','medal-bronze'];
@@ -857,46 +837,7 @@ function renderLeaderboard(){
 }
 
 
-let chartInstance=null, chartVisible=false, chartMode='monthly';
-function toggleChart(){
-  chartVisible=!chartVisible;
-  document.getElementById('chart-section').style.display=chartVisible?'block':'none';
-  document.getElementById('chart-btn').textContent=chartVisible?'📊 Hide Chart':'📊 Chart';
-  if(chartVisible) renderChart();
-}
-function setChartMode(mode){
-  chartMode=mode;
-  document.getElementById('chart-mode-m').classList.toggle('active',mode==='monthly');
-  document.getElementById('chart-mode-y').classList.toggle('active',mode==='yearly');
-  renderChart();
-}
-function renderChart(){
-  if(!chartVisible) return;
-  const serviceCol=colByType('text');
-  let data, topLabel;
-  if(chartMode==='yearly'){
-    data=state.rows.filter(r=>!isHiddenForMonth(r)).map(r=>({name:serviceCol?getCell(r.id,serviceCol.id)||'-':'-',cost:calcYearlyCost(r,state.currentYear)})).filter(x=>x.cost>0).sort((a,b)=>b.cost-a.cost);
-    topLabel='Top Subscriptions - '+state.currentYear;
-  } else {
-    data=state.rows.filter(r=>!isHiddenForMonth(r)).map(r=>({name:serviceCol?getCell(r.id,serviceCol.id)||'-':'-',cost:calcMonthCost(r,state.currentYear,state.currentMonth)})).filter(x=>x.cost>0).sort((a,b)=>b.cost-a.cost);
-    topLabel='Top Subscriptions - '+MONTHS_SHORT[state.currentMonth]+' '+state.currentYear;
-  }
-  if(chartInstance){ chartInstance.destroy(); chartInstance=null; }
-  if(!data.length){document.getElementById('sub-chart').style.display='none';renderTop3([],topLabel);return;}
-  document.getElementById('sub-chart').style.display='block';
-  chartInstance=new Chart(document.getElementById('sub-chart'),{
-    type:'doughnut',
-    data:{labels:data.map(d=>d.name),datasets:[{data:data.map(d=>parseFloat((isFinite(d.cost)?d.cost:0).toFixed(2))),backgroundColor:CHART_PAL}]},
-    options:{plugins:{legend:{position:'right',labels:{font:{size:11}}},tooltip:{callbacks:{label:ctx=>' $'+ctx.parsed.toFixed(2)}}},responsive:true,maintainAspectRatio:true}
-  });
-  renderTop3(data,topLabel);
-}
-function renderTop3(data,label){
-  const top=(data||[]).slice(0,3);
-  const el=document.getElementById('top3');
-  if(!top.length){el.innerHTML='';return;}
-  el.innerHTML='<h4>'+escapeHtml(label||'Top 3')+'</h4><ol>'+top.map(t=>`<li><strong>${escapeHtml(t.name)}</strong> - $${(isFinite(t.cost)?t.cost:0).toFixed(2)}</li>`).join('')+'</ol>';
-}
+function renderChart(){}
 
 
 let resetTimer=null;
