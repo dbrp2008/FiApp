@@ -3,6 +3,7 @@
 (function(global){
   var LS_TTL   = 7  * 24 * 3600 * 1000; // 7 days  — refresh interval
   var DEAD_TTL = 14 * 24 * 3600 * 1000; // 14 days — delete if unused this long
+  var _inFlight = {}; // deduplicate concurrent requests for the same base currency
 
   function lsKey(base){ return 'fiapp_exchange_rates_' + base.toUpperCase(); }
 
@@ -43,19 +44,24 @@
    * base:  currency code string, e.g. 'USD'
    * force: if true, bypass localStorage and request fresh data from server
    */
-  global.fiappGetRates = async function(base, force){
+  global.fiappGetRates = function(base, force){
     base = (base || 'USD').toUpperCase();
     if(!force){
       var cached = lsGet(base);
-      if(cached) return cached;
+      if(cached) return Promise.resolve(cached);
+      if(_inFlight[base]) return _inFlight[base];
     }
     var url = '/api/exchange?base=' + encodeURIComponent(base) + (force ? '&force=1' : '');
-    var resp = await fetch(url);
-    if(!resp.ok) throw new Error('Exchange API error ' + resp.status);
-    var data = await resp.json();
-    if(data.error) throw new Error(data.error);
-    lsSet(base, data.rates, data.fetched_at);
-    return {rates: data.rates, fetched_at: data.fetched_at};
+    var p = fetch(url).then(function(resp){
+      if(!resp.ok) throw new Error('Exchange API error ' + resp.status);
+      return resp.json();
+    }).then(function(data){
+      if(data.error) throw new Error(data.error);
+      lsSet(base, data.rates, data.fetched_at);
+      return {rates: data.rates, fetched_at: data.fetched_at};
+    }).finally(function(){ delete _inFlight[base]; });
+    if(!force) _inFlight[base] = p;
+    return p;
   };
 
   /**
