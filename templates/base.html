@@ -836,11 +836,13 @@
       ],
       income:[
         {id:'enh-inc-gross', text:'Your <strong>total gross income</strong> here automatically appears in the Expense Tracker\'s Budget panel and pre-fills the Tax Calculator. No manual copying needed.',                                                                                  target:'[data-wt="income-tax-link"]',   emoji:'🔗'},
-        {id:'enh-inc-curr',  text:'Each income source can have its <strong>own currency</strong>. FiApp converts everything to USD for comparisons - great for multi-currency earners.',                                                                                                     target:'[data-wt="income-currency"]',   emoji:'💱'}
+        {id:'enh-inc-curr',  text:'Each income source can have its <strong>own currency</strong>. FiApp converts everything to USD for comparisons - great for multi-currency earners.',                                                                                                     target:'[data-wt="income-currency"]',   emoji:'💱'},
+        {id:'enh-inc-share', text:'You can <strong>share your income sheet</strong> with others. Use the Share button to generate a clean view without requiring a login, or export to CSV.',                                                                                               target:'[data-wt="income-share"]',      emoji:'📤'}
       ],
       subscriptions:[
         {id:'enh-sub-sync',  text:'Subscriptions you log here are <strong>automatically reflected</strong> in your Expense Tracker under the Subscriptions category. No double-entry needed.',                                                                                              target:'[data-wt="subs-add"]',          emoji:'🔄'},
-        {id:'enh-sub-mths',  text:'Use the <strong>month columns</strong> to mark when each subscription is active. Uncheck a month for subs you paused or cancelled - your totals update instantly.',                                                                                     target:null,                             emoji:'📅'}
+        {id:'enh-sub-mths',  text:'Use the <strong>month columns</strong> to mark when each subscription is active. Uncheck a month for subs you paused or cancelled - your totals update instantly.',                                                                                     target:null,                             emoji:'📅'},
+        {id:'enh-sub-share', text:'You can <strong>share your subscription list</strong> with others. Use the Share button to generate a clean view without requiring a login, or export to CSV.',                                                                                          target:'[data-wt="subs-share"]',        emoji:'📤'}
       ]
     };
 
@@ -882,8 +884,8 @@
           _btns.appendChild(_eSkipBtn());
         });
         _overlay.style.display='block';
-        if(targetEl){targetEl.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(function(){_setHL(targetEl);_posBubble(targetEl);},380);}
-        else{_setHL(null);_posBubble(null);}
+        if(targetEl){targetEl.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(function(){_setHL(targetEl);_posBubble(targetEl);_trackHL(targetEl);},380);}
+        else{_setHL(null);_posBubble(null);_trackHL(null);}
       }
       showE();
     }
