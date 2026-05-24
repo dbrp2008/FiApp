@@ -21,7 +21,7 @@
          'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
          'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
          'fiapp_tax_result','fiapp_prefill_income',
-         'fiapp_walkthrough_v1','fiapp_wt_backup_v1'].forEach(function(k){localStorage.removeItem(k);});
+         'fiapp_walkthrough_v1'].forEach(function(k){localStorage.removeItem(k);});
         localStorage.removeItem('fiapp_auth_user');
       }
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
@@ -29,6 +29,10 @@
   })();
   </script>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <script>
+    var THEME_LABELS={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
+  </script>
   {% block head_scripts %}{% endblock %}
   {% block head_styles %}{% endblock %}
   <style>
@@ -70,17 +74,24 @@
     #wt-confetti{display:none;position:fixed;inset:0;z-index:9503;pointer-events:none;width:100%;height:100%}
     .wt-enhanced-btn{font-size:.82rem;background:none;border:1.5px solid var(--panel-border);border-radius:7px;color:var(--muted);padding:.28rem .55rem;cursor:pointer;font-family:inherit;transition:color .15s,border-color .15s}
     .wt-enhanced-btn:hover{color:var(--accent);border-color:var(--accent)}
+    @media (prefers-reduced-motion: reduce) {
+      #wt-avatar{animation:none;}
+      #wt-bubble{transition:none;}
+      .wt-entering,#wt-bubble.wt-entering{animation:none;}
+      .wt-exiting,#wt-bubble.wt-exiting{animation:none;}
+      .wt-avatar-pop,#wt-avatar.wt-avatar-pop{animation:none!important;}
+    }
   </style>
 </head>
 <body>
   <div class="{% block nav_class %}nav{% endblock %}">
-    <button class="hamburger-btn" onclick="openDrawer()" aria-label="Open navigation menu">☰</button>
+    <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu">☰</button>
     {% if current_user|default(none) %}
       <div class="acct-menu-wrap">
-        <button class="btn-ghost btn-sm" onclick="toggleAcctMenu(this)">👤 {{ current_user|default('') }}</button>
+        <button class="btn-ghost btn-sm" id="acct-menu-btn">👤 {{ current_user|default('') }}</button>
         <div class="acct-dropdown">
           <a href="/account" class="acct-item">⚙ Account settings</a>
-          <button id="logout-btn" onclick="logOutStep(this)" class="acct-item acct-logout">⬅ Log out</button>
+          <button id="logout-btn" class="acct-item acct-logout">⬅ Log out</button>
         </div>
       </div>
     {% else %}
@@ -89,7 +100,7 @@
     {% block nav_extra %}<a href="/">← Home</a>{% endblock %}
     <span id="sync-status"></span>
     <span id="auth-badge-container" style="display:none"></span>
-    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn" onclick="toggleThemeMenu(this)">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light" onclick="setTheme('light')">☀️ Light</button><button class="theme-opt" data-theme="dark" onclick="setTheme('dark')">🌙 Dark</button><button class="theme-opt" data-theme="ocean" onclick="setTheme('ocean')">🌊 Ocean</button><button class="theme-opt" data-theme="forest" onclick="setTheme('forest')">🌿 Forest</button><button class="theme-opt" data-theme="sunset" onclick="setTheme('sunset')">🌅 Sunset</button><button class="theme-opt" data-theme="midnight" onclick="setTheme('midnight')">🌃 Midnight</button><button class="theme-opt" data-theme="rose" onclick="setTheme('rose')">🌹 Rose</button><button class="theme-opt" data-theme="purple" onclick="setTheme('purple')">💜 Purple</button><button class="theme-opt" data-theme="indigo" onclick="setTheme('indigo')">🔷 Indigo</button></div></div><script>(function(){var t=localStorage.getItem('fiapp_theme')||'light';var L={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};var b=document.getElementById('theme-btn');if(b)b.textContent=L[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
+    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script>(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b)b.textContent=THEME_LABELS[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
   <script>
   var _CSRF='{{ csrf_token|default("") }}';
@@ -98,7 +109,11 @@
   (function(){
     var _lsT=localStorage.getItem('fiapp_theme');
     var _srvT='{{ theme|default("light") }}';
-    if(_CSRF&&_lsT&&_lsT!==_srvT){
+    if(_CSRF&&!_lsT){
+      // Fresh browser (no local key) + logged in: write server theme to localStorage so
+      // subsequent loads use it and the PATCH sync below never fires with a stale 'light' fallback.
+      localStorage.setItem('fiapp_theme',_srvT);
+    } else if(_CSRF&&_lsT&&_lsT!==_srvT){
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
     }
   })();
@@ -108,9 +123,8 @@
     if(name==='dark') document.documentElement.classList.add('dark');
     else if(name!=='light') document.documentElement.classList.add('theme-'+name);
     localStorage.setItem('fiapp_theme',name);
-    var _tl={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
     var _tb=document.getElementById('theme-btn');
-    if(_tb) _tb.textContent=_tl[name]||name;
+    if(_tb) _tb.textContent=THEME_LABELS[name]||name;
     var _td=document.querySelector('.theme-dropdown');
     if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
     if(typeof renderChart==='function') renderChart();
@@ -121,7 +135,7 @@
     'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
     'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
     'fiapp_tax_result','fiapp_tax_ui_v1','fiapp_prefill_income','fiapp_auth_user',
-    'fiapp_walkthrough_v1','fiapp_wt_backup_v1'];
+    'fiapp_walkthrough_v1'];
   function logOutStep(btn){
     if(btn.dataset.confirm!=='1'){
       btn.dataset.confirm='1';
@@ -156,11 +170,44 @@
     document.getElementById('side-drawer').classList.remove('open');
     document.getElementById('drawer-overlay').style.display='none';
   }
-  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
-  // Session expiry check — when mobile tab returns from background, redirect to login if session gone
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape') closeDrawer();
+    if(e.key==='Tab'){
+      var bubble=document.getElementById('wt-bubble');
+      if(!bubble||bubble.style.display==='none') return;
+      var focusable=Array.from(bubble.querySelectorAll('button:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+      if(!focusable.length) return;
+      var first=focusable[0],last=focusable[focusable.length-1];
+      if(e.shiftKey){if(document.activeElement===first){e.preventDefault();last.focus();}}
+      else{if(document.activeElement===last){e.preventDefault();first.focus();}}
+    }
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var hamburger=document.getElementById('hamburger-btn');
+    if(hamburger) hamburger.addEventListener('click',openDrawer);
+    var acctBtn=document.getElementById('acct-menu-btn');
+    if(acctBtn) acctBtn.addEventListener('click',function(e){toggleAcctMenu(e.currentTarget);});
+    var logoutBtn=document.getElementById('logout-btn');
+    if(logoutBtn) logoutBtn.addEventListener('click',function(e){logOutStep(e.currentTarget);});
+    var themeBtn=document.getElementById('theme-btn');
+    if(themeBtn) themeBtn.addEventListener('click',function(e){toggleThemeMenu(e.currentTarget);});
+    document.querySelectorAll('.theme-opt').forEach(function(btn){
+      btn.addEventListener('click',function(){setTheme(btn.dataset.theme);});
+    });
+    var drawerOverlay=document.getElementById('drawer-overlay');
+    if(drawerOverlay) drawerOverlay.addEventListener('click',closeDrawer);
+    var drawerClose=document.getElementById('drawer-close-btn');
+    if(drawerClose) drawerClose.addEventListener('click',closeDrawer);
+  });
+  // Session expiry check — debounced to 30s so rapid tab switches don't spam /auth/me
+  var _lastAuthCheck=0;
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='visible'){
-      fetch('/auth/me').then(function(r){if(r.status===401)window.location='/login';}).catch(function(){});
+      var now=Date.now();
+      if(now-_lastAuthCheck>30000){
+        _lastAuthCheck=now;
+        fetch('/auth/me').then(function(r){if(r.status===401)window.location='/login';}).catch(function(){});
+      }
     }
   });
   </script>
@@ -169,9 +216,9 @@
 
   {% block body_scripts %}{% endblock %}
 
-  <div id="drawer-overlay" style="display:none" onclick="closeDrawer()"></div>
+  <div id="drawer-overlay" style="display:none"></div>
   <nav id="side-drawer">
-    <button class="drawer-close" onclick="closeDrawer()" aria-label="Close navigation menu">✕</button>
+    <button class="drawer-close" id="drawer-close-btn" aria-label="Close navigation menu">✕</button>
     <h2>Tools</h2>
     <ul>
       <li><a href="/" class="drawer-link" data-path="/">🏠 Home</a></li>
@@ -202,8 +249,6 @@
   (function(){
     'use strict';
     var WT_KEY='fiapp_walkthrough_v1';
-    var WT_BK_KEY='fiapp_wt_backup_v1';
-    var WT_TRACKER_KEYS=['fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4','fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4','fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1','fiapp_tax_result','fiapp_prefill_income'];
     var _loggedIn=!!{{ current_user|default(none)|tojson }};
     var _wtUser={{ current_user|default(none)|tojson }};
     var _WT_USER_KEY=_wtUser?'fiapp_wt_u_'+_wtUser:null;
@@ -213,13 +258,6 @@
     function _svUser(s){if(!_WT_USER_KEY)return;try{localStorage.setItem(_WT_USER_KEY,JSON.stringify({mainCompleted:s.mainCompleted||false,seen:s.seen||[],wantsCurrencyTour:s.wantsCurrencyTour}));}catch{}}
     function _sv(s){try{localStorage.setItem(WT_KEY,JSON.stringify(s));_svUser(s);}catch{}}
     function _def(){return{active:false,stepId:null,wantsCurrencyTour:null,mainCompleted:false,loggedOutWelcome:false,seen:[],resumeMode:false};}
-    function _backup(){var b={};WT_TRACKER_KEYS.forEach(function(k){var v=localStorage.getItem(k);if(v)b[k]=v;});localStorage.setItem(WT_BK_KEY,JSON.stringify(b));WT_TRACKER_KEYS.forEach(function(k){localStorage.removeItem(k);});}
-    function _restore(){try{var bk=localStorage.getItem(WT_BK_KEY);if(!bk)return false;var b=JSON.parse(bk);Object.keys(b).forEach(function(k){localStorage.setItem(k,b[k]);});localStorage.removeItem(WT_BK_KEY);return true;}catch{return false;}}
-
-
-
-    function _endCleanup(){var restored=_restore();if(!restored)WT_TRACKER_KEYS.forEach(function(k){localStorage.removeItem(k);});return restored;}
-
     var WT_STEPS=[
       {id:'home-welcome',  page:'/',             type:'modal',   text:'Hey there! 👋 I\'m <strong>Fi</strong>, your FiApp guide.<br><br>FiApp is a 7-in-1 personal finance toolkit. Let me walk you through the key tools - you can skip at any time.',    actions:[{label:"Let's go! →",primary:true,navigate:'/income',next:true}]},
       {id:'inc-intro',     page:'/income',        type:'modal',   text:'First stop: the <strong>Income Tracker</strong>. 💰<br><br>This is where you record all your income sources - salary, freelance, rental, anything.',                                 actions:[{label:'Show me →',primary:true,next:true}]},
@@ -252,6 +290,7 @@
     var _guardOff=null;
     var _hlTrackOff=null;
     var _curTarget=null,_curPin=null; // tracked so resize can reposition
+    var _preTourFocus=null; // element focused before tour opened — restored on close
 
     function _elevate(el){
       if(_elevatedEl){_elevatedEl.style.position='';_elevatedEl.style.zIndex='';}
@@ -291,9 +330,7 @@
     }
     function _stopGuard(){if(_guardOff){_guardOff();_guardOff=null;}}
     function _clearWait(){_waitOff.forEach(function(f){f();});_waitOff=[];_stopGuard();}
-    function _hideAll(){if(_overlay)_overlay.style.display='none';if(_highlight)_highlight.style.display='none';if(_bubble)_bubble.style.display='none';_elevate(null);_clearWait();if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}}
-    function _toast(msg,dur){var el=document.createElement('div');el.style.cssText='position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--panel-bg);border:1.5px solid var(--panel-border);border-radius:8px;padding:.5rem 1rem;font-size:.85rem;color:var(--fg);z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100vw - 2rem);text-align:center;pointer-events:none;';el.textContent=msg;document.body.appendChild(el);setTimeout(function(){el.remove();},dur||3000);}
-
+    function _hideAll(){if(_overlay)_overlay.style.display='none';if(_highlight)_highlight.style.display='none';if(_bubble)_bubble.style.display='none';_elevate(null);_clearWait();if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}if(_preTourFocus&&typeof _preTourFocus.focus==='function'){try{_preTourFocus.focus();}catch(_){}} _preTourFocus=null;}
     function _posBubble(targetEl,pin){
       _curTarget=targetEl||null; _curPin=pin||null;
       requestAnimationFrame(function(){
@@ -406,13 +443,11 @@
       b.className='wt-btn-ghost';b.textContent='Skip walkthrough';
       b.style.cssText='width:100%;margin-top:.3rem;opacity:.7;font-size:.8rem;';
       b.onclick=function(){
-        var restored=_endCleanup();
         var s=_ld()||_def();
         var wasFirst=!s.mainCompleted;
         s.active=false;
         if(wasFirst) s.mainCompleted=true;
         _sv(s);_hideAll();
-        if(restored) _toast('Walkthrough ended. Your data has been restored. ✅');
         if(wasFirst) _updateWtHomeLink();
       };
       return b;
@@ -512,17 +547,15 @@
     function _handleAction(action,state){
       state=state||_ld()||_def();
       if(!state.seen) state.seen=[];
-      if(action.backupData){_backup();}
       if(action.setWantsTour){state.wantsCurrencyTour=true;_sv(state);}
       if(action.end){
         if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
-        var restored=_endCleanup();
         var _visAll=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
         if(_visAll.every(function(s){return state.seen.indexOf(s.id)>=0;})) state.seen=[];
         state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);
         var completionText=action.end==='soft'
-          ?'🎉 <strong>All set!</strong><br>Jump in and explore FiApp on your own.'+(restored?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>You can redo this tour from <strong>Account → Walkthrough</strong> anytime.'
-          :'🎉 <strong>Walkthrough complete!</strong><br><br>You\'re all set to use FiApp.'+(restored?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Redo this tour from <strong>Account → Walkthrough</strong> anytime.';
+          ?'🎉 <strong>All set!</strong><br>Jump in and explore FiApp on your own.<br><br>You can redo this tour from <strong>Account → Walkthrough</strong> anytime.'
+          :'🎉 <strong>Walkthrough complete!</strong><br><br>You\'re all set to use FiApp.<br><br>Redo this tour from <strong>Account → Walkthrough</strong> anytime.';
         _showDoneCard(completionText);
         return;
       }
@@ -540,9 +573,8 @@
           if(nxt2.page==='/analytics') _seedHistoryForAnalytics();
           window.location.href=nxt2.page;
         } else {
-          var restored2=_endCleanup();
           state.seen=[];state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);
-          _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(restored2?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.');
+          _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.');
         }
         return;
       }
@@ -551,11 +583,10 @@
         if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
         var next3=idx3>=0&&idx3<vs3.length-1?vs3[idx3+1]:null;
         if(!next3){
-          var restored3=_endCleanup();
           var _va2=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
           if(_va2.every(function(s){return state.seen.indexOf(s.id)>=0;})) state.seen=[];
           state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);
-          _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(restored3?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.');
+          _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.');
           return;
         }
         state.stepId=next3.id;_sv(state);
@@ -586,6 +617,7 @@
     }
 
     function _fireConfetti(){
+      if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       _confCvs.style.display='block';
       _confCvs.width=window.innerWidth;_confCvs.height=window.innerHeight;
       var ctx=_confCvs.getContext('2d');
@@ -669,38 +701,13 @@
             var vs=_vis(st);var idx=vs.findIndex(function(s){return s.id===step.id;});
             if(step.id&&st.seen.indexOf(step.id)<0) st.seen.push(step.id);
             var nxt=idx>=0&&idx<vs.length-1?vs[idx+1]:null;
-            if(!nxt){var _r4=_endCleanup();var _va3=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===st.wantsCurrencyTour;});if(_va3.every(function(s){return st.seen.indexOf(s.id)>=0;}))st.seen=[];st.resumeMode=false;st.active=false;st.mainCompleted=true;_sv(st);_showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r4?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.');return;}
+            if(!nxt){var _va3=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===st.wantsCurrencyTour;});if(_va3.every(function(s){return st.seen.indexOf(s.id)>=0;}))st.seen=[];st.resumeMode=false;st.active=false;st.mainCompleted=true;_sv(st);_showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.');return;}
             st.stepId=nxt.id;_sv(st);
             if(nxt.page!==_page){window.location.href=nxt.page;}
             else _showStep(nxt,vs.length,vs.findIndex(function(s){return s.id===nxt.id;}));
           },step.onMet==='confetti'?1700:0);
         });
       }
-    }
-
-    function _showDisclaimer(){
-      var state=_ld()||_def();
-      _transition(function(){
-        _avatar.textContent='🧭';
-        _text.innerHTML='Before we start - you have saved data in FiApp.<br><br>I\'ll <strong>temporarily hide it</strong> during the walkthrough so we start with a clean slate.<br><br><strong>Don\'t worry:</strong> everything is <strong>fully restored</strong> when the tour ends or if you skip.';
-        _btns.innerHTML='';
-        var goBtn=document.createElement('button');goBtn.className='wt-btn-primary';goBtn.textContent="Got it, let's go! →";
-        goBtn.onclick=function(){
-          _backup();
-          var vs=_vis(state);
-          var firstId=state.resumeMode?(vs[0]?vs[0].id:null):'home-welcome';
-          if(!firstId){state.active=false;_sv(state);_hideAll();return;}
-          state.stepId=firstId;_sv(state);
-          var step=vs.find(function(s){return s.id===firstId;});
-          if(step&&step.page!==_page){window.location.href=step.page;}
-          else if(step){_showStep(step,vs.length,vs.findIndex(function(s){return s.id===firstId;}));}
-        };
-        var skipBtn=document.createElement('button');skipBtn.className='wt-btn-ghost';skipBtn.textContent='Skip walkthrough';
-        skipBtn.style.cssText='width:100%;margin-top:.3rem;opacity:.7;font-size:.8rem;';
-        skipBtn.onclick=function(){state.active=false;_sv(state);_hideAll();};
-        _btns.appendChild(goBtn);_btns.appendChild(skipBtn);_progress.innerHTML='';
-      });
-      _overlay.style.display='block';_setHL(null);_posBubble(null);
     }
 
     function _showLoggedOutWelcome(){
@@ -756,30 +763,20 @@
       if(!state&&_page==='/'){
         state=_def();
         if(_loggedIn){
-          var hasData=WT_TRACKER_KEYS.some(function(k){var v=localStorage.getItem(k);return v&&v!=='{}';});
-          state.active=true;state.stepId=hasData?'disclaimer':'home-welcome';
+          state.active=true;state.stepId='home-welcome';
         } else {
           state.loggedOutWelcome=true;
         }
         _sv(state);
       }
 
-
-      if(localStorage.getItem(WT_BK_KEY)&&(!state||!state.active)) _restore();
-
       if(!state) return;
-
 
       if(!_loggedIn&&state.loggedOutWelcome&&_page==='/'){
         setTimeout(_showLoggedOutWelcome,300);return;
       }
 
       if(!state.active) return;
-
-
-      if(state.stepId==='disclaimer'&&_page==='/'){
-        _startGuard(null);setTimeout(function(){var _chk=_ld();if(_chk&&_chk.active)_showDisclaimer();},300);return;
-      }
 
 
       var vs=_vis(state);
@@ -798,7 +795,6 @@
     window.wtStart=function(){
       var s=_ld()||_def();
       if(!s.seen) s.seen=[];
-      var hasData=WT_TRACKER_KEYS.some(function(k){var v=localStorage.getItem(k);return v&&v!=='{}';});
       if(s.mainCompleted){
         if(s.wantsCurrencyTour!==true){
           s.wantsCurrencyTour=null;
@@ -812,11 +808,11 @@
       });
       if(s.mainCompleted&&unseen.length>0){
         s.active=true;s.resumeMode=true;
-        s.stepId=hasData?'disclaimer':unseen[0].id;
-        _sv(s);window.location.href=hasData?'/':unseen[0].page;
+        s.stepId=unseen[0].id;
+        _sv(s);window.location.href=unseen[0].page;
       } else {
         s=_def();s.active=true;
-        s.stepId=hasData?'disclaimer':'home-welcome';
+        s.stepId='home-welcome';
         _sv(s);window.location.href='/';
       }
     };
@@ -848,6 +844,7 @@
 
     function _runEnhanced(page){
       var steps=ENHANCED_STEPS[page];if(!steps||!steps.length) return;
+      _preTourFocus=document.activeElement||null;
       var eIdx=0;
 
       var _origMK=typeof window.currentMK==='function'?window.currentMK():null;
