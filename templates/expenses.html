@@ -499,7 +499,7 @@ function syncToServer(){
   if(!_serverLoaded){
     if(_wtWasBlocking&&!_reloadPending){
       _reloadPending=true; setSyncStatus('Loading…','');
-      loadFromServer().then(()=>{state=loadState();render();syncIncomeInputs();_reloadPending=false;}).catch(()=>{_serverLoaded=true;_reloadPending=false;});
+      loadFromServer().then(()=>{state=loadState();render();syncIncomeInputs();_reloadPending=false;setSyncStatus('','');}).catch(()=>{_serverLoaded=true;_reloadPending=false;setSyncStatus('','');});
     }
     return;
   }
