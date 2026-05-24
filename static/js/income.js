@@ -870,7 +870,12 @@ function resetAll(){
   const btn=document.getElementById('reset-btn');
   if(btn.dataset.arm){
     clearTimeout(resetTimer); delete btn.dataset.arm; btn.textContent='Reset'; btn.style.background='#dc2626';
-    snapshot(); state=freshState();
+    snapshot();
+    const mk=currentMK();
+    Object.keys(state.cells).forEach(k=>{ if(k.startsWith(mk+'|')) delete state.cells[k]; });
+    if(state.rowsByMonth) delete state.rowsByMonth[mk];
+    if(state.colsByMonth) delete state.colsByMonth[mk];
+    if(state.monthRowCurrencies) Object.keys(state.monthRowCurrencies).forEach(k=>{ if(k.startsWith(mk+'|')) delete state.monthRowCurrencies[k]; });
     save(); render();
   } else {
     btn.dataset.arm='1'; btn.textContent='Sure?'; btn.style.background='#991b1b';
