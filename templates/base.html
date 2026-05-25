@@ -254,6 +254,23 @@
     var _WT_USER_KEY=_wtUser?'fiapp_wt_u_'+_wtUser:null;
     var _page=window.location.pathname;
 
+    // Clear tracker localStorage when a different user logs in on this device,
+    // preventing data bleed between accounts. Runs synchronously before any
+    // tracker JS reads localStorage.
+    (function(){
+      if(!_loggedIn||!_wtUser) return;
+      var _LAST_USER_KEY='fiapp_last_user';
+      var _lastUser=localStorage.getItem(_LAST_USER_KEY);
+      if(_lastUser!==_wtUser){
+        ['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4',
+         'fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
+         'fiapp_income_undo_v1','fiapp_income_redo_v1',
+         'fiapp_subs_undo_v4','fiapp_subs_redo_v4',
+         'fiapp_wt_backup_v1'].forEach(function(k){localStorage.removeItem(k);});
+        localStorage.setItem(_LAST_USER_KEY,_wtUser);
+      }
+    })();
+
     function _ld(){try{return JSON.parse(localStorage.getItem(WT_KEY)||'null');}catch{return null;}}
     function _svUser(s){if(!_WT_USER_KEY)return;try{localStorage.setItem(_WT_USER_KEY,JSON.stringify({mainCompleted:s.mainCompleted||false,seen:s.seen||[],wantsCurrencyTour:s.wantsCurrencyTour}));}catch{}}
     function _sv(s){try{localStorage.setItem(WT_KEY,JSON.stringify(s));_svUser(s);}catch{}}
