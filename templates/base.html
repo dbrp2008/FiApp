@@ -858,6 +858,7 @@
         return s.seen.indexOf(step.id)<0;
       });
       if(s.mainCompleted&&unseen.length>0){
+        if(_hasTrackerData()) _backup();
         s.active=true;s.resumeMode=true;
         s.stepId=unseen[0].id;
         _sv(s);window.location.href=unseen[0].page;
