@@ -77,7 +77,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     if (!window.__currentUser) return Promise.resolve();
     try {
       var _wtr = JSON.parse(localStorage.getItem('fiapp_walkthrough_v1') || 'null');
-      if (_wtr && _wtr.active && localStorage.getItem('fiapp_wt_backup_v1')) {
+      if (_wtr && _wtr.active) {
         _wtWasBlocking = true;
         return Promise.resolve();
       }
