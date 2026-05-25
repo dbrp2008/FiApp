@@ -830,7 +830,8 @@
         _startGuard(null);
         setTimeout(async function(){
           var _chk=_ld();if(!_chk||!_chk.active) return;
-          if(_page==='/'&&!localStorage.getItem(WT_BK_KEY)){
+          if(_page==='/'&&!localStorage.getItem(WT_BK_KEY)&&(_chk.seen||[]).length===0){
+            // Only show disclaimer at tour start (no steps seen yet) — not mid-tour when seeded data exists
             // Check localStorage first; if empty, ask server (handles cleared-localStorage case)
             var _hasData=_hasTrackerData();
             if(!_hasData&&_loggedIn){
