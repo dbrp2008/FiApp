@@ -1139,7 +1139,8 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     try{
       const _ir=await fetch('/api/load/income');
       if(_ir.ok){
-        const _id=await _ir.json();
+        const _resp=await _ir.json();
+        const _id=_resp&&_resp.data;
         if(_id&&typeof _id==='object'&&(Array.isArray(_id.rows)||_id.cells||_id.rowsByMonth)){
           localStorage.setItem('fiapp_income_v1',JSON.stringify(_id));
         }
