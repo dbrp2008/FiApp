@@ -826,8 +826,8 @@
         _startGuard(null);
         setTimeout(function(){
           var _chk=_ld();if(!_chk||!_chk.active) return;
-          // Show disclaimer if user has data and no backup has been taken yet
-          if(_hasTrackerData()&&!localStorage.getItem(WT_BK_KEY)){
+          // Show disclaimer only on the home page (first step) when user has pre-existing data
+          if(_page==='/'&&_hasTrackerData()&&!localStorage.getItem(WT_BK_KEY)){
             _showDisclaimer(function(){
               var _s2=_ld()||_def();var _vs2=_vis(_s2);
               var _st2=_vs2.find(function(s){return s.id===_s2.stepId&&s.page===_page;});
