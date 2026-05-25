@@ -872,7 +872,7 @@ let resetTimer=null;
 function resetAll(){
   const btn=document.getElementById('reset-btn');
   if(btn.dataset.arm){
-    clearTimeout(resetTimer); delete btn.dataset.arm; btn.textContent='Reset'; btn.style.background='#dc2626';
+    clearTimeout(resetTimer); delete btn.dataset.arm; btn.textContent='⚠ Reset'; btn.classList.remove('armed');
     snapshot();
     const mk=currentMK();
     Object.keys(state.cells).forEach(k=>{ if(k.startsWith(mk+'|')) delete state.cells[k]; });
@@ -881,8 +881,8 @@ function resetAll(){
     if(state.monthRowCurrencies) Object.keys(state.monthRowCurrencies).forEach(k=>{ if(k.startsWith(mk+'|')) delete state.monthRowCurrencies[k]; });
     save(); render();
   } else {
-    btn.dataset.arm='1'; btn.textContent='Sure?'; btn.style.background='#991b1b';
-    resetTimer=setTimeout(()=>{delete btn.dataset.arm;btn.textContent='Reset';btn.style.background='#dc2626';},2500);
+    btn.dataset.arm='1'; btn.textContent='⚠ Sure?'; btn.classList.add('armed');
+    resetTimer=setTimeout(()=>{delete btn.dataset.arm;btn.textContent='⚠ Reset';btn.classList.remove('armed');},2500);
   }
 }
 
