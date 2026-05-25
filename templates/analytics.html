@@ -1238,9 +1238,9 @@ function reRenderCharts(){
         fetch('/api/load/subs'),
         fetch('/api/load/income')
       ]);
-      if(expRes.ok){const d=await expRes.json();if(d&&typeof d==='object') localStorage.setItem(EXP_KEY,JSON.stringify(d));}
-      if(subRes.ok){const d=await subRes.json();if(d&&typeof d==='object') localStorage.setItem(SUBS_KEY,JSON.stringify(d));}
-      if(incRes.ok){const d=await incRes.json();if(d&&typeof d==='object') localStorage.setItem(INC_KEY,JSON.stringify(d));}
+      if(expRes.ok){const r=await expRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(EXP_KEY,JSON.stringify(d));}
+      if(subRes.ok){const r=await subRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(SUBS_KEY,JSON.stringify(d));}
+      if(incRes.ok){const r=await incRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(INC_KEY,JSON.stringify(d));}
     }
 
     if(_wtActive && typeof window._wtSeedAnalytics==='function') window._wtSeedAnalytics();
