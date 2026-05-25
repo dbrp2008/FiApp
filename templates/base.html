@@ -647,7 +647,7 @@
         var h=function(){if([].slice.call(document.querySelectorAll('.sheet td input,.cell input')).some(function(i){var v=parseFloat(i.value||'0');return !isNaN(v)&&v!==0;})){_clearWait();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();setTimeout(cb,80);}};
         document.addEventListener('input',h);_waitOff.push(function(){document.removeEventListener('input',h);});
       } else if(cond==='scroll_near_bottom'){
-        var sh=function(){var sc=window.scrollY||document.documentElement.scrollTop;var tot=document.documentElement.scrollHeight-window.innerHeight;if(tot<=0||sc/tot>0.72){_clearWait();cb();}};
+        var sh=function(){var sc=window.scrollY||document.documentElement.scrollTop;var tot=document.documentElement.scrollHeight-window.innerHeight;if(tot<=0||sc/tot>0.88){_clearWait();cb();}};
 
         setTimeout(sh,400);
         window.addEventListener('scroll',sh,{passive:true});_waitOff.push(function(){window.removeEventListener('scroll',sh);});
