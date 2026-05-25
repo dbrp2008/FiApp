@@ -788,6 +788,13 @@
 
       var state=_ld();
 
+      // If a different (or new) user is logged in and has no per-user key, the shared state
+      // belongs to a previous session — discard it so auto-start fires correctly for new users.
+      if(state&&_loggedIn&&_WT_USER_KEY&&!localStorage.getItem(_WT_USER_KEY)){
+        state=null;
+        localStorage.removeItem(WT_KEY);
+      }
+
       if(!state&&_loggedIn&&_WT_USER_KEY){
         try{
           var _us=JSON.parse(localStorage.getItem(_WT_USER_KEY)||'null');
