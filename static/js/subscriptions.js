@@ -156,25 +156,18 @@ function upcomingRenewals(withinDays){
   return results.sort(function(a,b){return a.daysUntil-b.daysUntil;});
 }
 function renderRenewalAlert(){
-  var existing=document.getElementById('renewal-alert');
+  var placeholder=document.getElementById('renewal-alert-subs');
+  if(!placeholder) return;
   var renewals=upcomingRenewals(7);
   if(!renewals.length){
-    if(existing) existing.remove();
+    placeholder.innerHTML='';
     return;
-  }
-  if(!existing){
-    existing=document.createElement('div');
-    existing.id='renewal-alert';
-    existing.style.cssText='background:#fef3c7;border:1px solid #f59e0b44;border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;font-size:.85rem;color:#92400e;';
-    // Insert above table / main content
-    var main=document.querySelector('.tracker-main')||document.querySelector('main')||document.body;
-    main.insertBefore(existing, main.firstChild);
   }
   var lines=renewals.map(function(r){
     var when=r.daysUntil===0?'today':r.daysUntil===1?'tomorrow':'in '+r.daysUntil+' days';
     return '⚠ '+escapeHtml(r.name)+' renews '+when+(r.cost>0?' ($'+r.cost.toFixed(2)+')':'');
   });
-  existing.innerHTML=lines.join('<br>');
+  placeholder.innerHTML='<div style="background:#fef3c7;border:1px solid #f59e0b44;border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;font-size:.85rem;color:#92400e;">'+lines.join('<br>')+'</div>';
 }
 
 function showSaveQuotaWarning(){
