@@ -838,7 +838,7 @@
         if(!row.parentId && /sav/i.test(row.label || '')) savingsRowTotal += rowTotal;
       });
       if(savingsRowTotal > 0) wins.push('💰 Set aside $' + savingsRowTotal.toFixed(0) + ' in savings last month.');
-      var freeRate = (prevGross - (prevSpent2 - savingsRowTotal)) / prevGross;
+      var freeRate = (prevGross - prevSpent2) / prevGross;
       if(freeRate > 0.20) wins.push('🟢 ' + Math.round(freeRate * 100) + '% of income was free money last month.');
     }
 
