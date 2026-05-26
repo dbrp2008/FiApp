@@ -966,7 +966,7 @@ function renderWins(root){
   const py=today.getMonth()===0?today.getFullYear()-1:today.getFullYear();
   const pm=today.getMonth()===0?11:today.getMonth()-1;
   const prevMk=String(py)+'-'+String(pm+1).padStart(2,'0');
-  if(!_allMonths.includes(prevMk)) return;
+  // No _allMonths guard — goals/income can exist even without expense cells
 
   const wins=[];
 
@@ -974,7 +974,7 @@ function renderWins(root){
   const goals=(_exp&&_exp.goals)||{};
   const cells=(_exp&&_exp.cells)||{};
   let underCount=0;
-  expRows(prevMk).forEach(function(row){
+  expRows(_exp, prevMk).forEach(function(row){
     if(row.parentId) return;
     const goalAmt=parseFloat(goals[prevMk+'|'+row.id])||0;
     if(!goalAmt) return;
@@ -983,7 +983,7 @@ function renderWins(root){
       const p=k.split('|');
       if(p.length===3&&p[0]===prevMk&&p[1]===row.id) tot+=parseFloat(cells[k])||0;
     });
-    if(tot>0&&tot<goalAmt) underCount++;
+    if(tot<goalAmt) underCount++;
   });
   if(underCount>=1) wins.push('🎯 Under budget in '+underCount+' categor'+(underCount===1?'y':'ies')+' last month.');
 
