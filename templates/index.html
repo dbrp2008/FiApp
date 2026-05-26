@@ -6,6 +6,9 @@
 
 {% block nav_extra %}{% endblock %}
 
+{% block head_scripts %}<script src="/static/rates-utils.js"></script>
+<script src="/static/js/analytics_core.js"></script>{% endblock %}
+
 {% block head_styles %}
   <style>
     body { max-width: 680px; }
@@ -143,6 +146,189 @@
       .deck-dot.active { background:var(--accent); }
     }
   </style>
+  <style>
+    /* ── Home Snapshot ── */
+    .snap-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 1.1rem 1.4rem;
+      margin-bottom: 1.25rem;
+    }
+    .snap-header {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--fg);
+      margin-bottom: .75rem;
+    }
+    .snap-badge {
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .2rem .55rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .snap-badge.snap-ok      { background: #dcfce7; color: #15803d; }
+    .snap-badge.snap-warn    { background: #fef3c7; color: #92400e; }
+    .snap-badge.snap-over    { background: #fee2e2; color: #991b1b; }
+    .snap-badge.snap-grey    { background: var(--hover-bg); color: var(--muted); }
+    html.dark .snap-badge.snap-ok   { background:#14532d33; color:#86efac; }
+    html.dark .snap-badge.snap-warn { background:#451a0333; color:#fcd34d; }
+    html.dark .snap-badge.snap-over { background:#450a0a33; color:#fca5a5; }
+    .snap-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: .9rem;
+      color: var(--fg);
+      margin-bottom: .25rem;
+    }
+    .snap-row span:last-child { font-weight: 600; }
+    .snap-bar-wrap {
+      height: 7px;
+      background: var(--panel-border);
+      border-radius: 4px;
+      margin: .6rem 0;
+      overflow: hidden;
+    }
+    .snap-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width .3s ease;
+    }
+    .snap-bar-fill.snap-ok-fill   { background: #22c55e; }
+    .snap-bar-fill.snap-warn-fill { background: #f59e0b; }
+    .snap-bar-fill.snap-over-fill { background: #ef4444; }
+    .snap-cats {
+      font-size: .8rem;
+      color: var(--muted);
+      margin-top: .35rem;
+    }
+    .snap-subs {
+      font-size: .8rem;
+      color: var(--muted);
+      margin-top: .2rem;
+    }
+    .snap-streak {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-top: .35rem;
+    }
+    .snap-voice {
+      font-size: .85rem;
+      color: var(--muted);
+      font-style: italic;
+      margin-top: .5rem;
+      padding-top: .5rem;
+      border-top: 1px solid var(--panel-border);
+    }
+    .snap-complete {
+      text-align: center;
+      padding: .5rem 0 .25rem;
+    }
+    .snap-complete-check {
+      font-size: 1.5rem;
+      display: block;
+      margin-bottom: .35rem;
+    }
+    .snap-complete-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--fg);
+      margin-bottom: .3rem;
+    }
+    .snap-complete-items {
+      font-size: .82rem;
+      color: var(--muted);
+    }
+    /* Compact strip (State B) */
+    .snap-strip {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: .7rem 1.1rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      font-size: .88rem;
+    }
+    .snap-strip-label { font-weight: 600; color: var(--fg); }
+    .snap-strip-sub   { color: var(--muted); font-size: .78rem; }
+    .snap-strip-amt   { font-size: 1.1rem; font-weight: 800; color: var(--fg); }
+    /* Welcome back strip (State D) */
+    .snap-welcome {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-left: 3px solid var(--accent);
+      border-radius: 10px;
+      padding: .8rem 1.1rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+    .snap-welcome-text { font-size: .9rem; color: var(--fg); }
+    .snap-welcome-cta  { font-size: .82rem; color: var(--accent); text-decoration: none; white-space: nowrap; }
+    .snap-welcome-cta:hover { text-decoration: underline; }
+    /* Renewal alert */
+    .snap-renewal {
+      background: #fef3c7;
+      border: 1px solid #f59e0b44;
+      border-radius: 10px;
+      padding: .7rem 1.1rem;
+      margin-bottom: 1.25rem;
+      font-size: .85rem;
+      color: #92400e;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    html.dark .snap-renewal { background: #451a0333; color: #fcd34d; border-color: #f59e0b33; }
+    /* Win card */
+    .snap-win {
+      font-size: .82rem;
+      color: var(--muted);
+      margin: .4rem 0 .75rem;
+      padding: .5rem .9rem;
+      background: var(--hover-bg);
+      border-radius: 8px;
+    }
+    /* Checklist */
+    .snap-checklist {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: .75rem 1.1rem;
+      margin-bottom: 1.25rem;
+    }
+    .snap-checklist-title {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .5rem;
+    }
+    .snap-check-item {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .87rem;
+      color: var(--fg);
+      padding: .2rem 0;
+    }
+    .snap-check-item.done { color: var(--muted); text-decoration: line-through; }
+    .snap-check-icon { font-size: .9rem; flex-shrink: 0; }
+    .snap-check-link { color: var(--accent); text-decoration: none; }
+    .snap-check-link:hover { text-decoration: underline; }
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -157,6 +343,8 @@
     </span>
     {% endif %}
   </div>
+
+  <div id="snapshot-root"></div>
 
   <div class="cards">
     <a class="app-card card-income" href="/income">
@@ -246,6 +434,415 @@
 {% endblock %}
 
 {% block body_scripts %}
+<script>
+// ── Home Page Snapshot ──────────────────────────────────────────────────────
+(function(){
+  var _CU = {{ current_user|default(none)|tojson }};
+  if(!_CU) return; // non-logged-in: no snapshot
+
+  var root = document.getElementById('snapshot-root');
+  if(!root) return;
+
+  // Load tracker state from localStorage
+  var exp  = null, inc = null, subs = null;
+  try{ var _es=localStorage.getItem('fiapp_expenses_v4');     if(_es) exp  = JSON.parse(_es); }catch(e){}
+  try{ var _is=localStorage.getItem('fiapp_income_v1');       if(_is) inc  = JSON.parse(_is); }catch(e){}
+  try{ var _ss=localStorage.getItem('fiapp_subs_v4');         if(_ss) subs = JSON.parse(_ss); }catch(e){}
+
+  var cmk = todayMK(); // current month key e.g. "2026-05"
+  var pmk = prevMK(cmk); // previous calendar month
+
+  // ── Helper: current-month spending total ──
+  function currentMonthSpent() {
+    if(!exp || !exp.cells) return 0;
+    var sum = 0;
+    var mCols = (exp.colsByMonth && exp.colsByMonth[cmk]) || exp.cols || [];
+    expRows(exp, cmk).forEach(function(row) {
+      mCols.forEach(function(col) {
+        sum += parseFloat(exp.cells[cmk+'|'+row.id+'|'+col.id] || 0) || 0;
+      });
+    });
+    // Add subscriptions for current month
+    var subCost = subs ? subCostPerMonth(subs, [cmk])[0] : 0;
+    return parseFloat((sum + subCost).toFixed(2));
+  }
+
+  // ── Helper: count non-zero cells in current month ──
+  function currentMonthCellCount() {
+    if(!exp || !exp.cells) return 0;
+    var count = 0;
+    Object.keys(exp.cells).forEach(function(k) {
+      if(k.startsWith(cmk+'|') && parseFloat(exp.cells[k]) > 0) count++;
+    });
+    return count;
+  }
+
+  // ── Helper: gross income for a given month ──
+  function grossForMonth(mk2) {
+    // Check expense tracker's linked income first
+    if(exp && exp.income && exp.income[mk2]) {
+      var g = parseFloat(exp.income[mk2].gross); if(g > 0) return g;
+    }
+    // Then dedicated income tracker
+    if(inc && inc.cells) {
+      var rows = incRows(inc, mk2);
+      var total = 0;
+      rows.filter(function(r){ return !r.parentId; }).forEach(function(row) {
+        var kids = rows.filter(function(c){ return c.parentId === row.id; });
+        if(kids.length) {
+          kids.forEach(function(child) {
+            (inc.cols||[]).forEach(function(col){ total += parseFloat(inc.cells[mk2+'|'+child.id+'|'+col.id]||0)||0; });
+          });
+        } else {
+          (inc.cols||[]).forEach(function(col){ total += parseFloat(inc.cells[mk2+'|'+row.id+'|'+col.id]||0)||0; });
+        }
+      });
+      if(total > 0) return parseFloat(total.toFixed(2));
+    }
+    return 0;
+  }
+
+  // ── Helper: last active month (most recent month with expense data) ──
+  function lastActiveMonth() {
+    if(!exp || !exp.cells) return null;
+    var months = new Set();
+    Object.keys(exp.cells).forEach(function(k) {
+      if(parseFloat(exp.cells[k]) > 0) { var m = k.split('|')[0]; if(m) months.add(m); }
+    });
+    if(subs && subs.rows) { allSpendingMonths(exp, subs).forEach(function(m){ months.add(m); }); }
+    var sorted = Array.from(months).sort();
+    return sorted.length ? sorted[sorted.length-1] : null;
+  }
+
+  // ── Helper: consecutive-month streak ──
+  function trackingStreak() {
+    var months = allSpendingMonths(exp, subs);
+    if(!months.length) return 0;
+    var streak = 1, i = months.length - 1;
+    while(i > 0) {
+      if(prevMK(months[i]) === months[i-1]) { streak++; i--; } else break;
+    }
+    return streak;
+  }
+
+  // ── Helper: earned identity badge ──
+  function earnedBadge() {
+    var streak = trackingStreak();
+    var prevMonth = prevMK(cmk);
+    // 1. streak badge (≥2 consecutive months)
+    if(streak >= 2) return '🔥 ' + streak + '-month streak';
+    // 2. goal setter
+    if(exp && exp.goals && Object.keys(exp.goals).some(function(k){ return k.startsWith(cmk+'|'); }))
+      return '🎯 Goal Setter';
+    // 3. power tracker (data in all 3 this month)
+    var hasExp  = currentMonthCellCount() > 0;
+    var hasInc  = grossForMonth(cmk) > 0;
+    var hasSubs = subs && subs.rows && subs.rows.length > 0;
+    if(hasExp && hasInc && hasSubs) return '📊 Power Tracker';
+    // 4. regular tracker
+    if(hasExp) return '📌 Tracking';
+    return null;
+  }
+
+  // ── Helper: top 2 categories for a month ──
+  function topCategories(mk2) {
+    var cats = combinedCategoryTotals(exp, subs, [mk2]);
+    var sorted = Object.keys(cats).map(function(k){ return {name:k, value:cats[k].value}; });
+    sorted.sort(function(a,b){ return b.value - a.value; });
+    return sorted.slice(0, 2);
+  }
+
+  // ── Helper: checklist state ──
+  function checklistState(mk2) {
+    var incDone  = grossForMonth(mk2) > 0;
+    var subsDone = !!(subs && subs.rows && subs.rows.length > 0);
+    var goalDone = !!(exp && exp.goals && Object.keys(exp.goals).some(function(k){ return k.startsWith(mk2+'|'); }));
+    return {income: incDone, subs: subsDone, goals: goalDone, all: incDone && subsDone && goalDone};
+  }
+
+  // ── Helper: subscription monthly total ──
+  function subMonthlyTotal(mk2) {
+    return subs ? subCostPerMonth(subs, [mk2])[0] : 0;
+  }
+
+  // ── Determine product state ──
+  var cellCount = currentMonthCellCount();
+  var spent     = currentMonthSpent();
+  var gross     = grossForMonth(cmk);
+  var lastActive = lastActiveMonth();
+  var hasCurrentData = cellCount > 0 || (subs && subs.rows && subs.rows.length > 0);
+  var hasAnyData = !!(exp && exp.cells && Object.keys(exp.cells).length > 0) || !!(subs && subs.rows && subs.rows.length > 0);
+
+  // State D: no current-month entries AND last active month is before previous calendar month
+  var isStateD = !hasCurrentData && hasAnyData && lastActive && lastActive < pmk;
+
+  // State A: no data at all
+  var isStateA = !hasAnyData;
+
+  // State C: ≥3 non-zero cells and income data present (or subs data present counts toward richness)
+  var isStateC = cellCount >= 3 && gross > 0;
+
+  // State B: some data but not rich enough for C, and not lapsed
+  var isStateB = !isStateA && !isStateC && !isStateD;
+
+  // ── Render HTML using component precedence ──
+  // 1. Renewal alert (Phase 4b — placeholder hook)
+  // 2. Welcome back (State D)
+  // 3. Guidance (State A empty states)
+  // 4. Snapshot (State B / State C)
+  // 5. Win card (Phase 4d — placeholder)
+  // 6. Checklist
+
+  var html = '';
+
+  // ─ Component 1: Renewal alert (populated in Phase 4b) ─
+  html += '<div id="snap-renewal-slot"></div>';
+
+  if(isStateD) {
+    // ─ Component 2: Welcome back (State D) ─
+    var lastLabel = mkLabel(lastActive);
+    var lastSpent = 0;
+    var allMons = allSpendingMonths(exp, subs);
+    if(exp || subs) { var totals = combinedMonthTotals(exp, subs, [lastActive]); lastSpent = totals[lastActive] || 0; }
+    html += '<div class="snap-welcome">' +
+      '<div class="snap-welcome-text">Welcome back — ' + escapeHtml(lastLabel) + ' data is here.' +
+        (lastSpent > 0 ? ' Last tracked: <strong>' + fmtMoney(lastSpent) + '</strong>' : '') +
+      '</div>' +
+      '<a href="/expenses" class="snap-welcome-cta">Update for ' + escapeHtml(mkLabel(cmk)) + ' →</a>' +
+    '</div>';
+
+  } else if(isStateC || isStateB) {
+    // ─ Components 4+5+6: Snapshot + wins + checklist ─
+    var check = checklistState(cmk);
+
+    if(isStateC && check.all) {
+      // ── Completion sub-state ──
+      html += '<div class="snap-card">' +
+        '<div class="snap-complete">' +
+          '<span class="snap-complete-check">✓</span>' +
+          '<div class="snap-complete-title">You\'re set for ' + escapeHtml(mkLabel(cmk)) + '</div>' +
+          '<div class="snap-complete-items">Income logged · Goals configured · Subscriptions reviewed</div>' +
+        '</div>';
+      if(spent > 0) {
+        var pct = gross > 0 ? Math.min(100, Math.round(spent / gross * 100)) : null;
+        html += '<div class="snap-bar-wrap" style="margin-top:.75rem">' +
+          '<div class="snap-bar-fill ' + (pct===null?'snap-ok-fill':pct>=100?'snap-over-fill':pct>=80?'snap-warn-fill':'snap-ok-fill') + '" style="width:' + (pct||0) + '%"></div>' +
+        '</div>';
+        html += '<div class="snap-cats" style="text-align:center">' + fmtMoney(spent) + ' spent</div>';
+      }
+      html += '</div>';
+
+    } else if(isStateC) {
+      // ── Full snapshot (State C) ──
+      var ratio = gross > 0 ? spent / gross : null;
+      var badgeClass = ratio === null ? 'snap-grey' : ratio >= 1 ? 'snap-over' : ratio >= 0.8 ? 'snap-warn' : 'snap-ok';
+      var badgeText  = ratio === null ? 'Not enough data' : ratio >= 1 ? 'Over budget' : ratio >= 0.8 ? 'Spending pace increased' : 'On track';
+      var barClass   = ratio === null ? 'snap-ok-fill' : ratio >= 1 ? 'snap-over-fill' : ratio >= 0.8 ? 'snap-warn-fill' : 'snap-ok-fill';
+      var barPct     = ratio !== null ? Math.min(100, Math.round(ratio * 100)) : 0;
+      var cats       = topCategories(cmk);
+      var subTotal   = subMonthlyTotal(cmk);
+      var badge      = earnedBadge();
+      var streak     = trackingStreak();
+
+      html += '<div class="snap-card">' +
+        '<div class="snap-header">' + escapeHtml(mkLabel(cmk)) +
+          '<span class="snap-badge ' + badgeClass + '">' + escapeHtml(badgeText) + '</span>' +
+          (badge ? '<span style="font-size:.78rem;color:var(--muted);font-weight:600;margin-left:auto">' + escapeHtml(badge) + '</span>' : '') +
+        '</div>' +
+        '<div class="snap-row"><span>Spent</span><span>' + fmtMoney(spent) + '</span></div>' +
+        (gross > 0 ? '<div class="snap-row"><span>Income</span><span>' + fmtMoney(gross) + '</span></div>' : '') +
+        '<div class="snap-bar-wrap"><div class="snap-bar-fill ' + barClass + '" style="width:' + barPct + '%"></div></div>';
+
+      if(cats.length) {
+        html += '<div class="snap-cats">' + cats.map(function(c){ return escapeHtml(c.name) + ' · ' + fmtMoney(c.value); }).join(' &nbsp;|&nbsp; ') + '</div>';
+      }
+      // Phase 5d: category sub-bars (top 3 if spending > 0)
+      if(spent > 0 && cats.length >= 2) {
+        var allCats = combinedCategoryTotals(exp, subs, [cmk]);
+        var catSorted = Object.keys(allCats).map(function(k){ return {name:k, value:allCats[k].value}; }).sort(function(a,b){return b.value-a.value;}).slice(0,3);
+        if(catSorted.length >= 2) {
+          html += '<div style="margin-top:.5rem;display:flex;flex-direction:column;gap:3px;">';
+          catSorted.forEach(function(cat){
+            var catPct = Math.min(100, Math.round(cat.value / spent * 100));
+            html += '<div style="display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--muted);">' +
+              '<span style="width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(cat.name) + '</span>' +
+              '<div style="flex:1;height:4px;background:var(--panel-border);border-radius:2px;overflow:hidden">' +
+                '<div style="height:100%;width:' + catPct + '%;background:var(--accent);border-radius:2px;"></div>' +
+              '</div>' +
+              '<span style="width:32px;text-align:right">' + catPct + '%</span>' +
+            '</div>';
+          });
+          html += '</div>';
+        }
+      }
+      if(subTotal > 0) {
+        html += '<div class="snap-subs">Subscriptions: ' + fmtMoney(subTotal) + '/mo</div>';
+      }
+      if(streak >= 2) {
+        html += '<div class="snap-streak">📅 Tracking for ' + streak + ' month' + (streak!==1?'s':'') + '</div>';
+      }
+      html += '</div>';
+
+      // Component 5: Win card placeholder (Phase 4d will populate)
+      html += '<div id="snap-win-slot"></div>';
+
+    } else if(isStateB) {
+      // ── Compact strip (State B) ──
+      html += '<div class="snap-strip">' +
+        '<div><div class="snap-strip-label">' + escapeHtml(mkLabel(cmk)) + '</div>' +
+          '<div class="snap-strip-sub">Month in progress</div>' +
+        '</div>' +
+        (spent > 0 ? '<div class="snap-strip-amt">' + fmtMoney(spent) + '</div>' : '') +
+      '</div>';
+    }
+
+    // ─ Component 3: Guidance (if relevant and no State D) ─
+    if(!check.income && !isStateD) {
+      var resolvedKey = 'voice_resolved_add-income';
+      if(!localStorage.getItem(resolvedKey)) {
+        html += '<div class="snap-voice" id="snap-guidance-income">Add income to calculate remaining budget. ' +
+          '<a href="/income" style="color:var(--accent)">Log income →</a></div>';
+      }
+    }
+
+    // ─ Component 6: Checklist (disappears when all done) ─
+    if(!check.all) {
+      html += '<div class="snap-checklist">' +
+        '<div class="snap-checklist-title">This month</div>' +
+        (check.income  ? '' : '<div class="snap-check-item"><span class="snap-check-icon">☐</span><a href="/income" class="snap-check-link">Log income for ' + escapeHtml(mkLabel(cmk)) + '</a></div>') +
+        (check.subs    ? '' : '<div class="snap-check-item"><span class="snap-check-icon">☐</span><a href="/subscriptions" class="snap-check-link">Review subscriptions</a></div>') +
+        (check.goals   ? '' : '<div class="snap-check-item"><span class="snap-check-icon">☐</span><a href="/expenses" class="snap-check-link">Set spending goals</a></div>') +
+        (check.income  ? '<div class="snap-check-item done"><span class="snap-check-icon">☑</span>Income logged</div>' : '') +
+        (check.subs    ? '<div class="snap-check-item done"><span class="snap-check-icon">☑</span>Subscriptions reviewed</div>' : '') +
+        (check.goals   ? '<div class="snap-check-item done"><span class="snap-check-icon">☑</span>Goals configured</div>' : '') +
+      '</div>';
+    }
+  }
+  // State A: no snapshot — hero shows as-is, no injection
+
+  root.innerHTML = html;
+
+  // Resolve guidance if income is now present
+  if(grossForMonth(cmk) > 0) localStorage.setItem('voice_resolved_add-income', '1');
+
+  // Phase 4b: Populate renewal slot (inline — no access to subscriptions.js here)
+  (function(){
+    if(!subs || !subs.rows || !subs.cols) return;
+    var today=new Date(); today.setHours(0,0,0,0);
+    var horizon=new Date(today.getTime()+7*86400000);
+    var startCol  =subs.cols.find(function(c){return c.ctype==='date';});
+    var billingCol=subs.cols.find(function(c){return c.ctype==='billing';});
+    var statusCol =subs.cols.find(function(c){return c.ctype==='status';});
+    var nameCol   =subs.cols.find(function(c){return c.ctype==='text';});
+    if(!startCol||!billingCol) return;
+    var renewals=[];
+    (subs.rows||[]).forEach(function(row){
+      var get=function(col){return col?(subs.cells||{})[row.id+'|'+col.id]||'':'';};
+      var status=statusCol?get(statusCol)||'Active':'Active';
+      if(status==='Cancelled') return;
+      var startStr=get(startCol); if(!startStr) return;
+      var billing=get(billingCol)||'Monthly';
+      var name=nameCol?get(nameCol)||'Subscription':'Subscription';
+      var start=new Date(startStr); start.setHours(0,0,0,0);
+      if(start>horizon) return;
+      var intervalMs;
+      if(billing==='Monthly')    intervalMs=null;
+      else if(billing==='Yearly')    intervalMs=365.25*86400000;
+      else if(billing==='Quarterly') intervalMs=91.3125*86400000;
+      else if(billing==='Weekly')    intervalMs=7*86400000;
+      else if(billing==='Bi-Weekly') intervalMs=14*86400000;
+      else return;
+      var nextDate;
+      if(intervalMs===null){
+        var d=new Date(today); d.setDate(start.getDate());
+        if(d<today){ d.setMonth(d.getMonth()+1); }
+        nextDate=d;
+      } else {
+        nextDate=new Date(start.getTime());
+        while(nextDate<=today) nextDate=new Date(nextDate.getTime()+intervalMs);
+      }
+      if(nextDate<=horizon){
+        renewals.push({name:name,daysUntil:Math.round((nextDate-today)/86400000)});
+      }
+    });
+    if(!renewals.length) return;
+    renewals.sort(function(a,b){return a.daysUntil-b.daysUntil;});
+    var slot=document.getElementById('snap-renewal-slot');
+    if(!slot) return;
+    var first=renewals[0];
+    var when=first.daysUntil===0?'today':first.daysUntil===1?'tomorrow':'in '+first.daysUntil+' days';
+    var extra=renewals.length>1?' (+'+( renewals.length-1)+' more)':'';
+    slot.innerHTML='<div class="snap-renewal">⚠ <strong>'+escapeHtml(first.name)+'</strong> renews '+when+extra+' — <a href="/subscriptions" style="color:#92400e;font-weight:600">Review subscriptions →</a></div>';
+  })();
+
+  // Phase 4d: Win cards — most recently completed month
+  (function(){
+    var winSlot = document.getElementById('snap-win-slot');
+    if(!winSlot) return;
+    // Only show in State C or D — slot exists only when injected above
+    var prevMonth = pmk; // the most recently completed calendar month
+    var wins = [];
+
+    // Win 1: Goals met (categories under budget)
+    if(exp && exp.goals) {
+      var underCount = 0;
+      Object.keys(exp.goals).forEach(function(gk){
+        if(!gk.startsWith(prevMonth + '|')) return;
+        var parts2 = gk.split('|');
+        var rowId2 = parts2[1];
+        var goalAmt = parseFloat(exp.goals[gk]) || 0;
+        if(!goalAmt) return;
+        // sum cells for this row in prevMonth
+        var rowTotal = 0;
+        var cols2 = (exp.colsByMonth && exp.colsByMonth[prevMonth]) || exp.cols || [];
+        cols2.forEach(function(col){
+          rowTotal += parseFloat((exp.cells || {})[prevMonth + '|' + rowId2 + '|' + col.id] || 0) || 0;
+        });
+        if(rowTotal > 0 && rowTotal < goalAmt) underCount++;
+      });
+      if(underCount >= 1) wins.push('🎯 Under budget in ' + underCount + ' categor' + (underCount === 1 ? 'y' : 'ies') + ' last month.');
+    }
+
+    // Win 2: Subscription cost dropped vs month before
+    var allMonths2 = allSpendingMonths(exp, subs);
+    if(subs && allMonths2.length >= 2) {
+      var ppk = prevMK(prevMonth);
+      var subPrev = subCostPerMonth(subs, [prevMonth])[0] || 0;
+      var subPP   = subCostPerMonth(subs, [ppk])[0] || 0;
+      if(subPrev > 0 && subPP > 0 && subPP > subPrev) {
+        var drop = subPP - subPrev;
+        wins.push('📉 Subscriptions dropped $' + drop.toFixed(0) + ' vs the month before.');
+      }
+    }
+
+    // Win 3: Savings rate > 20%
+    var prevGross = 0;
+    if(exp && exp.income && exp.income[prevMonth]) {
+      prevGross = parseFloat(exp.income[prevMonth].gross) || 0;
+    }
+    if(!prevGross && inc && inc.months && inc.months[prevMonth]) {
+      prevGross = parseFloat(inc.months[prevMonth].gross || inc.months[prevMonth].total) || 0;
+    }
+    if(prevGross > 0) {
+      var prevSpent2 = 0;
+      var prevRows2 = (exp && exp.rowsByMonth && exp.rowsByMonth[prevMonth]) || (exp && exp.rows) || [];
+      var prevCols2 = (exp && exp.colsByMonth && exp.colsByMonth[prevMonth]) || (exp && exp.cols) || [];
+      prevRows2.forEach(function(row){ prevCols2.forEach(function(col){
+        prevSpent2 += parseFloat((exp && exp.cells || {})[prevMonth + '|' + row.id + '|' + col.id] || 0) || 0;
+      }); });
+      var savingsRate = (prevGross - prevSpent2) / prevGross;
+      if(savingsRate > 0.20) wins.push('💰 Saved ' + Math.round(savingsRate * 100) + '% of income last month.');
+    }
+
+    if(!wins.length) return;
+    winSlot.innerHTML = '<div class="snap-win">' + wins.join(' ') + '</div>';
+  })();
+
+  // Async: load rates for subscription cost display
+  if(typeof fiappCoreLoadRates === 'function') fiappCoreLoadRates();
+})();
+</script>
+
 <script>
 (function(){
   if(window.innerWidth > 640) return;
