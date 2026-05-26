@@ -554,7 +554,7 @@
       badges.push('🎯 Goal Setter');
     } else if(hasExp && hasInc && hasSubs) {
       badges.push('📊 Power Tracker');
-    } else if(hasExp && !streak) {
+    } else if(hasExp && streak < 2) {
       badges.push('📌 Tracking');
     }
     return badges;
