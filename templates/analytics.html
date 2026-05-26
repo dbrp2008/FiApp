@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Analytics{% endblock %}
 {% block head_scripts %}<script src="/static/rates-utils.js"></script>
+<script src="/static/js/analytics_core.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>{% endblock %}
 {% block head_styles %}
 <style>
@@ -176,48 +177,15 @@
 {% block body_scripts %}
 <script>
 
+// Shared utilities (escapeHtml, MONTHS_SHORT, mk, todayMK, fmtMoney*, mkLabel,
+// expRows, incRows, allSpendingMonths, buildRowMonthIndex, combinedMonthTotals,
+// combinedCategoryTotals, combinedCategoryMonthlyData, calcSubCostForMonth,
+// subCostPerMonth, subMonthlySnapshot, filterMonths, incTrackerMonthTotals,
+// mergedMonthIncomes, expMonthIncomes) are provided by analytics_core.js.
+
 const EXP_KEY  = 'fiapp_expenses_v4';
 const SUBS_KEY = 'fiapp_subs_v4';
-
-const _ratesCache={};
-let _ratesReady=false;
-async function _fetchRates(){
-  if(_ratesReady) return;
-  try{
-    const obj=await fiappGetRates('USD');
-    const r=obj.rates;
-    if(r&&typeof r==='object'){
-      Object.keys(r).forEach(k=>{ if(/^[A-Z]{2,5}$/.test(k)&&typeof r[k]==='number') _ratesCache[k]=r[k]; });
-      _ratesReady=true;
-    }
-  }catch(e){ console.warn('Analytics: rate fetch failed',e.message); }
-}
-function _toUSD(cost, currency){
-  if(!currency||currency==='USD') return cost;
-  const rate=_ratesCache[currency];
-  return rate ? cost/rate : cost;
-}
 const INC_KEY  = 'fiapp_income_v1';
-
-
-function escapeHtml(s){
-  return String(s==null?'':s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-
-const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-
-function mk(y,m){ return y+'-'+String(m+1).padStart(2,'0'); }
-function todayMK(){ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
-function fmtMoney(v){ return '$'+Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
-function fmtMoneyShort(v){ if(v>=1000) return '$'+(v/1000).toFixed(1)+'k'; return '$'+Number(v).toFixed(0); }
-
-function fmtMoneyCard(v){ if(v>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(v>=10000) return '$'+(v/1000).toFixed(0)+'K'; if(v>=1000) return '$'+(v/1000).toFixed(1)+'K'; return '$'+Number(v).toFixed(2); }
-function fmtPct(v){ return Number(v).toFixed(1)+'%'; }
-function mkLabel(mkStr){ const [y,mo]=mkStr.split('-'); return MONTHS_SHORT[parseInt(mo)-1]+" '"+y.slice(2); }
 
 function themeColors(){
   const el=document.documentElement;
@@ -261,303 +229,6 @@ function loadInc(){
 
 
 
-function expRows(exp,mk2){ return (exp&&exp.rowsByMonth&&exp.rowsByMonth[mk2])?exp.rowsByMonth[mk2]:(exp&&exp.rows)||[]; }
-function incRows(inc,mk2){ return (inc&&inc.rowsByMonth&&inc.rowsByMonth[mk2])?inc.rowsByMonth[mk2]:(inc&&inc.rows)||[]; }
-
-function incTrackerMonthTotals(inc){
-  const map=new Map();
-  if(!inc||!inc.cells) return map;
-  const allMks=new Set();
-  Object.keys(inc.cells).forEach(k=>{const mk2=k.split('|')[0]; if(mk2) allMks.add(mk2);});
-  allMks.forEach(mk2=>{
-    let total=0;
-    const rows=incRows(inc,mk2);
-    rows.filter(r=>!r.parentId).forEach(row=>{
-      const kids=rows.filter(c=>c.parentId===row.id);
-      if(kids.length){
-        kids.forEach(child=>{
-          (inc.cols||[]).forEach(col=>{total+=parseFloat(inc.cells[mk2+'|'+child.id+'|'+col.id]||0)||0;});
-        });
-      } else {
-        (inc.cols||[]).forEach(col=>{total+=parseFloat(inc.cells[mk2+'|'+row.id+'|'+col.id]||0)||0;});
-      }
-    });
-    if(total>0) map.set(mk2, parseFloat(total.toFixed(2)));
-  });
-  return map;
-}
-
-
-function mergedMonthIncomes(exp, incMap){
-  const out={};
-  
-  if(exp&&exp.income){
-    Object.entries(exp.income).forEach(([mk2,v])=>{
-      const g=parseFloat(v.gross)||0; if(g>0) out[mk2]=g;
-    });
-  }
-  
-  incMap.forEach((val,mk2)=>{ out[mk2]=val; });
-  return out;
-}
-
-
-
-
-function expMonthIncomes(exp){
-  if(!exp||!exp.income) return {};
-  const out={};
-  Object.entries(exp.income).forEach(([mk2,v])=>{
-    const g=parseFloat(v.gross)||0; if(g>0) out[mk2]=g;
-  });
-  return out;
-}
-
-
-
-
-function allSpendingMonths(exp, subs){
-  const mks=new Set();
-
-  
-  if(exp&&exp.cells){
-    Object.keys(exp.cells).forEach(k=>{
-      const p=k.split('|'); if(p.length>=3&&parseFloat(exp.cells[k])>0) mks.add(p[0]);
-    });
-  }
-
-  
-  if(subs&&subs.rows&&subs.cols){
-    const startCol=subs.cols.find(c=>c.ctype==='date');
-    if(startCol){
-      const now=new Date();
-      (subs.rows||[]).forEach(r=>{
-        const dateStr=(subs.cells||{})[r.id+'|'+startCol.id]||'';
-        if(!dateStr) return;
-        const first=new Date(dateStr);
-        let y=first.getFullYear(), m=first.getMonth();
-        while(y*12+m<=now.getFullYear()*12+now.getMonth()){
-          mks.add(mk(y,m)); m++; if(m===12){m=0;y++;}
-        }
-      });
-    }
-  }
-
-  return [...mks].sort();
-}
-
-
-function combinedMonthTotals(exp, subs, allMonths){
-  const totals={};
-
-  const subCosts=subCostPerMonth(subs, allMonths);
-  allMonths.forEach((mk2, idx)=>{
-    let sum=subCosts[idx]||0;
-
-    if(exp&&exp.cells){
-      const mCols=(exp.colsByMonth&&exp.colsByMonth[mk2])||exp.cols||[];
-      expRows(exp,mk2).forEach(row=>{
-        mCols.forEach(col=>{
-          sum+=parseFloat(exp.cells[mk2+'|'+row.id+'|'+col.id]||0)||0;
-        });
-      });
-    }
-
-    if(sum>0) totals[mk2]=parseFloat(sum.toFixed(2));
-  });
-  return totals;
-}
-
-
-
-function combinedCategoryTotals(exp, subs, monthKeys){
-  const totals={};
-  const set=new Set(monthKeys);
-
-  
-  if(exp){
-    const globalRows=(exp.rows)||[];
-    const allExpRows=new Map();
-    globalRows.forEach(r=>allExpRows.set(r.id,r));
-    if(exp.rowsByMonth){ Object.values(exp.rowsByMonth).forEach(arr=>arr.forEach(r=>{ if(!allExpRows.has(r.id)) allExpRows.set(r.id,r); })); }
-    [...allExpRows.values()].filter(r=>!r.parentId&&!r.linked).forEach(row=>{
-      let sum=0;
-      set.forEach(mk2=>{
-        const rows=expRows(exp,mk2);
-        if(!rows.find(r=>r.id===row.id)) return;
-        sum+=(_rowMonthIdx[row.id]&&_rowMonthIdx[row.id][mk2])||0;
-        rows.filter(c=>c.parentId===row.id).forEach(child=>{
-          sum+=(_rowMonthIdx[child.id]&&_rowMonthIdx[child.id][mk2])||0;
-        });
-      });
-      if(sum>0) totals[row.label]={value:parseFloat(sum.toFixed(2)), color:row.color||'#93c5fd'};
-    });
-  }
-
-  
-  if(subs&&subs.rows&&subs.cols){
-    let subTotal=0;
-    set.forEach(mk2=>{
-      const [y,m]=mk2.split('-').map(Number);
-      subTotal+=(subs.rows||[]).reduce((s,r)=>s+calcSubCostForMonth(r,subs,y,m-1),0);
-    });
-    if(subTotal>0){
-      const existing=totals['Subscriptions'];
-      totals['Subscriptions']={
-        value: parseFloat(((existing?existing.value:0)+subTotal).toFixed(2)),
-        color: (existing&&existing.color)||'#0891b2'
-      };
-    }
-  }
-
-  return totals;
-}
-
-
-
-function combinedCategoryMonthlyData(exp, subs, months){
-  const map=new Map();
-
-  
-  if(exp){
-    const globalRows=(exp.rows)||[];
-    const allExpRows=new Map();
-    globalRows.forEach(r=>allExpRows.set(r.id,r));
-    if(exp.rowsByMonth){ Object.values(exp.rowsByMonth).forEach(arr=>arr.forEach(r=>{ if(!allExpRows.has(r.id)) allExpRows.set(r.id,r); })); }
-    [...allExpRows.values()].filter(r=>!r.parentId&&!r.linked).forEach(row=>{
-      const vals=months.map(mk2=>{
-        const rows=expRows(exp,mk2);
-        if(!rows.find(r=>r.id===row.id)) return 0;
-        let sum=(_rowMonthIdx[row.id]&&_rowMonthIdx[row.id][mk2])||0;
-        rows.filter(c=>c.parentId===row.id).forEach(child=>{
-          sum+=(_rowMonthIdx[child.id]&&_rowMonthIdx[child.id][mk2])||0;
-        });
-        return parseFloat(sum.toFixed(2));
-      });
-      if(vals.some(v=>v>0)) map.set(row.label,{color:row.color||'#93c5fd',values:vals});
-    });
-  }
-
-  
-  if(subs&&subs.rows&&subs.cols){
-    const subVals=subCostPerMonth(subs,months);
-    if(subVals.some(v=>v>0)){
-      const existing=map.get('Subscriptions');
-      if(existing){
-        map.set('Subscriptions',{
-          color:existing.color||'#0891b2',
-          values:existing.values.map((v,i)=>parseFloat((v+subVals[i]).toFixed(2)))
-        });
-      } else {
-        map.set('Subscriptions',{color:'#0891b2',values:subVals});
-      }
-    }
-  }
-
-  return map;
-}
-
-
-
-
-function calcSubCostForMonth(row, subs, year, month){
-  const cols=subs.cols||[];
-  const get =id=>(subs.cells||{})[row.id+'|'+id]||'';
-  const startCol   =cols.find(c=>c.ctype==='date');
-  const cancelCol  =cols.find(c=>c.ctype==='canceldate');
-  const statusCol  =cols.find(c=>c.ctype==='status');
-  const costCol    =cols.find(c=>c.ctype==='number');
-  const billingCol =cols.find(c=>c.ctype==='billing');
-
-  const status   =statusCol  ? get(statusCol.id)||'Active'  : 'Active';
-  const startStr =startCol   ? get(startCol.id)             : '';
-  const cancelStr=cancelCol  ? get(cancelCol.id)            : '';
-  const rawCost  =parseFloat(costCol?get(costCol.id):0)||0;
-  const currency =(subs.rowCurrencies||{})[row.id]||'USD';
-  const cost     =_toUSD(rawCost, currency);
-  const billing  =billingCol ? get(billingCol.id)||'Monthly': 'Monthly';
-
-  const monthStart=new Date(year,month,1);
-  const monthEnd  =new Date(year,month+1,0);
-
-  if(startStr){ const sd=new Date(startStr); if(sd>monthEnd) return 0; }
-  if(status==='Cancelled'&&cancelStr){ const cd=new Date(cancelStr); if(cd<monthStart) return 0; }
-
-  if(billing==='Monthly')   return cost;
-  if(billing==='Yearly')    return cost/12;
-  if(billing==='Quarterly') return cost/3;
-
-
-  if((billing==='Weekly'||billing==='Bi-Weekly')&&startStr){
-    const msDay=86400000;
-    const itvMs=(billing==='Weekly'?7:14)*msDay;
-    const start=new Date(startStr);
-    let ev=new Date(start.getTime());
-    if(ev<monthStart){
-      const ahead=Math.ceil((monthStart-ev)/itvMs);
-      ev=new Date(start.getTime()+ahead*itvMs);
-    }
-    let count=0;
-    while(ev<=monthEnd){
-      if(!cancelStr||ev<=new Date(cancelStr)) count++;
-      ev=new Date(ev.getTime()+itvMs);
-    }
-    return cost*count;
-  }
-  return cost;
-}
-
-
-function subCostPerMonth(subs, months){
-  if(!subs||!subs.rows) return months.map(()=>0);
-  return months.map(mk2=>{
-    const [y,m]=mk2.split('-').map(Number);
-    const total=(subs.rows||[]).reduce((s,r)=>s+calcSubCostForMonth(r,subs,y,m-1),0);
-    return parseFloat(total.toFixed(2));
-  });
-}
-
-
-function subMonthlySnapshot(subs){
-  if(!subs||!subs.rows||!subs.cols) return [];
-  const billingCol=subs.cols.find(c=>c.ctype==='billing');
-  const costCol   =subs.cols.find(c=>c.ctype==='number');
-  const statusCol =subs.cols.find(c=>c.ctype==='status');
-  const nameCol   =subs.cols.find(c=>c.ctype==='text');
-  return (subs.rows||[]).map(r=>{
-    const status=statusCol?subs.cells[r.id+'|'+statusCol.id]||'Active':'Active';
-    if(status==='Cancelled') return null;
-    const name    =nameCol  ?subs.cells[r.id+'|'+nameCol.id]  ||'-':'-';
-    const rawCost =parseFloat(costCol?subs.cells[r.id+'|'+costCol.id]||0:0)||0;
-    const currency=(subs.rowCurrencies||{})[r.id]||'USD';
-    const cost    =_toUSD(rawCost, currency);
-    const bill    =billingCol?subs.cells[r.id+'|'+billingCol.id]||'Monthly':'Monthly';
-    let monthly=0;
-    if(bill==='Monthly')        monthly=cost;
-    else if(bill==='Yearly')    monthly=cost/12;
-    else if(bill==='Weekly')    monthly=cost*4.33;
-    else if(bill==='Bi-Weekly') monthly=cost*2.17;
-    else if(bill==='Quarterly') monthly=cost/3;
-    return monthly>0?{name,monthly,annual:monthly*12}:null;
-  }).filter(Boolean);
-}
-
-
-
-function buildRowMonthIndex(exp){
-  const idx={};
-  if(!exp||!exp.cells) return idx;
-  Object.entries(exp.cells).forEach(([key,val])=>{
-    const n=parseFloat(val)||0; if(!n) return;
-    const parts=key.split('|'); if(parts.length!==3) return;
-    const [mk2,rowId]=parts;
-    if(!idx[rowId]) idx[rowId]={};
-    idx[rowId][mk2]=(idx[rowId][mk2]||0)+n;
-  });
-  return idx;
-}
-
-
 function periodOptions(allMonths){
   const opts=[{label:'All time',value:'all'}];
   if(allMonths.length>=3)  opts.push({label:'Last 3 months', value:'3'});
@@ -565,14 +236,6 @@ function periodOptions(allMonths){
   if(allMonths.length>=12) opts.push({label:'Last 12 months',value:'12'});
   return opts;
 }
-function filterMonths(allMonths, period){
-  if(period==='all') return allMonths;
-  
-  const actual=allMonths.filter(m=>m<=_cToday);
-  return actual.slice(-parseInt(period));
-}
-
-
 const charts={};
 function destroyChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
 
@@ -671,6 +334,9 @@ function renderAll(){
   
 
   
+  // Phase 6: Financial Patterns panel (above stat grid)
+  renderFinancialPatterns(root);
+
   const statGrid=document.createElement('div');
   statGrid.id='stat-grid'; statGrid.className='stat-grid';
   root.appendChild(statGrid);
@@ -777,6 +443,9 @@ function renderAll(){
       ['Subscription Breakdown','Subscription Cost Trend']
     );
   })();
+
+  // Phase 7: Passive memory observations
+  renderMemory(root);
 }
 
 
@@ -1210,6 +879,166 @@ function renderSubTrendChart(){
 
 
 
+// ── Phase 6: Financial Patterns panel ──────────────────────────────────────
+function renderFinancialPatterns(root){
+  if(_allMonths.length < 2) return;
+  const panel=document.createElement('details');
+  panel.style.cssText='margin-bottom:1rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.75rem 1rem;';
+  const summary=document.createElement('summary');
+  summary.style.cssText='cursor:pointer;font-weight:700;font-size:.88rem;color:var(--fg);list-style:none;display:flex;align-items:center;justify-content:space-between;';
+  summary.innerHTML='Your financial patterns <span style="font-size:.75rem;color:var(--muted);font-weight:400">▼ show</span>';
+  panel.appendChild(summary);
+  summary.addEventListener('click',function(){
+    const arrow=summary.querySelector('span');
+    setTimeout(()=>{ if(arrow) arrow.textContent=panel.open?'▲ hide':'▼ show'; },0);
+  });
+
+  const grid=document.createElement('div');
+  grid.className='stat-grid'; grid.style.marginTop='.75rem';
+
+  function addIndicator(icon, text){
+    const card=document.createElement('div'); card.className='stat-card';
+    card.innerHTML='<div style="font-size:1.1rem;margin-bottom:.35rem">'+icon+'</div>'
+      +'<div style="font-size:.82rem;color:var(--fg);line-height:1.4">'+text+'</div>';
+    grid.appendChild(card);
+  }
+
+  // 1. Tracking streak
+  let streak=1;
+  for(let i=_allMonths.length-1;i>0;i--){
+    if(prevMK(_allMonths[i])===_allMonths[i-1]){streak++;} else break;
+  }
+  addIndicator('🔥', streak>=2?streak+'-month streak of data':'Data tracked');
+
+  // 2. Goals met last full month
+  const lastFull=_allMonths[_allMonths.length-1];
+  let goalsSet=0, goalsMet=0;
+  if(_exp&&_exp.goals){
+    Object.keys(_exp.goals).forEach(gk=>{
+      if(!gk.startsWith(lastFull+'|')) return;
+      const parts=gk.split('|'); const rowId=parts[1];
+      const goalAmt=parseFloat(_exp.goals[gk])||0; if(!goalAmt) return;
+      goalsSet++;
+      let rowTotal=0;
+      const cols2=(_exp.colsByMonth&&_exp.colsByMonth[lastFull])||_exp.cols||[];
+      cols2.forEach(col=>{ rowTotal+=parseFloat((_exp.cells||{})[lastFull+'|'+rowId+'|'+col.id]||0)||0; });
+      if(rowTotal<=goalAmt) goalsMet++;
+    });
+  }
+  if(goalsSet>0) addIndicator('🎯', goalsMet+' of '+goalsSet+' categories under goal in '+mkLabel(lastFull));
+
+  // 3. Monthly coverage
+  if(_allMonths.length>=2){
+    const first=_allMonths[0]; const last=_allMonths[_allMonths.length-1];
+    const [fy,fm]=first.split('-').map(Number); const [ly,lm]=last.split('-').map(Number);
+    const totalPossible=(ly-fy)*12+(lm-fm)+1;
+    addIndicator('📅', _allMonths.length+' of '+totalPossible+' months tracked');
+  }
+
+  // 4. Subscription spend trend (last 3 months)
+  if(_subs&&_allMonths.length>=3){
+    const last3=_allMonths.slice(-3);
+    const costs=subCostPerMonth(_subs,last3);
+    if(costs[0]>0&&costs[2]>0){
+      const delta=costs[2]-costs[0];
+      const dir=delta<0?'📉 down':'📈 up';
+      addIndicator('💳', 'Subscriptions '+dir+' $'+Math.abs(delta).toFixed(0)+'/mo over last 3 months');
+    }
+  }
+
+  // 5. Savings rate last full month
+  const lastInc=_monthIncomes[lastFull]||0;
+  const lastSpend=_monthTotals[lastFull]||0;
+  if(lastInc>0){
+    const rate=Math.round(((lastInc-lastSpend)/lastInc)*100);
+    addIndicator('💰', rate+'% of income not spent in '+mkLabel(lastFull));
+  }
+
+  panel.appendChild(grid);
+  root.appendChild(panel);
+}
+
+// ── Phase 7: Passive Memory panel ──────────────────────────────────────────
+function renderMemory(root){
+  if(_allMonths.length < 2) return;
+  const section=document.createElement('div');
+  section.style.cssText='margin-top:1.5rem;';
+  const title=document.createElement('div'); title.className='section-title'; title.textContent='What the numbers remember';
+  section.appendChild(title);
+  const ul=document.createElement('ul'); ul.className='insight-list';
+  const observations=[];
+
+  // 1. Most consistent category
+  const rowIdx=buildRowMonthIndex(_exp);
+  let mostConsistentLabel='', mostConsistentCount=0;
+  Object.entries(rowIdx).forEach(([label,months])=>{
+    if(months.length>mostConsistentCount){ mostConsistentCount=months.length; mostConsistentLabel=label; }
+  });
+  if(mostConsistentLabel&&mostConsistentCount>=2)
+    observations.push(mostConsistentLabel+' has appeared in '+mostConsistentCount+' of your tracked months.');
+
+  // 2. Spending context for most recent month
+  const recentMK=_allMonths[_allMonths.length-1];
+  const recentTotal=_monthTotals[recentMK]||0;
+  if(_allMonths.length>=3&&recentTotal>0){
+    const histTotals=_allMonths.slice(0,-1).map(m=>_monthTotals[m]||0).filter(v=>v>0);
+    if(histTotals.length>=2){
+      const avg=histTotals.reduce((s,v)=>s+v,0)/histTotals.length;
+      let context;
+      if(recentTotal>avg*1.15) context='Higher than your usual range.';
+      else if(recentTotal<avg*0.85) context='One of your lower months.';
+      else context='Typical for your past months.';
+      observations.push(mkLabel(recentMK)+': $'+recentTotal.toFixed(0)+' spent — '+context);
+    }
+  }
+
+  // 3. Income trajectory
+  const incMonths=_allMonths.filter(m=>(_monthIncomes[m]||0)>0);
+  if(incMonths.length>=3){
+    const incVals=incMonths.map(m=>_monthIncomes[m]||0);
+    let totalDelta=0;
+    for(let i=1;i<incVals.length;i++) totalDelta+=incVals[i]-incVals[i-1];
+    const avgDelta=totalDelta/(incVals.length-1);
+    if(Math.abs(avgDelta)>5) observations.push('Income has '+( avgDelta>0?'grown':'dropped')+' ~$'+Math.abs(avgDelta).toFixed(0)+'/month on average.');
+  }
+
+  // 4. Best savings month
+  let bestMK='', bestRate=-Infinity;
+  _allMonths.forEach(mk2=>{
+    const inc2=_monthIncomes[mk2]||0; const spend2=_monthTotals[mk2]||0;
+    if(inc2>0){ const r=(inc2-spend2)/inc2; if(r>bestRate){bestRate=r;bestMK=mk2;} }
+  });
+  if(bestMK&&bestRate>0) observations.push('Your best savings month was '+mkLabel(bestMK)+' (saved '+Math.round(bestRate*100)+'%).');
+
+  // 5. Subscription anniversary (any sub running ≥12 months)
+  if(_subs&&_subs.rows&&_subs.cols){
+    const today=new Date();
+    const dateCol=(_subs.cols||[]).find(c=>c.ctype==='date');
+    const nameCol=(_subs.cols||[]).find(c=>c.ctype==='text');
+    const statusCol=(_subs.cols||[]).find(c=>c.ctype==='status');
+    if(dateCol){
+      (_subs.rows||[]).forEach(row=>{
+        const get=col=>col?(_subs.cells||{})[row.id+'|'+col.id]||'':'';
+        if(statusCol&&get(statusCol)==='Cancelled') return;
+        const startStr=get(dateCol); if(!startStr) return;
+        const start=new Date(startStr); if(isNaN(start)) return;
+        const mos=(today.getFullYear()-start.getFullYear())*12+(today.getMonth()-start.getMonth());
+        if(mos>=12){
+          const name=nameCol?get(nameCol)||'A subscription':'A subscription';
+          observations.push(escapeHtml(name)+' has been running for '+mos+' months.');
+        }
+      });
+    }
+  }
+
+  if(!observations.length) return;
+  observations.slice(0,5).forEach(obs=>{
+    const li=document.createElement('li'); li.textContent=obs; ul.appendChild(li);
+  });
+  section.appendChild(ul);
+  root.appendChild(section);
+}
+
 function reRenderCharts(){
   _refreshPeriodCache();
   renderStatCards();
@@ -1245,7 +1074,7 @@ function reRenderCharts(){
 
     if(_wtActive && typeof window._wtSeedAnalytics==='function') window._wtSeedAnalytics();
   }catch(e){}
-  await _fetchRates();
+  await fiappCoreLoadRates();
   renderAll();
 })();
 
