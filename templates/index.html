@@ -482,16 +482,10 @@
 
   // ── Helper: gross income for a given month ──
   function grossForMonth(mk2) {
-    // If income tracker has rows for this month, it is authoritative (even if total is 0)
-    var incHasRows = inc && inc.cells && (function(){
-      var rows2 = incRows(inc, mk2);
-      return rows2.some(function(r){
-        return !r.parentId && (inc.cols||[]).some(function(col){
-          return !!inc.cells[mk2+'|'+r.id+'|'+col.id];
-        });
-      });
-    })();
-    if(incHasRows) {
+    // If income tracker has rows set up, it is the authoritative source for all months.
+    // Even a 0 total (after reset) is returned as-is — no fallback to expenses panel.
+    // Fallback only applies when income tracker has never been configured (inc is null or no rows).
+    if(inc && inc.rows && inc.rows.length > 0) {
       var rows = incRows(inc, mk2);
       var total = 0;
       var getCurrency = function(rowId){ return (inc.monthRowCurrencies||{})[mk2+'|'+rowId]||'USD'; };
@@ -501,21 +495,21 @@
           kids.forEach(function(child) {
             var cur = getCurrency(child.id);
             (inc.cols||[]).forEach(function(col){
-              var raw = parseFloat(inc.cells[mk2+'|'+child.id+'|'+col.id]||0)||0;
+              var raw = parseFloat((inc.cells||{})[mk2+'|'+child.id+'|'+col.id]||0)||0;
               total += _coreToUSD(raw, cur);
             });
           });
         } else {
           var cur = getCurrency(row.id);
           (inc.cols||[]).forEach(function(col){
-            var raw = parseFloat(inc.cells[mk2+'|'+row.id+'|'+col.id]||0)||0;
+            var raw = parseFloat((inc.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0;
             total += _coreToUSD(raw, cur);
           });
         }
       });
       return parseFloat(total.toFixed(2));
     }
-    // Fall back to expense tracker's income panel
+    // Fall back to expense tracker's income panel (income tracker not set up)
     if(exp && exp.income && exp.income[mk2]) {
       var g = parseFloat(exp.income[mk2].gross); if(g > 0) return g;
     }
