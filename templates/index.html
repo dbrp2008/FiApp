@@ -703,15 +703,6 @@
       '</div>';
     }
 
-    // ─ Component 3: Guidance (if relevant and no State D) ─
-    if(!check.income && !isStateD) {
-      var resolvedKey = 'voice_resolved_add-income';
-      if(!localStorage.getItem(resolvedKey)) {
-        html += '<div class="snap-voice" id="snap-guidance-income">Add income to calculate remaining budget. ' +
-          '<a href="/income" style="color:var(--accent)">Log income →</a></div>';
-      }
-    }
-
     // ─ Component 6: Checklist (disappears when all done) ─
     if(!check.all) {
       html += '<div class="snap-checklist">' +
@@ -729,8 +720,6 @@
 
   root.innerHTML = html;
 
-  // Resolve guidance if income is now present
-  if(grossForMonth(cmk) > 0) localStorage.setItem('voice_resolved_add-income', '1');
 
   // Phase 4b: Populate renewal slot (inline — no access to subscriptions.js here)
   (function(){
