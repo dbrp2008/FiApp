@@ -184,7 +184,125 @@ async function loadSubsFromServer(){
 function save(){
   saveLocal();
   syncToServer();
+  checkSpendTrend();
+  detectRecurring();
 }
+
+// ── Phase 4a: Spend Trend Message ────────────────────────────────────────
+function _monthSpendTotal(mk2){
+  var sum=0;
+  var mCols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+  getRows(mk2).forEach(function(row){
+    mCols.forEach(function(col){ sum+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; });
+  });
+  return parseFloat(sum.toFixed(2));
+}
+function checkSpendTrend(){
+  if(typeof voice==='undefined') return;
+  var mk2=currentMK();
+  var gateKey='fiapp_trend_shown_'+mk2;
+  if(localStorage.getItem(gateKey)) return; // only once per month
+  var thisTotal=_monthSpendTotal(mk2);
+  if(thisTotal<10) return; // not enough data yet
+  var py=state.currentYear, pm=state.currentMonth-1;
+  if(pm<0){py--;pm=11;}
+  var prevMk2=mk(py,pm);
+  var prevTotal=_monthSpendTotal(prevMk2);
+  if(prevTotal<10) return; // need prior month data
+  var delta=thisTotal-prevTotal;
+  var pct=Math.round(Math.abs(delta)/prevTotal*100);
+  if(pct<10) return; // < 10% change not worth mentioning
+  var dir=delta>0?'up':'down';
+  // Find top category by row total
+  var topCat='',topVal=0;
+  var rowIdx={};
+  Object.keys(state.cells||{}).forEach(function(k){
+    var parts=k.split('|');
+    if(parts.length===3&&parts[0]===mk2){var n=parseFloat(state.cells[k])||0;if(n>0){if(!rowIdx[parts[1]])rowIdx[parts[1]]=0;rowIdx[parts[1]]+=n;}}
+  });
+  getRows(mk2).forEach(function(row){ if(!row.parentId&&rowIdx[row.id]>topVal){topVal=rowIdx[row.id];topCat=row.label;}});
+  var text=topCat
+    ? (topCat+' is '+dir+' '+pct+'% vs last month.')
+    : ('Spending '+dir+' '+pct+'% vs last month.');
+  var msg=voice.observation('spend-trend-'+mk2, text);
+  if(!msg) return;
+  localStorage.setItem(gateKey,'1');
+  showVoiceStrip(msg);
+}
+function showVoiceStrip(text){
+  var el=document.getElementById('voice-strip');
+  if(!el){
+    el=document.createElement('div'); el.id='voice-strip';
+    el.style.cssText='margin:0 0 .6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;';
+    var close=document.createElement('button');
+    close.textContent='✕'; close.setAttribute('aria-label','Dismiss');
+    close.style.cssText='background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0;';
+    close.onclick=function(){ el.remove(); };
+    el.appendChild(document.createElement('span'));
+    el.appendChild(close);
+    // Insert before the table
+    var tbl=document.querySelector('.tracker-table-wrap')||document.querySelector('table');
+    if(tbl&&tbl.parentNode) tbl.parentNode.insertBefore(el,tbl);
+    else document.body.appendChild(el);
+  }
+  el.firstChild.textContent=text;
+  el.style.display='flex';
+}
+// ── Phase 5e: Recurring row detection (CV < 0.15, ≥3 months) ──
+function detectRecurring(){
+  // Build index: rowId → {label, amounts: [...nonzero monthly totals]}
+  const rowAmounts={};
+  const allMonths=Object.keys(state.cells||{}).map(k=>k.split('|')[0]).filter((v,i,a)=>v&&a.indexOf(v)===i);
+  allMonths.forEach(mk2=>{
+    const cols2=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+    const rows2=(state.rowsByMonth&&state.rowsByMonth[mk2])||state.rows||[];
+    rows2.filter(r=>!r.parentId&&!r.linked&&!r.recurring).forEach(row=>{
+      let total=0;
+      cols2.forEach(col=>{ total+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; });
+      if(total>0){
+        if(!rowAmounts[row.id]) rowAmounts[row.id]={label:row.label,amounts:[]};
+        rowAmounts[row.id].amounts.push(total);
+      }
+    });
+  });
+  Object.keys(rowAmounts).forEach(rowId=>{
+    const entry=rowAmounts[rowId];
+    if(entry.amounts.length<3) return;
+    if(localStorage.getItem('fiapp_rec_dismissed_'+rowId)) return;
+    // Check if already marked recurring
+    const row=(state.rows||[]).find(r=>r.id===rowId)||
+      Object.values(state.rowsByMonth||{}).reduce((f,arr)=>f||arr.find(r=>r.id===rowId),null);
+    if(row&&row.recurring) return;
+    // Compute CV
+    const n=entry.amounts.length;
+    const mean=entry.amounts.reduce((s,v)=>s+v,0)/n;
+    if(mean<=0) return;
+    const variance=entry.amounts.reduce((s,v)=>s+Math.pow(v-mean,2),0)/n;
+    const cv=Math.sqrt(variance)/mean;
+    if(cv>=0.15) return;
+    _showRecurringToast(rowId,entry.label);
+  });
+}
+function _showRecurringToast(rowId,label){
+  if(document.getElementById('rec-toast-'+rowId)) return;
+  const el=document.createElement('div');
+  el.id='rec-toast-'+rowId;
+  el.style.cssText='position:fixed;bottom:calc(4rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:99999;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.65rem 1rem;font-size:.85rem;color:var(--fg);box-shadow:0 4px 16px rgba(0,0,0,.15);display:flex;align-items:center;gap:.6rem;max-width:440px;';
+  const txt=document.createElement('span');txt.textContent='💡 '+label+' recurs every month. Mark it?';
+  const yes=document.createElement('button');yes.className='btn btn-sm';yes.style.fontSize='.8rem';yes.textContent='Mark recurring';
+  yes.onclick=function(){
+    [state.rows,...Object.values(state.rowsByMonth||{})].forEach(arr=>{
+      const r=(arr||[]).find(r=>r.id===rowId);if(r) r.recurring=true;
+    });
+    save(); el.remove();
+  };
+  const no=document.createElement('button');no.className='btn-ghost btn-sm';no.style.fontSize='.8rem';no.textContent='Skip';
+  no.onclick=function(){ localStorage.setItem('fiapp_rec_dismissed_'+rowId,'1');el.remove(); };
+  el.appendChild(txt);el.appendChild(yes);el.appendChild(no);
+  document.body.appendChild(el);
+  setTimeout(()=>{ if(document.body.contains(el)) el.remove(); },12000);
+}
+
 function showSaveQuotaWarning(){
   if(document.getElementById('quota-warn')) return;
   const el=document.createElement('div'); el.id='quota-warn'; el.className='error';
@@ -274,6 +392,79 @@ function updateMonthNav(){
   document.getElementById('next-btn').disabled=isAtMax();
   populateMonthJump();
   updateForecastUI();
+  updateCloseBar();
+}
+
+// ── Monthly Close Flow ────────────────────────────────────────────────────
+function _hasDataForMonth(mk2){
+  return Object.keys(state.cells||{}).some(k=>k.startsWith(mk2+'|')&&parseFloat(state.cells[k])>0);
+}
+function _isPastMonth(){
+  const now=new Date();
+  const nowMk=mk(now.getFullYear(),now.getMonth());
+  return currentMK()<nowMk;
+}
+function _isClosedMonth(mk2){
+  return !!(state.closedMonths&&state.closedMonths[mk2]);
+}
+function updateCloseBar(){
+  const bar=document.getElementById('close-bar');
+  if(!bar) return;
+  const mk2=currentMK();
+  if(!_isPastMonth()||!_hasDataForMonth(mk2)||_isClosedMonth(mk2)){
+    bar.style.display='none'; return;
+  }
+  // Compute total for the display
+  let spent=0;
+  const mCols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+  getRows(mk2).forEach(row=>{ mCols.forEach(col=>{ spent+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); });
+  const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
+  document.getElementById('close-bar-text').textContent='📋 Close '+label+'? — $'+spent.toFixed(2)+' tracked';
+  bar.style.display='flex';
+}
+function openCloseModal(){
+  const mk2=currentMK();
+  let spent=0, prevSpent=0;
+  const mCols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+  getRows(mk2).forEach(row=>{ mCols.forEach(col=>{ spent+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); });
+  // prev month
+  let py=state.currentYear, pm=state.currentMonth-1;
+  if(pm<0){py--;pm=11;}
+  const pmk2=mk(py,pm);
+  const pmCols=(state.colsByMonth&&state.colsByMonth[pmk2])||state.cols||[];
+  getRows(pmk2).forEach(row=>{ pmCols.forEach(col=>{ prevSpent+=parseFloat((state.cells||{})[pmk2+'|'+row.id+'|'+col.id]||0)||0; }); });
+  const gross=parseFloat((state.income&&state.income[mk2]&&state.income[mk2].gross)||0)||0;
+  const delta=prevSpent>0?spent-prevSpent:null;
+  const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
+  // Build modal content
+  let details='<strong>'+label+'</strong><br>Spent: $'+spent.toFixed(2);
+  if(gross>0){ const saved=gross-spent; details+=' &nbsp;·&nbsp; Income: $'+gross.toFixed(2)+(saved>=0?' &nbsp;·&nbsp; Saved: $'+saved.toFixed(2):''); }
+  if(delta!==null){ details+='<br><span style="color:var(--muted);font-size:.85rem">'+(delta>=0?'↑ $'+delta.toFixed(2)+' vs prev month':'↓ $'+Math.abs(delta).toFixed(2)+' vs prev month')+'</span>'; }
+  // Find top category
+  let topCat='', topVal=0;
+  const rowIdx={};
+  Object.keys(state.cells||{}).forEach(k=>{ const parts=k.split('|'); if(parts.length===3&&parts[0]===mk2){const n=parseFloat(state.cells[k])||0;if(n>0){if(!rowIdx[parts[1]])rowIdx[parts[1]]=0;rowIdx[parts[1]]+=n;}}});
+  getRows(mk2).forEach(row=>{ if(!row.parentId&&rowIdx[row.id]>topVal){topVal=rowIdx[row.id];topCat=row.label;}});
+  if(topCat) details+='<br><span style="color:var(--muted);font-size:.85rem">Largest: '+escapeHtml(topCat)+' ($'+topVal.toFixed(2)+')</span>';
+  // Show modal
+  const overlay=document.getElementById('close-modal-overlay');
+  if(!overlay) return;
+  document.getElementById('close-modal-body').innerHTML=details;
+  overlay.style.display='flex';
+}
+function confirmClose(){
+  const mk2=currentMK();
+  if(!state.closedMonths) state.closedMonths={};
+  state.closedMonths[mk2]=Date.now();
+  saveLocal(); save();
+  document.getElementById('close-modal-overlay').style.display='none';
+  updateCloseBar();
+  // Update month nav dropdown to show lock badge
+  populateMonthJump();
+}
+function cancelClose(){
+  const overlay=document.getElementById('close-modal-overlay');
+  if(overlay) overlay.style.display='none';
 }
 
 
@@ -573,6 +764,21 @@ function updateIncomeSummary(){
   const remEl=document.getElementById('disp-remaining');
   remEl.textContent=gross>0?('$'+Math.abs(rem).toFixed(2)+(rem<0?' over budget':'')):'-';
   remEl.className='income-computed '+(rem<0?'neg':'pos');
+  // Phase 4c — end-of-month projection
+  const projEl=document.getElementById('eom-projection');
+  if(projEl){
+    const now2=new Date();
+    const isCurrent=state.currentYear===now2.getFullYear()&&state.currentMonth===now2.getMonth();
+    const daysPassed=now2.getDate();
+    if(isCurrent&&daysPassed>=15&&gross>0&&exp>0){
+      const daysInMonth=new Date(now2.getFullYear(),now2.getMonth()+1,0).getDate();
+      const onPace=(exp/daysPassed)*daysInMonth;
+      projEl.textContent='On pace for $'+onPace.toFixed(0)+' this month ('+daysPassed+' days in, $'+gross.toFixed(0)+' earned)';
+      projEl.style.display='block';
+    }else{
+      projEl.style.display='none';
+    }
+  }
 }
 
 
@@ -757,6 +963,79 @@ function showSubMenu(btn, row){
   }
 }
 
+
+// ── Phase 4h: Row label suggestions ──
+function _allHistoricalLabels(){
+  const labels=new Set();
+  (state.rows||[]).forEach(r=>{if(r.label) labels.add(r.label);});
+  Object.values(state.rowsByMonth||{}).forEach(arr=>arr.forEach(r=>{if(r.label) labels.add(r.label);}));
+  return [...labels];
+}
+function _showLabelSuggest(spanEl){
+  const partial=(spanEl.textContent||'').trim().toLowerCase();
+  const all=_allHistoricalLabels();
+  const matches=partial.length<1?[]:all.filter(l=>l.toLowerCase().startsWith(partial)&&l.toLowerCase()!==partial);
+  let dd=document.getElementById('_label-suggest-dd');
+  if(!matches.length){if(dd) dd.style.display='none'; return;}
+  if(!dd){
+    dd=document.createElement('div');dd.id='_label-suggest-dd';
+    dd.style.cssText='position:fixed;z-index:9999;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;max-height:180px;overflow-y:auto;';
+    document.body.appendChild(dd);
+  }
+  dd.innerHTML=matches.slice(0,8).map(l=>'<div data-lbl="'+escapeHtml(l)+'" style="padding:6px 10px;cursor:pointer;font-size:.85rem;color:var(--fg);" onmousedown="event.preventDefault()" onclick="_pickLabel(this,\''+escapeHtml(l)+'\')">'+escapeHtml(l)+'</div>').join('');
+  const rect=spanEl.getBoundingClientRect();
+  dd.style.left=rect.left+'px';dd.style.top=(rect.bottom+3)+'px';dd.style.display='block';
+  dd._targetSpan=spanEl;
+}
+function _hideLabelSuggest(){
+  const dd=document.getElementById('_label-suggest-dd');if(dd) dd.style.display='none';
+}
+function _pickLabel(itemEl, label){
+  const dd=document.getElementById('_label-suggest-dd');
+  const span=dd&&dd._targetSpan;
+  if(span){span.textContent=label;span.dispatchEvent(new Event('blur'));}
+  _hideLabelSuggest();
+}
+
+// ── Phase 4g: First-use row templates ──
+var _TEMPLATES={
+  Student:    ['Rent','Food','Transport','Books & Supplies','Entertainment','Misc'],
+  Freelancer: ['Rent / Mortgage','Equipment','Software','Marketing','Food','Transport','Tax Set-Aside'],
+  Family:     ['Rent / Mortgage','Groceries','Childcare','Transport','Utilities','Insurance','Entertainment'],
+};
+function renderTemplatePrompt(){
+  const el=document.getElementById('template-prompt'); if(!el) return;
+  if(window._wtActive){el.innerHTML='';return;}
+  if(localStorage.getItem('fiapp_template_dismissed')==='1'){el.innerHTML='';return;}
+  const hasAnyData=Object.keys(state.cells||{}).length>0;
+  const hasRows=getRows().length>0;
+  if(hasAnyData||hasRows){el.innerHTML='';return;}
+  let btns=Object.keys(_TEMPLATES).map(name=>
+    '<button class="btn btn-sm" style="font-size:.82rem" onclick="applyTemplate(\''+name+'\')">'+name+'</button>'
+  ).join(' ');
+  el.innerHTML='<div style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.85rem;color:var(--fg);">'
+    +'<strong style="display:block;margin-bottom:.5rem;">Start with a template</strong>'
+    +btns
+    +' <button class="btn-ghost btn-sm" style="font-size:.82rem;margin-left:.5rem" onclick="dismissTemplatePrompt()">Start blank</button>'
+    +'</div>';
+}
+function applyTemplate(name){
+  const labels=_TEMPLATES[name]; if(!labels) return;
+  forkCurrentMonth();
+  const mk2=currentMK();
+  snapshot();
+  labels.forEach(label=>{
+    if(getRows(mk2).filter(r=>!r.parentId).length>=MAX_ROWS) return;
+    const color=CAT_COLORS[label]||'#e5e7eb';
+    state.rowsByMonth[mk2].push({id:uid(),label,color,textColor:'#1f2937',height:36,parentId:null});
+  });
+  localStorage.setItem('fiapp_template_dismissed','1');
+  save(); render();
+}
+function dismissTemplatePrompt(){
+  localStorage.setItem('fiapp_template_dismissed','1');
+  const el=document.getElementById('template-prompt'); if(el) el.innerHTML='';
+}
 
 function addRow(){
   try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
@@ -1245,8 +1524,9 @@ function renderTableBody(table){
     tcWrap.appendChild(textSwatch);tcWrap.appendChild(tcInp);
     const rowLabel=document.createElement('span');rowLabel.className='row-label';rowLabel.contentEditable='true';rowLabel.textContent=row.label;
     rowLabel.style.color=row.textColor||'#1f2937';
-    rowLabel.addEventListener('blur',()=>{row.label=rowLabel.textContent.trim()||row.label;save();});
-    rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}});
+    rowLabel.addEventListener('blur',()=>{row.label=rowLabel.textContent.trim()||row.label;save();_hideLabelSuggest();});
+    rowLabel.addEventListener('input',()=>_showLabelSuggest(rowLabel));
+    rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
     rowLabel.addEventListener('paste',function(e){e.preventDefault();const text=(e.clipboardData||window.clipboardData).getData('text/plain');document.execCommand('insertText',false,text);});
     if(row.snapshotLinkedRow){
       rowLabel.contentEditable='false';
@@ -1389,6 +1669,7 @@ function render(){
   renderTableBody(table);
   renderFooter(table);
   updateIncomeSummary();
+  renderTemplatePrompt();
   if(chartVisible) renderChart();
   adjustBodyWidth();
   updateForecastUI();
