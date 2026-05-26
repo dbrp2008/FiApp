@@ -199,12 +199,15 @@ function _monthSpendTotal(mk2){
 }
 function checkSpendTrend(){
   if(typeof voice==='undefined') return;
-  var mk2=currentMK();
+  // Only run for the current calendar month, not past months being browsed
+  var now=new Date(); var todayMk=mk(now.getFullYear(),now.getMonth());
+  if(currentMK()!==todayMk) return;
+  var mk2=todayMk;
   var gateKey='fiapp_trend_shown_'+mk2;
   if(localStorage.getItem(gateKey)) return; // only once per month
   var thisTotal=_monthSpendTotal(mk2);
   if(thisTotal<10) return; // not enough data yet
-  var py=state.currentYear, pm=state.currentMonth-1;
+  var py=now.getFullYear(), pm=now.getMonth()-1;
   if(pm<0){py--;pm=11;}
   var prevMk2=mk(py,pm);
   var prevTotal=_monthSpendTotal(prevMk2);
