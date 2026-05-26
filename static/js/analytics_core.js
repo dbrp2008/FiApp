@@ -63,7 +63,8 @@ function escapeHtml(s) {
 // Row helpers
 // ---------------------------------------------------------------------------
 function expRows(exp, mk2) {
-  return (exp && exp.rowsByMonth && exp.rowsByMonth[mk2]) ? exp.rowsByMonth[mk2] : (exp && exp.rows) || [];
+  var byMonth = exp && exp.rowsByMonth && exp.rowsByMonth[mk2];
+  return (byMonth && byMonth.length > 0) ? byMonth : (exp && exp.rows) || [];
 }
 function incRows(inc, mk2) {
   return (inc && inc.rowsByMonth && inc.rowsByMonth[mk2]) ? inc.rowsByMonth[mk2] : (inc && inc.rows) || [];
@@ -335,14 +336,23 @@ function incTrackerMonthTotals(inc) {
   allMks.forEach(function(mk2) {
     var total = 0;
     var rows = incRows(inc, mk2);
+    var getCurrency = function(rowId) { return (inc.monthRowCurrencies || {})[mk2 + '|' + rowId] || 'USD'; };
     rows.filter(function(r) { return !r.parentId; }).forEach(function(row) {
       var kids = rows.filter(function(c) { return c.parentId === row.id; });
       if (kids.length) {
         kids.forEach(function(child) {
-          (inc.cols || []).forEach(function(col) { total += parseFloat(inc.cells[mk2 + '|' + child.id + '|' + col.id] || 0) || 0; });
+          var cur = getCurrency(child.id);
+          (inc.cols || []).forEach(function(col) {
+            var raw = parseFloat(inc.cells[mk2 + '|' + child.id + '|' + col.id] || 0) || 0;
+            total += _coreToUSD(raw, cur);
+          });
         });
       } else {
-        (inc.cols || []).forEach(function(col) { total += parseFloat(inc.cells[mk2 + '|' + row.id + '|' + col.id] || 0) || 0; });
+        var cur = getCurrency(row.id);
+        (inc.cols || []).forEach(function(col) {
+          var raw = parseFloat(inc.cells[mk2 + '|' + row.id + '|' + col.id] || 0) || 0;
+          total += _coreToUSD(raw, cur);
+        });
       }
     });
     if (total > 0) map.set(mk2, parseFloat(total.toFixed(2)));
