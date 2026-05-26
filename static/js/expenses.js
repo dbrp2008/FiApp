@@ -1542,7 +1542,6 @@ function renderTableBody(table){
     tcWrap.appendChild(textSwatch);tcWrap.appendChild(tcInp);
     const rowLabel=document.createElement('span');rowLabel.className='row-label';rowLabel.contentEditable='true';rowLabel.textContent=row.label;
     rowLabel.style.color=row.textColor||'#1f2937';
-    if(row.recurring){const rb=document.createElement('span');rb.textContent=' 🔁';rb.contentEditable='false';rb.style.cssText='font-size:.8em;opacity:.7;pointer-events:none;';rowLabel.appendChild(rb);}
     rowLabel.addEventListener('blur',()=>{row.label=rowLabel.textContent.trim()||row.label;save();_hideLabelSuggest();});
     rowLabel.addEventListener('input',()=>_showLabelSuggest(rowLabel));
     rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
@@ -1557,6 +1556,7 @@ function renderTableBody(table){
       rowLabel.addEventListener('click',e=>{e.stopPropagation();restoreSubsLink(row.id);});
     }
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
+    if(row.recurring){const rb=document.createElement('span');rb.textContent='🔁';rb.title='Recurring';rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
     if(!isChild && !row.linked && !row.snapshotLinkedRow){
       const dd=document.createElement('div');dd.className='sub-dropdown';
       const addBtn=document.createElement('button');addBtn.className='sub-add-btn';addBtn.textContent='+Sub';addBtn.title='Add subcategory';
