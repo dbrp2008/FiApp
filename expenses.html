@@ -1,9 +1,43 @@
-{% extends "base.html" %}
-{% block title %}Expense Tracker{% endblock %}
-{% block head_scripts %}<script src="/static/rates-utils.js"></script>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Expense Tracker</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <script>
+    (function(){
+      var t=localStorage.getItem('fiapp_theme')||'forest';
+      if(t==='dark') document.documentElement.classList.add('dark');
+      else if(t!=='light') document.documentElement.classList.add('theme-'+t);
+    })();
+  </script>
+  <script>
+  (function(){
+    try {
+      var _srv="deedee";
+      var _stored=localStorage.getItem('fiapp_auth_user');
+      if(_stored && _stored!==_srv){
+        ['fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
+         'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
+         'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
+         'fiapp_tax_result','fiapp_prefill_income',
+         'fiapp_walkthrough_v1'].forEach(function(k){localStorage.removeItem(k);});
+        localStorage.removeItem('fiapp_auth_user');
+      }
+      if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
+    } catch(e) {}
+  })();
+  </script>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script>
+    var THEME_LABELS={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
+  </script>
+  <script src="/static/js/voice.js"></script>
+  <script src="/static/rates-utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="/static/js/tracker-sync.js"></script>{% endblock %}
-{% block head_styles %}
+<script src="/static/js/tracker-sync.js"></script>
+  
 <style>
     .toolbar{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem;}
     .toolbar-row-1,.toolbar-row-2{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;}
@@ -230,8 +264,183 @@
     .picker-tools button:hover{background:var(--secondary-hover);}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 </style>
-{% endblock %}
-{% block content %}
+
+  <style>
+    .hamburger-btn{background:none;border:none;font-size:1.35rem;cursor:pointer;color:var(--fg);padding:.2rem .4rem;border-radius:6px;margin-right:.4rem;}
+    .hamburger-btn:hover{background:var(--hover-bg,rgba(0,0,0,.07));}
+    #drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;}
+    #side-drawer{position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--panel-bg);border-right:1px solid var(--panel-border);z-index:901;transform:translateX(-100%);transition:transform .25s ease;padding:1rem;padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:.5rem;overflow-y:auto;}
+    #side-drawer.open{transform:translateX(0);}
+    .drawer-close{align-self:flex-end;background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--muted);padding:.2rem .4rem;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
+    .drawer-close:hover{color:var(--fg);}
+    #side-drawer h2{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.5rem 0 .25rem;}
+    #side-drawer ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.15rem;}
+    #side-drawer a{display:block;padding:.6rem .75rem;border-radius:8px;text-decoration:none;color:var(--fg);font-size:.9rem;font-weight:600;}
+    #side-drawer a:hover{background:var(--hover-bg,rgba(0,0,0,.07));}
+    #side-drawer a.drawer-link-active{font-weight:800;color:var(--accent);background:var(--hover-bg);pointer-events:none;}
+    
+    #wt-overlay{display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.42);pointer-events:auto;}
+    #wt-overlay.wt-allow-scroll{pointer-events:none;}
+    #wt-highlight{display:none;position:fixed;z-index:9501;border-radius:10px;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(0,0,0,.42);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease;}
+    #wt-bubble{display:none;position:fixed;z-index:9502;width:min(310px,calc(100vw - 2rem));background:var(--panel-bg);border:1.5px solid var(--panel-border);border-radius:14px;padding:.9rem 1.05rem .85rem;box-shadow:0 8px 32px rgba(0,0,0,.22);}
+    @keyframes wt-enter{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes wt-exit {from{opacity:1;transform:translateY(0)   scale(1)}  to{opacity:0;transform:translateY(8px) scale(.96)}}
+    #wt-bubble.wt-entering{animation:wt-enter .22s cubic-bezier(.34,1.56,.64,1) forwards}
+    #wt-bubble.wt-exiting {animation:wt-exit  .15s ease forwards;pointer-events:none}
+    #wt-avatar{font-size:2rem;text-align:center;margin-bottom:.35rem;display:block;animation:wt-bob 2.4s ease-in-out infinite;}
+    @keyframes wt-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+    @keyframes wt-pop{0%{transform:scale(1)}40%{transform:scale(1.35) rotate(-8deg)}70%{transform:scale(.9) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
+    #wt-avatar.wt-avatar-pop{animation:wt-pop .35s ease forwards!important}
+    #wt-text{font-size:.9rem;line-height:1.55;color:var(--fg);margin:0 0 .6rem}
+    #wt-progress{display:flex;gap:.3rem;align-items:center;margin-bottom:.55rem;min-height:10px}
+    .wt-dot{width:7px;height:7px;border-radius:50%;background:var(--panel-border);flex-shrink:0;transition:background .2s}
+    .wt-dot.wt-done{background:var(--accent)}
+    .wt-dot.wt-cur{background:var(--accent);transform:scale(1.3)}
+    #wt-btns{display:flex;gap:.45rem;flex-wrap:wrap}
+    .wt-btn-primary{flex:1;padding:.38rem .7rem;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit}
+    .wt-btn-primary:hover{opacity:.88}
+    .wt-btn-ghost{padding:.38rem .65rem;background:none;border:1.5px solid var(--panel-border);border-radius:7px;font-size:.82rem;color:var(--muted);cursor:pointer;font-family:inherit}
+    .wt-btn-ghost:hover{color:var(--fg);border-color:var(--fg)}
+    #wt-confetti{display:none;position:fixed;inset:0;z-index:9503;pointer-events:none;width:100%;height:100%}
+    .wt-enhanced-btn{font-size:.82rem;background:none;border:1.5px solid var(--panel-border);border-radius:7px;color:var(--muted);padding:.28rem .55rem;cursor:pointer;font-family:inherit;transition:color .15s,border-color .15s}
+    .wt-enhanced-btn:hover{color:var(--accent);border-color:var(--accent)}
+    @media (prefers-reduced-motion: reduce) {
+      #wt-avatar{animation:none;}
+      #wt-bubble{transition:none;}
+      .wt-entering,#wt-bubble.wt-entering{animation:none;}
+      .wt-exiting,#wt-bubble.wt-exiting{animation:none;}
+      .wt-avatar-pop,#wt-avatar.wt-avatar-pop{animation:none!important;}
+    }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu">☰</button>
+    
+      <div class="acct-menu-wrap">
+        <button class="btn-ghost btn-sm" id="acct-menu-btn">👤 deedee</button>
+        <div class="acct-dropdown">
+          <a href="/account" class="acct-item">⚙ Account settings</a>
+          <button id="logout-btn" class="acct-item acct-logout">⬅ Log out</button>
+        </div>
+      </div>
+    
+    <a href="/">← Home</a>
+    <span id="sync-status"></span>
+    <span id="auth-badge-container" style="display:none"></span>
+    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script>(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b)b.textContent=THEME_LABELS[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
+  </div>
+  <script>
+  var _CSRF='633d397b03b270d01d568e36fef374e9bd7d51db6a9f16911486e3f53bd60007';
+
+
+  (function(){
+    var _lsT=localStorage.getItem('fiapp_theme');
+    var _srvT='forest';
+    if(_CSRF&&!_lsT){
+      // Fresh browser (no local key) + logged in: write server theme to localStorage so
+      // subsequent loads use it and the PATCH sync below never fires with a stale 'light' fallback.
+      localStorage.setItem('fiapp_theme',_srvT);
+    } else if(_CSRF&&_lsT&&_lsT!==_srvT){
+      fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
+    }
+  })();
+  function setTheme(name){
+    document.documentElement.classList.remove('dark','theme-ocean','theme-forest',
+      'theme-sunset','theme-midnight','theme-rose','theme-purple','theme-indigo');
+    if(name==='dark') document.documentElement.classList.add('dark');
+    else if(name!=='light') document.documentElement.classList.add('theme-'+name);
+    localStorage.setItem('fiapp_theme',name);
+    var _tb=document.getElementById('theme-btn');
+    if(_tb) _tb.textContent=THEME_LABELS[name]||name;
+    var _td=document.querySelector('.theme-dropdown');
+    if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
+    if(typeof renderChart==='function') renderChart();
+    if(_CSRF){ fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:name})}).catch(function(){}); }
+  }
+  var toggleThemeMenu=toggleAcctMenu;
+  var FIAPP_USER_KEYS=['fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
+    'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
+    'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
+    'fiapp_tax_result','fiapp_tax_ui_v1','fiapp_prefill_income','fiapp_auth_user',
+    'fiapp_walkthrough_v1'];
+  function logOutStep(btn){
+    if(btn.dataset.confirm!=='1'){
+      btn.dataset.confirm='1';
+      btn.textContent='Sure? Click again to confirm';
+      btn.style.color='var(--error,#ef4444)';
+      setTimeout(function(){
+        if(btn.dataset.confirm==='1'){
+          btn.dataset.confirm='';
+          btn.textContent='⬅ Log out';
+          btn.style.color='';
+        }
+      },3000);
+      return;
+    }
+    FIAPP_USER_KEYS.forEach(function(k){localStorage.removeItem(k);});
+    fetch('/auth/logout',{method:'POST'}).then(function(){ window.location='/login'; });
+  }
+  function toggleAcctMenu(btn){
+    var drop=btn.nextElementSibling;
+    var isOpen=drop.classList.contains('open');
+    drop.classList.toggle('open');
+    if(!isOpen){
+      function handler(e){ if(!btn.parentElement.contains(e.target)){ drop.classList.remove('open'); document.removeEventListener('click',handler,true); } }
+      setTimeout(function(){ document.addEventListener('click',handler,true); },0);
+    }
+  }
+  function openDrawer(){
+    document.getElementById('side-drawer').classList.add('open');
+    document.getElementById('drawer-overlay').style.display='block';
+  }
+  function closeDrawer(){
+    document.getElementById('side-drawer').classList.remove('open');
+    document.getElementById('drawer-overlay').style.display='none';
+  }
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape') closeDrawer();
+    if(e.key==='Tab'){
+      var bubble=document.getElementById('wt-bubble');
+      if(!bubble||bubble.style.display==='none') return;
+      var focusable=Array.from(bubble.querySelectorAll('button:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+      if(!focusable.length) return;
+      var first=focusable[0],last=focusable[focusable.length-1];
+      if(e.shiftKey){if(document.activeElement===first){e.preventDefault();last.focus();}}
+      else{if(document.activeElement===last){e.preventDefault();first.focus();}}
+    }
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var hamburger=document.getElementById('hamburger-btn');
+    if(hamburger) hamburger.addEventListener('click',openDrawer);
+    var acctBtn=document.getElementById('acct-menu-btn');
+    if(acctBtn) acctBtn.addEventListener('click',function(e){toggleAcctMenu(e.currentTarget);});
+    var logoutBtn=document.getElementById('logout-btn');
+    if(logoutBtn) logoutBtn.addEventListener('click',function(e){logOutStep(e.currentTarget);});
+    var themeBtn=document.getElementById('theme-btn');
+    if(themeBtn) themeBtn.addEventListener('click',function(e){toggleThemeMenu(e.currentTarget);});
+    document.querySelectorAll('.theme-opt').forEach(function(btn){
+      btn.addEventListener('click',function(){setTheme(btn.dataset.theme);});
+    });
+    var drawerOverlay=document.getElementById('drawer-overlay');
+    if(drawerOverlay) drawerOverlay.addEventListener('click',closeDrawer);
+    var drawerClose=document.getElementById('drawer-close-btn');
+    if(drawerClose) drawerClose.addEventListener('click',closeDrawer);
+  });
+  // Session expiry check — debounced to 30s so rapid tab switches don't spam /auth/me
+  var _lastAuthCheck=0;
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'){
+      var now=Date.now();
+      if(now-_lastAuthCheck>30000){
+        _lastAuthCheck=now;
+        fetch('/auth/me').then(function(r){if(r.status===401)window.location='/login';}).catch(function(){});
+      }
+    }
+  });
+  </script>
+
+  
   <h1>Expense Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
 
   <div class="month-nav">
@@ -244,11 +453,6 @@
     <button class="btn-ghost btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
   </div>
 
-  <!-- Spend trend voice strip -->
-  <div id="voice-strip" style="display:none;margin-bottom:.6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;">
-    <span id="voice-strip-text"></span>
-    <button onclick="this.parentElement.style.display='none'" aria-label="Dismiss" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0">✕</button>
-  </div>
   <!-- Monthly Close Bar -->
   <div id="close-bar" style="display:none;align-items:center;justify-content:space-between;gap:.75rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.55rem .9rem;margin-bottom:.6rem;flex-wrap:wrap;">
     <span id="close-bar-text" style="font-size:.85rem;color:var(--fg);"></span>
@@ -370,5 +574,788 @@
     <div class="share-actions"><button class="btn btn-sm" id="help-close-btn">✕ Close</button></div>
   </div>
 </div>
-{% endblock %}
-{% block body_scripts %}<script src="/static/js/expenses.js"></script>{% endblock %}
+
+
+  <script src="/static/js/expenses.js"></script>
+
+  <div id="drawer-overlay" style="display:none"></div>
+  <nav id="side-drawer">
+    <button class="drawer-close" id="drawer-close-btn" aria-label="Close navigation menu">✕</button>
+    <h2>Tools</h2>
+    <ul>
+      <li><a href="/" class="drawer-link" data-path="/">🏠 Home</a></li>
+      <li><a href="/income"   class="drawer-link" data-path="/income">💰 Income Tracker</a></li>
+      <li><a href="/expenses" class="drawer-link" data-path="/expenses">📊 Expense Tracker</a></li>
+      <li><a href="/analytics" class="drawer-link" data-path="/analytics">📉 Analytics</a></li>
+      <li><a href="/subscriptions" class="drawer-link" data-path="/subscriptions">🔄 Subscription Tracker</a></li>
+      <li><a href="/interest" class="drawer-link" data-path="/interest">📈 Interest Calculator</a></li>
+      <li><a href="/tax" class="drawer-link" data-path="/tax">🧾 Tax Calculator</a></li>
+      <li><a href="/currency" class="drawer-link" data-path="/currency">💱 Currency Converter</a></li>
+    </ul>
+  </nav>
+  <script>document.querySelectorAll('.drawer-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('drawer-link-active');});</script>
+
+  
+  <div id="wt-overlay" aria-hidden="true"></div>
+  <div id="wt-highlight" aria-hidden="true"></div>
+  <div id="wt-bubble" role="dialog" aria-live="polite" aria-label="App guide" style="display:none">
+    <span id="wt-avatar">🧭</span>
+    <p id="wt-text"></p>
+    <div id="wt-progress"></div>
+    <div id="wt-btns"></div>
+  </div>
+  <canvas id="wt-confetti" aria-hidden="true"></canvas>
+  
+
+  <script>
+  (function(){
+    'use strict';
+    var WT_KEY='fiapp_walkthrough_v1';
+    var _loggedIn=!!"deedee";
+    var _wtUser="deedee";
+    var _WT_USER_KEY=_wtUser?'fiapp_wt_u_'+_wtUser:null;
+    var _page=window.location.pathname;
+
+    // Clear tracker localStorage when a different user logs in on this device,
+    // preventing data bleed between accounts. Runs synchronously before any
+    // tracker JS reads localStorage.
+    (function(){
+      if(!_loggedIn||!_wtUser) return;
+      var _LAST_USER_KEY='fiapp_last_user';
+      var _lastUser=localStorage.getItem(_LAST_USER_KEY);
+      if(_lastUser!==_wtUser){
+        ['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4',
+         'fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
+         'fiapp_income_undo_v1','fiapp_income_redo_v1',
+         'fiapp_subs_undo_v4','fiapp_subs_redo_v4',
+         'fiapp_wt_backup_v1'].forEach(function(k){localStorage.removeItem(k);});
+        localStorage.setItem(_LAST_USER_KEY,_wtUser);
+      }
+    })();
+
+    function _ld(){try{return JSON.parse(localStorage.getItem(WT_KEY)||'null');}catch{return null;}}
+    function _svUser(s){if(!_WT_USER_KEY)return;try{localStorage.setItem(_WT_USER_KEY,JSON.stringify({mainCompleted:s.mainCompleted||false,seen:s.seen||[],wantsCurrencyTour:s.wantsCurrencyTour}));}catch{}}
+    function _sv(s){try{localStorage.setItem(WT_KEY,JSON.stringify(s));_svUser(s);}catch{}}
+    function _def(){return{active:false,stepId:null,wantsCurrencyTour:null,mainCompleted:false,loggedOutWelcome:false,seen:[],resumeMode:false};}
+    var WT_STEPS=[
+      {id:'home-welcome',  page:'/',             type:'modal',   text:'Hey there! 👋 I\'m <strong>Fi</strong>, your FiApp guide.<br><br>FiApp is a 7-in-1 personal finance toolkit. Let me walk you through the key tools - you can skip at any time.',    actions:[{label:"Let's go! →",primary:true,navigate:'/income',next:true}]},
+      {id:'inc-intro',     page:'/income',        type:'modal',   text:'First stop: the <strong>Income Tracker</strong>. 💰<br><br>This is where you record all your income sources - salary, freelance, rental, anything.',                                 actions:[{label:'Show me →',primary:true,next:true}]},
+      {id:'inc-currency',  page:'/income',        type:'tooltip', target:'[data-wt="income-currency"]', text:'Each row can have its <strong>own currency</strong>. Pick it from the selector next to each cell. Great for multi-currency earners.',             actions:[{label:'Got it →',primary:true,next:true}]},
+      {id:'inc-enter',     page:'/income',        type:'wait',    target:'.sheet-wrap', text:'Now <strong>type in your monthly income</strong> - click any cell in the table below and enter a number. Go on, Fi won\'t judge! 😄',                      waitFor:'income_input',onMet:'confetti',actions:[]},
+      {id:'inc-done',      page:'/income',        type:'modal',   text:'✨ Your first income entry! You can add more rows for different sources.<br><br>Next up: log your expenses.',                                                                           actions:[{label:'Next: Expenses →',primary:true,navigate:'/expenses',next:true}]},
+      {id:'exp-intro',     page:'/expenses',      type:'modal',   text:'Welcome to the <strong>Expense Tracker</strong>. 📊<br><br>Log everything you spend each month - rent, food, transport, etc. We\'ll do subscriptions separately.',                     actions:[{label:'Show me →',primary:true,next:true}]},
+      {id:'exp-col',       page:'/expenses',      type:'tooltip', target:'[data-wt="expense-month-col"]', text:'Each column is a <strong>week</strong> by default - but you can rename, add, or remove columns from the Table menu in the toolbar.',                              actions:[{label:'Got it →',primary:true,next:true}]},
+      {id:'exp-enter',     page:'/expenses',      type:'tooltip', target:'.sheet-wrap', allowInteract:true, text:'Fill in some expenses across a few categories - rent, groceries, transport, whatever fits your life. Take your time, then hit <strong>I\'m done</strong> when ready!', actions:[{label:"I'm done →",primary:true,next:true,validate:'hasExpenseData'}]},
+      {id:'exp-subs',      page:'/expenses',      type:'tooltip', target:'[data-wt="subs-link"]', text:'Subscriptions deserve their own tracker! Let\'s head there - they auto-sync back here so no double entry.',                                             actions:[{label:'Go to Subscriptions →',primary:true,navigate:'/subscriptions',next:true},{label:'Skip',gotoId:'ana-intro'}]},
+      {id:'subs-intro',    page:'/subscriptions', type:'modal',   text:'The <strong>Subscription Tracker</strong> 🔄 keeps all recurring payments in one place - and they sync to the Expense Tracker automatically.',                                         actions:[{label:'Show me →',primary:true,next:true}]},
+      {id:'subs-add',      page:'/subscriptions', type:'tooltip', target:'[data-wt="subs-add"]', allowInteract:true, text:'Pick a service from the dropdown (or type a custom name) and hit <strong>Add</strong>. It defaults to monthly billing - you can change any detail after adding.',  actions:[{label:"Added one →",primary:true,next:true,validate:'hasSubData'}]},
+      {id:'subs-months',   page:'/subscriptions', type:'modal',   text:'The <strong>month columns</strong> mark when each sub is active. Leave a month blank = always active. Great for seasonal or annual subs.',                                              actions:[{label:function(st,vs){return vs.some(function(s){return s.id==='ana-intro';})?'Next: Analytics →':'Next →';},primary:true,navigate:'/analytics',next:true}]},
+      {id:'ana-intro',     page:'/analytics',     type:'modal',   text:'The <strong>Analytics</strong> page 📉 pulls from all your trackers automatically - spending trends, income vs expenses, category breakdowns, and more.<br><br><span style="font-size:.8rem;color:var(--muted)">📊 Prior months shown here use randomised sample values so the charts aren\'t empty. Your real history builds as you use the app.</span>',               actions:[{label:"Let's look →",primary:true,next:true}]},
+      {id:'ana-period',    page:'/analytics',     type:'tooltip', target:'[data-wt="analytics-period"]', text:'Use the <strong>Period selector</strong> to filter all charts to a specific month or range.',                                                    actions:[{label:'Got it →',primary:true,next:true}]},
+      {id:'ana-scroll',    page:'/analytics',     type:'wait',    target:null, pin:'tl', text:'📜 <strong>Scroll down</strong> to explore all the charts - there are several! I\'ll wait here.',                                                             waitFor:'scroll_near_bottom',actions:[],allowSelectors:['.slideshow-nav-btn']},
+      {id:'ana-done',      page:'/analytics',     type:'modal',   text:'You\'ve seen it all! Charts update automatically as you add more data.',                                                                                                                actions:[{label:'Back to home →',primary:true,navigate:'/',next:true}]},
+      {id:'home-branch',   page:'/',              type:'modal',   text:'Almost done! Two more tools you might want:<br><br>🧾 <strong>Tax Calculator</strong> - estimates income tax for 🇺🇸 US, 🇮🇳 India, and 🇭🇰 HK.<br><br>💱 <strong>Currency Converter</strong> - live exchange rates.<br><br>Want a quick look?', actions:[{label:'Yes, show me! →',primary:true,navigate:'/tax',setWantsTour:true,next:true},{label:"I'm good to explore",end:'soft'}]},
+      {id:'tax-intro',     page:'/tax',           type:'modal',   wantsCurrencyTour:true, text:'The <strong>Tax Calculator</strong> 🧾 supports three countries. Pick your country at the top, enter your annual income, and hit <strong>Compute Tax</strong>. After computing, an explainer link appears showing exactly how the number was calculated.',  actions:[{label:'Got it →',primary:true,next:true}]},
+      {id:'tax-toggle',    page:'/tax',           type:'tooltip', wantsCurrencyTour:true, target:'[data-wt="tax-country"]', text:'Switch between 🇺🇸 US, 🇮🇳 India, and 🇭🇰 HK here. Each uses up-to-date tax rules for the current year.',                   actions:[{label:'Next: Currency →',primary:true,navigate:'/currency',next:true}]},
+      {id:'curr-intro',    page:'/currency',      type:'modal',   wantsCurrencyTour:true, text:'The <strong>Currency Converter</strong> 💱 uses live exchange rates. Rates are cached to stay within free-tier limits - refresh if you need the very latest.',  actions:[{label:'Got it →',primary:true,next:true}]},
+      {id:'curr-from',     page:'/currency',      type:'tooltip', wantsCurrencyTour:true, target:'[data-wt="currency-from"]', text:'Pick any two currencies, or type any ISO code (like <strong>HKD</strong> or <strong>AED</strong>) if it\'s not in the preset list.', actions:[{label:'Finish tour 🎉',primary:true,end:true}]}
+    ];
+
+    function _vis(state){return WT_STEPS.filter(function(s){if(s.wantsCurrencyTour!=null&&s.wantsCurrencyTour!==state.wantsCurrencyTour)return false;if(state.resumeMode&&state.seen&&state.seen.indexOf(s.id)>=0)return false;return true;});}
+
+    var _overlay,_highlight,_bubble,_avatar,_text,_progress,_btns,_confCvs;
+    var _waitOff=[];
+    var _elevatedEl=null;
+    var _guardOff=null;
+    var _hlTrackOff=null;
+    var _curTarget=null,_curPin=null; // tracked so resize can reposition
+    var _preTourFocus=null; // element focused before tour opened — restored on close
+
+    function _elevate(el){
+      if(_elevatedEl){_elevatedEl.style.position='';_elevatedEl.style.zIndex='';}
+      _elevatedEl=el;
+      if(el){el.style.position='relative';el.style.zIndex='9502';}
+    }
+
+
+
+    function _startGuard(targetEl,allowSelectors){
+      if(_guardOff){_guardOff();_guardOff=null;}
+      function guard(e){
+        var t=e.target||(e.touches&&e.touches[0]&&e.touches[0].target);
+        if(!t) return;
+        var inBubble=_bubble&&_bubble.contains(t);
+        var inToast=!!t.closest('[data-wt-toast]');
+
+        var navLink=t.closest('a[href]');
+        if(navLink&&!inBubble){e.stopPropagation();e.preventDefault();return;}
+        var inTarget=targetEl&&targetEl.contains(t);
+        var inAllowed=allowSelectors&&allowSelectors.some(function(sel){return !!t.closest(sel);});
+        if(!inBubble&&!inTarget&&!inToast&&!inAllowed){e.stopPropagation();e.preventDefault();}
+      }
+
+
+
+
+      var touchEndOpts={capture:true,passive:false};
+      document.addEventListener('click',guard,true);
+      document.addEventListener('mousedown',guard,true);
+      document.addEventListener('touchend',guard,touchEndOpts);
+      _guardOff=function(){
+        document.removeEventListener('click',guard,true);
+        document.removeEventListener('mousedown',guard,true);
+        document.removeEventListener('touchend',guard,touchEndOpts);
+      };
+    }
+    function _stopGuard(){if(_guardOff){_guardOff();_guardOff=null;}}
+    function _clearWait(){_waitOff.forEach(function(f){f();});_waitOff=[];_stopGuard();}
+    var WT_TRACKER_KEYS=['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4'];
+    var WT_BK_KEY='fiapp_wt_backup_v1';
+    function _hasTrackerData(){return WT_TRACKER_KEYS.some(function(k){return !!localStorage.getItem(k);});}
+    function _backup(){
+      try{
+        var bk={};
+        WT_TRACKER_KEYS.forEach(function(k){var v=localStorage.getItem(k);if(v)bk[k]=v;});
+        localStorage.setItem(WT_BK_KEY,JSON.stringify(bk));
+        WT_TRACKER_KEYS.forEach(function(k){localStorage.removeItem(k);});
+      }catch(_){}
+    }
+    function _restore(){
+      try{
+        var bk=JSON.parse(localStorage.getItem(WT_BK_KEY)||'null');
+        var hadData=bk&&WT_TRACKER_KEYS.some(function(k){return !!bk[k];});
+        // Always wipe tracker keys first — discards any data entered during the walkthrough
+        WT_TRACKER_KEYS.forEach(function(k){localStorage.removeItem(k);});
+        // Then restore pre-tour data if a backup exists
+        if(bk){WT_TRACKER_KEYS.forEach(function(k){if(bk[k])localStorage.setItem(k,bk[k]);});}
+        localStorage.removeItem(WT_BK_KEY);
+        return !!hadData;
+      }catch(_){return false;}
+    }
+    function _toast(msg,dur){var el=document.createElement('div');el.setAttribute('data-wt-toast','1');el.style.cssText='position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--panel-bg);border:1.5px solid var(--panel-border);border-radius:8px;padding:.5rem 1rem;font-size:.85rem;color:var(--fg);z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100vw - 2rem);text-align:center;pointer-events:none;';el.textContent=msg;document.body.appendChild(el);setTimeout(function(){el.remove();},dur||3000);}
+    function _hideAll(){if(_overlay)_overlay.style.display='none';if(_highlight)_highlight.style.display='none';if(_bubble)_bubble.style.display='none';_elevate(null);_clearWait();if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}if(_preTourFocus&&typeof _preTourFocus.focus==='function'){try{_preTourFocus.focus();}catch(_){}} _preTourFocus=null;}
+    function _posBubble(targetEl,pin){
+      _curTarget=targetEl||null; _curPin=pin||null;
+      requestAnimationFrame(function(){
+        if(_curPin==='tl'){
+          _bubble.style.top='4.5rem';_bubble.style.left='14px';
+          _bubble.style.bottom='';_bubble.style.right='';_bubble.style.transform='';
+          return;
+        }
+        var margin=14,pw=_bubble.offsetWidth||310,ph=_bubble.offsetHeight||160;
+        var top,left;
+        if(!targetEl){
+          top=Math.max(margin,(window.innerHeight-ph)/2);
+          left=Math.max(margin,(window.innerWidth-pw)/2);
+          if(window.innerWidth<480){_bubble.style.cssText=_bubble.style.cssText+'bottom:1rem;top:auto;left:50%;transform:translateX(-50%);';return;}
+        } else {
+          var r=targetEl.getBoundingClientRect();
+          top=r.bottom+8;
+          if(top+ph>window.innerHeight-margin) top=r.top-ph-8;
+          left=r.left;
+        }
+        top=Math.max(margin,Math.min(top,window.innerHeight-ph-margin));
+        left=Math.max(margin,Math.min(left,window.innerWidth-pw-margin));
+        _bubble.style.top=top+'px';_bubble.style.left=left+'px';_bubble.style.bottom='';_bubble.style.transform='';
+      });
+    }
+    function _onResize(){
+      if(!_bubble||_bubble.style.display==='none') return;
+      _posBubble(_curTarget,_curPin);
+      if(_curTarget) _setHL(_curTarget);
+    }
+    function _vvOffset(){
+
+
+
+
+      return {
+        top:  window.visualViewport ? window.visualViewport.offsetTop  : 0,
+        left: window.visualViewport ? window.visualViewport.offsetLeft : 0
+      };
+    }
+    function _setHL(el){
+      if(!el){_highlight.style.display='none';if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}return;}
+      var pad=6,r=el.getBoundingClientRect();
+      _highlight.style.cssText='display:block;position:fixed;z-index:9501;border-radius:10px;pointer-events:none;transition:top .12s ease,left .12s ease,width .12s ease,height .12s ease;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(0,0,0,.42);top:'+(r.top-pad)+'px;left:'+(r.left-pad)+'px;width:'+(r.width+pad*2)+'px;height:'+(r.height+pad*2)+'px;';
+    }
+    function _trackHL(el){
+      if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}
+      if(!el) return;
+      var h=function(){_setHL(el);_posBubble(el);};
+      window.addEventListener('scroll',h,{passive:true});
+      window.addEventListener('resize',h,{passive:true});
+
+      if(window.visualViewport){
+        window.visualViewport.addEventListener('resize',h);
+        window.visualViewport.addEventListener('scroll',h);
+      }
+      _hlTrackOff=function(){
+        window.removeEventListener('scroll',h);
+        window.removeEventListener('resize',h);
+        if(window.visualViewport){
+          window.visualViewport.removeEventListener('resize',h);
+          window.visualViewport.removeEventListener('scroll',h);
+        }
+      };
+    }
+    function _dots(idx,total){
+      _progress.innerHTML='';
+      for(var i=0;i<total;i++){var d=document.createElement('span');d.className='wt-dot'+(i<idx?' wt-done':i===idx?' wt-cur':'');_progress.appendChild(d);}
+    }
+    function _emojiFor(step){
+      if(step.onMet==='confetti') return '🎉';
+      if(step.type==='wait') return '👀';
+      if(step.type==='tooltip') return '💡';
+      return '🧭';
+    }
+    function _transition(renderFn){
+      if(!_bubble||_bubble.style.display==='none'){
+        renderFn();
+        _bubble.style.display='block';
+        _bubble.classList.remove('wt-exiting');
+        _bubble.classList.add('wt-entering');
+        setTimeout(function(){_bubble.classList.remove('wt-entering');},300);
+      } else {
+        _bubble.classList.add('wt-exiting');
+        setTimeout(function(){
+          _bubble.classList.remove('wt-exiting');
+          renderFn();
+          _bubble.classList.add('wt-entering');
+          setTimeout(function(){_bubble.classList.remove('wt-entering');},300);
+        },180);
+      }
+      _avatar.classList.remove('wt-avatar-pop');
+      void _avatar.offsetWidth;
+      _avatar.classList.add('wt-avatar-pop');
+      setTimeout(function(){_avatar.classList.remove('wt-avatar-pop');},400);
+    }
+
+    function _wtValidate(key){
+      if(key==='hasExpenseData'){
+        return [].slice.call(document.querySelectorAll('.sheet td input')).some(function(i){return !!(parseFloat(i.value)||0);});
+      }
+      if(key==='hasSubData'){
+        try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');return (s.rows||[]).length>0;}catch(e){return false;}
+      }
+      return true;
+    }
+
+    function _skipBtn(){
+      var b=document.createElement('button');
+      b.className='wt-btn-ghost';b.textContent='Skip walkthrough';
+      b.style.cssText='width:100%;margin-top:.3rem;opacity:.7;font-size:.8rem;';
+      b.onclick=function(){
+        var s=_ld()||_def();
+        var wasFirst=!s.mainCompleted;
+        s.active=false;
+        if(wasFirst) s.mainCompleted=true;
+        _sv(s);var restored=_restore();_hideAll();
+        if(wasFirst) _updateWtHomeLink();
+        if(restored) _toast('Walkthrough ended. Your data has been restored. ✅',2000);
+        setTimeout(function(){window.location.reload();},restored?1500:300);
+      };
+      return b;
+    }
+
+    function _seedHistoryForAnalytics(){
+
+
+      var now=new Date();
+      function mkStr(d){return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);}
+      var curMk=mkStr(now);
+      function prevMk(n){return mkStr(new Date(now.getFullYear(),now.getMonth()-n,1));}
+      function seedStore(key){
+        try{
+          var s=JSON.parse(localStorage.getItem(key)||'null');
+          if(!s||!s.cells) return;
+          var curKeys=Object.keys(s.cells).filter(function(k){return k.indexOf(curMk+'|')===0;});
+          if(!curKeys.length) return;
+          var singlePoint=curKeys.length===1;
+          [1,2].forEach(function(n){
+            var pk=prevMk(n);
+
+
+            if(s.rowsByMonth&&s.rowsByMonth[curMk]&&!s.rowsByMonth[pk])
+              s.rowsByMonth[pk]=s.rowsByMonth[curMk].map(function(r){return Object.assign({},r);});
+            if(s.colsByMonth&&s.colsByMonth[curMk]&&!s.colsByMonth[pk])
+              s.colsByMonth[pk]=s.colsByMonth[curMk].map(function(c){return Object.assign({},c);});
+            curKeys.forEach(function(k){
+              var parts=k.split('|');
+              var pKey=pk+'|'+parts[1]+'|'+parts[2];
+              if(pKey in s.cells) return; // never overwrite real data
+              var num=parseFloat(s.cells[k]);
+              if(!isNaN(num)&&num!==0){
+                var val=singlePoint
+
+                  ? Math.round((80+Math.random()*720)*100)/100
+
+                  : Math.round(num*(0.45+Math.random()*1.1)*100)/100;
+
+                s.cells[pKey]=String(val);
+              }
+            });
+          });
+          localStorage.setItem(key,JSON.stringify(s));
+        }catch(e){}
+      }
+      seedStore('fiapp_expenses_v4');
+      seedStore('fiapp_income_v1');
+
+
+
+
+      try{
+        var ss=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'null');
+        if(ss&&ss.cols&&ss.cols.length&&(ss.rows||[]).length<3){
+          var costCol=ss.cols.find(function(c){return c.ctype==='number';});
+          var startCol=ss.cols.find(function(c){return c.ctype==='date';});
+          if(costCol){
+            var services=[['Netflix',15.99],['Spotify',9.99],['Adobe CC',Math.round((30+Math.random()*40)*100)/100]];
+            if(!ss.cells) ss.cells={};
+
+            var existingLabels=(ss.rows||[]).map(function(r){return (r.label||'').toLowerCase();});
+            services.forEach(function(pair,i){
+              if(existingLabels.indexOf(pair[0].toLowerCase())>=0) return;
+              var rid='wt-seed-sub-'+i;
+              if((ss.rows||[]).find(function(r){return r.id===rid;})) return;
+              ss.rows.push({id:rid,label:pair[0]});
+              ss.cells[rid+'|'+costCol.id]=pair[1];
+
+              if(startCol){
+                var sd=new Date(now.getFullYear(),now.getMonth()-(i+1),1);
+                ss.cells[rid+'|'+startCol.id]=sd.getFullYear()+'-'+('0'+(sd.getMonth()+1)).slice(-2)+'-01';
+              }
+            });
+            localStorage.setItem('fiapp_subs_v4',JSON.stringify(ss));
+          }
+        }
+      }catch(e){}
+    }
+
+    function _updateWtHomeLink(){
+      var wt=_ld();
+      var el=document.getElementById('wt-restart-link');
+      var lbl=document.getElementById('wt-restart-lbl');
+      if(!el||!lbl) return;
+      if(wt&&wt.mainCompleted){el.style.display='block';lbl.textContent=(wt.seen&&wt.seen.length>0)?'↺ Continue walkthrough':'↺ Restart walkthrough';}
+    }
+
+    function _showDoneCard(text,reloadOnDismiss){
+      _transition(function(){
+        _avatar.textContent='🎉';_text.innerHTML=text;_btns.innerHTML='';_progress.innerHTML='';
+        var b=document.createElement('button');b.className='wt-btn-primary';b.textContent="Let's go! 🚀";
+        b.onclick=function(){_hideAll();_updateWtHomeLink();window.location.reload();};
+        _btns.appendChild(b);
+      });
+      _setHL(null);_posBubble(null);
+    }
+
+    function _handleAction(action,state){
+      state=state||_ld()||_def();
+      if(!state.seen) state.seen=[];
+      if(action.setWantsTour){state.wantsCurrencyTour=true;_sv(state);}
+      if(action.end){
+        if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
+        var _visAll=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
+        if(_visAll.every(function(s){return state.seen.indexOf(s.id)>=0;})) state.seen=[];
+        state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r0=_restore();
+        var completionText=action.end==='soft'
+          ?'🎉 <strong>All set!</strong><br>Jump in and explore FiApp on your own.'+(_r0?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>You can redo this tour from <strong>Account → Walkthrough</strong> anytime.'
+          :'🎉 <strong>Walkthrough complete!</strong><br><br>You\'re all set to use FiApp.'+(_r0?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Redo this tour from <strong>Account → Walkthrough</strong> anytime.';
+        _showDoneCard(completionText,_r0);
+        return;
+      }
+      if(action.gotoId){
+        if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
+        var vs=_vis(state);var target=vs.find(function(s){return s.id===action.gotoId;});
+        if(target){state.stepId=target.id;_sv(state);if(target.page!==_page){if(target.page==='/analytics')_seedHistoryForAnalytics();window.location.href=target.page;}else{_showStep(target,vs.length,vs.findIndex(function(s){return s.id===target.id;}));}}
+        return;
+      }
+      if(action.navigate){
+        var vs2=_vis(state),idx=vs2.findIndex(function(s){return s.id===state.stepId;});
+        if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
+        if(idx>=0&&idx<vs2.length-1){
+          var nxt2=vs2[idx+1];state.stepId=nxt2.id;_sv(state);
+          if(nxt2.page==='/analytics') _seedHistoryForAnalytics();
+          window.location.href=nxt2.page;
+        } else {
+          state.seen=[];state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r1=_restore();
+          _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r1?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.',_r1);
+        }
+        return;
+      }
+      if(action.next){
+        var vs3=_vis(state),idx3=vs3.findIndex(function(s){return s.id===state.stepId;});
+        if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
+        var next3=idx3>=0&&idx3<vs3.length-1?vs3[idx3+1]:null;
+        if(!next3){
+          var _va2=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
+          if(_va2.every(function(s){return state.seen.indexOf(s.id)>=0;})) state.seen=[];
+          state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r2=_restore();
+          _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r2?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.',_r2);
+          return;
+        }
+        state.stepId=next3.id;_sv(state);
+        if(next3.page!==_page){window.location.href=next3.page;}
+        else{_showStep(next3,vs3.length,vs3.findIndex(function(s){return s.id===next3.id;}));}
+      }
+    }
+
+    function _setupWait(cond,cb){
+
+      _waitOff.forEach(function(f){f();});_waitOff=[];
+      if(cond==='income_input'||cond==='any_expense_entered'){
+        var h=function(){if([].slice.call(document.querySelectorAll('.sheet td input,.cell input')).some(function(i){var v=parseFloat(i.value||'0');return !isNaN(v)&&v!==0;})){_clearWait();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();setTimeout(cb,80);}};
+        document.addEventListener('input',h);_waitOff.push(function(){document.removeEventListener('input',h);});
+      } else if(cond==='scroll_near_bottom'){
+        var sh=function(){var sc=window.scrollY||document.documentElement.scrollTop;var tot=document.documentElement.scrollHeight-window.innerHeight;if(tot<=0||sc/tot>0.88){_clearWait();cb();}};
+
+        setTimeout(sh,400);
+        window.addEventListener('scroll',sh,{passive:true});_waitOff.push(function(){window.removeEventListener('scroll',sh);});
+
+        var canvases=[].slice.call(document.querySelectorAll('canvas'));
+        if(canvases.length){
+          var last=canvases[canvases.length-1];
+          var obs=new IntersectionObserver(function(entries){if(entries.some(function(e){return e.isIntersecting;})){obs.disconnect();_clearWait();cb();}},{threshold:0.1});
+          obs.observe(last);_waitOff.push(function(){obs.disconnect();});
+        }
+      }
+    }
+
+    function _fireConfetti(){
+      if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      _confCvs.style.display='block';
+      _confCvs.width=window.innerWidth;_confCvs.height=window.innerHeight;
+      var ctx=_confCvs.getContext('2d');
+      var COLORS=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#a855f7','#f59e0b','#22d3ee'];
+      var pts=[],i;for(i=0;i<80;i++)pts.push({x:Math.random()*_confCvs.width,y:-10,r:3+Math.random()*5,vx:(Math.random()-.5)*4,vy:1.5+Math.random()*4,rot:Math.random()*360,rv:(Math.random()-.5)*8,color:COLORS[i%COLORS.length],rect:Math.random()>.5});
+      var f=0,MAX=140;
+      function draw(){
+        ctx.clearRect(0,0,_confCvs.width,_confCvs.height);
+        pts.forEach(function(p){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.fillStyle=p.color;ctx.globalAlpha=Math.max(0,1-f/MAX);if(p.rect){ctx.fillRect(-p.r,-p.r/2,p.r*2,p.r);}else{ctx.beginPath();ctx.arc(0,0,p.r,0,Math.PI*2);ctx.fill();}ctx.restore();p.x+=p.vx;p.y+=p.vy;p.rot+=p.rv;p.vy+=.08;});
+        f++;if(f<MAX)requestAnimationFrame(draw);else _confCvs.style.display='none';
+      }
+      requestAnimationFrame(draw);
+    }
+
+    function _showStep(step,total,dotIdx){
+      _clearWait();_elevate(null);
+      var state=_ld()||_def();
+      var targetEl=step.target?document.querySelector(step.target):null;
+      _transition(function(){
+        _avatar.textContent=_emojiFor(step);
+        _text.innerHTML=step.text.replace(/\n/g,'<br>');
+        _btns.innerHTML='';
+        (step.actions||[]).forEach(function(a){
+          var btn=document.createElement('button');
+          btn.className=a.primary?'wt-btn-primary':'wt-btn-ghost';
+          btn.textContent=typeof a.label==='function'?a.label(state,_vis(state)):a.label;
+          btn.onclick=function(){
+            if(a.validate&&!_wtValidate(a.validate)){
+              btn.animate([{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(-4px)'},{transform:'translateX(4px)'},{transform:'translateX(0)'}],{duration:350,easing:'ease'});
+              var hint=_btns.querySelector('.wt-val-hint');
+              if(!hint){hint=document.createElement('div');hint.className='wt-val-hint';hint.style.cssText='font-size:.78rem;color:#ef4444;margin-top:.3rem;text-align:center;';_btns.appendChild(hint);}
+              hint.textContent='Add something first!';
+              setTimeout(function(){if(hint.parentNode)hint.textContent='';},2200);
+              return;
+            }
+            _handleAction(a,state);
+          };
+          _btns.appendChild(btn);
+        });
+        _btns.appendChild(_skipBtn());
+        _dots(dotIdx,total);
+      });
+      _overlay.className='';_overlay.style.display='block';
+      if(step.type==='wait'||step.allowInteract) _overlay.classList.add('wt-allow-scroll');
+
+
+      _startGuard(step.type==='wait'||step.allowInteract ? targetEl : null, step.allowSelectors||null);
+      function _applyTarget(el){
+        el.scrollIntoView({block:'center',behavior:'smooth'});
+        setTimeout(function(){_setHL(el);_posBubble(el);_trackHL(el);},380);
+      }
+      if(step.pin==='tl'){
+        _setHL(null);_trackHL(null);
+        _posBubble(null,'tl');
+      } else if(targetEl){
+        _applyTarget(targetEl);
+      } else {
+        _setHL(null);_posBubble(null);_trackHL(null);
+
+
+        if(step.target){
+          setTimeout(function(){
+            var el=document.querySelector(step.target);
+            if(el){
+              _applyTarget(el);
+              if(step.type==='wait'||step.allowInteract){
+                var _chk=_ld();
+                if(_chk&&_chk.active) _startGuard(el, step.allowSelectors||null);
+              }
+            }
+          },700);
+        }
+      }
+      if(step.type==='wait'){
+        _setupWait(step.waitFor,function(){
+          if(step.onMet==='confetti')_fireConfetti();
+          setTimeout(function(){
+            var st=_ld()||_def();
+            if(!st.active) return;
+            if(!st.seen) st.seen=[];
+            var vs=_vis(st);var idx=vs.findIndex(function(s){return s.id===step.id;});
+            if(step.id&&st.seen.indexOf(step.id)<0) st.seen.push(step.id);
+            var nxt=idx>=0&&idx<vs.length-1?vs[idx+1]:null;
+            if(!nxt){var _va3=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===st.wantsCurrencyTour;});if(_va3.every(function(s){return st.seen.indexOf(s.id)>=0;}))st.seen=[];st.resumeMode=false;st.active=false;st.mainCompleted=true;_sv(st);var _r3=_restore();_showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r3?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.',_r3);return;}
+            st.stepId=nxt.id;_sv(st);
+            if(nxt.page!==_page){window.location.href=nxt.page;}
+            else _showStep(nxt,vs.length,vs.findIndex(function(s){return s.id===nxt.id;}));
+          },step.onMet==='confetti'?1700:0);
+        });
+      }
+    }
+
+    function _showDisclaimer(onConfirm){
+      _transition(function(){
+        _avatar.textContent='🧭';
+        _text.innerHTML='Before we start — you have saved data in FiApp.<br><br>I\'ll <strong>temporarily hide it</strong> during the walkthrough so we start with a clean slate.<br><br><strong>Don\'t worry:</strong> everything is <strong>fully restored</strong> when the tour ends or if you skip.';
+        _btns.innerHTML='';
+        var goBtn=document.createElement('button');goBtn.className='wt-btn-primary';goBtn.textContent="Got it, let's go! →";
+        goBtn.onclick=function(){_backup();onConfirm();};
+        var skipBtn=document.createElement('button');skipBtn.className='wt-btn-ghost';skipBtn.textContent='Skip walkthrough';
+        skipBtn.style.cssText='width:100%;margin-top:.3rem;opacity:.7;font-size:.8rem;';
+        skipBtn.onclick=function(){var s=_ld()||_def();s.active=false;s.mainCompleted=true;_sv(s);_hideAll();_updateWtHomeLink();};
+        _btns.appendChild(goBtn);_btns.appendChild(skipBtn);_progress.innerHTML='';
+      });
+      _overlay.style.display='block';_setHL(null);_posBubble(null);
+    }
+    function _showLoggedOutWelcome(){
+      var state=_ld()||_def();
+      _transition(function(){
+        _avatar.textContent='🧭';
+        _text.innerHTML='Hey there! 👋 I\'m <strong>Fi</strong>, your FiApp guide.<br><br>FiApp is a 7-in-1 personal finance toolkit. Want a quick guided tour? You\'ll need an account to save data.';
+        _btns.innerHTML='';
+        var createBtn=document.createElement('button');createBtn.className='wt-btn-primary';createBtn.textContent='Create Account →';
+        createBtn.onclick=function(){window.location.href='/login?tab=register';};
+        var noBtn=document.createElement('button');noBtn.className='wt-btn-ghost';noBtn.textContent="No thanks, I'll look around";
+        noBtn.onclick=function(){
+          state.loggedOutWelcome=false;_sv(state);_hideAll();
+          var wtHomeBtn=document.getElementById('wt-home-btn');
+          if(wtHomeBtn) wtHomeBtn.style.display='inline-block';
+        };
+        _btns.appendChild(createBtn);_btns.appendChild(noBtn);_progress.innerHTML='';
+      });
+      _overlay.style.display='block';_setHL(null);_posBubble(null);
+    }
+
+    window.addEventListener('DOMContentLoaded',function(){
+      _overlay=document.getElementById('wt-overlay');
+      _highlight=document.getElementById('wt-highlight');
+      _bubble=document.getElementById('wt-bubble');
+      _avatar=document.getElementById('wt-avatar');
+      _text=document.getElementById('wt-text');
+      _progress=document.getElementById('wt-progress');
+      _btns=document.getElementById('wt-btns');
+      _confCvs=document.getElementById('wt-confetti');
+      if(!_overlay||!_bubble) return;
+
+      // Global resize handler — repositions bubble at any zoom level for ALL step types
+      window.addEventListener('resize',_onResize,{passive:true});
+      if(window.visualViewport) window.visualViewport.addEventListener('resize',_onResize);
+
+      var state=_ld();
+
+      // If a different (or new) user is logged in and has no per-user key, the shared state
+      // belongs to a previous session — discard it so auto-start fires correctly for new users.
+      if(state&&_loggedIn&&_WT_USER_KEY&&!localStorage.getItem(_WT_USER_KEY)){
+        state=null;
+        localStorage.removeItem(WT_KEY);
+      }
+
+      if(!state&&_loggedIn&&_WT_USER_KEY){
+        try{
+          var _us=JSON.parse(localStorage.getItem(_WT_USER_KEY)||'null');
+          if(_us&&(_us.mainCompleted||((_us.seen||[]).length>0))){
+            state=_def();
+            state.mainCompleted=_us.mainCompleted||false;
+            state.seen=_us.seen||[];
+            state.wantsCurrencyTour=_us.wantsCurrencyTour;
+            _sv(state);
+            _updateWtHomeLink();
+          }
+        }catch{}
+      }
+
+      if(!state&&_page==='/'){
+        state=_def();
+        if(_loggedIn){
+          state.active=true;state.stepId='home-welcome';
+        } else {
+          state.loggedOutWelcome=true;
+        }
+        _sv(state);
+      }
+
+      // If backup key exists but walkthrough is no longer active, auto-restore
+      if(localStorage.getItem(WT_BK_KEY)&&(!state||!state.active)) _restore();
+
+      if(!state) return;
+
+      if(!_loggedIn&&state.loggedOutWelcome&&_page==='/'){
+        setTimeout(_showLoggedOutWelcome,300);return;
+      }
+
+      if(!state.active) return;
+
+      var vs=_vis(state);
+      var step=vs.find(function(s){return s.id===state.stepId&&s.page===_page;});
+      if(step){
+        var dotIdx=vs.findIndex(function(s){return s.id===step.id;});
+        _startGuard(null);
+        setTimeout(async function(){
+          var _chk=_ld();if(!_chk||!_chk.active) return;
+          if(_page==='/'&&!localStorage.getItem(WT_BK_KEY)&&(_chk.seen||[]).length===0){
+            // Only show disclaimer at tour start (no steps seen yet) — not mid-tour when seeded data exists
+            // Check localStorage first; if empty, ask server (handles cleared-localStorage case)
+            var _hasData=_hasTrackerData();
+            if(!_hasData&&_loggedIn){
+              try{
+                var _sr=await fetch('/api/load/expenses');
+                if(_sr.ok){var _sj=await _sr.json();var _sd=_sj&&_sj.data;
+                  _hasData=!!(_sd&&_sd.cells&&Object.keys(_sd.cells).length>0);}
+              }catch(_){}
+            }
+            if(_hasData){
+              _showDisclaimer(function(){
+                var _s2=_ld()||_def();var _vs2=_vis(_s2);
+                var _st2=_vs2.find(function(s){return s.id===_s2.stepId&&s.page===_page;});
+                if(_st2) _showStep(_st2,_vs2.length,_vs2.findIndex(function(s){return s.id===_st2.id;}));
+                else if(_vs2[0]){_s2.stepId=_vs2[0].id;_sv(_s2);window.location.href=_vs2[0].page;}
+              });
+              return;
+            }
+          }
+          _showStep(step,vs.length,dotIdx);
+        },600);
+      }
+    });
+
+
+    window._wtSeedAnalytics=_seedHistoryForAnalytics;
+    window.wtStart=function(){
+      var s=_ld()||_def();
+      if(!s.seen) s.seen=[];
+      if(s.mainCompleted){
+        if(s.wantsCurrencyTour!==true){
+          s.wantsCurrencyTour=null;
+          var hbIdx=s.seen.indexOf('home-branch');
+          if(hbIdx>=0) s.seen.splice(hbIdx,1);
+        }
+      }
+      var unseen=WT_STEPS.filter(function(step){
+        if(step.wantsCurrencyTour!=null&&step.wantsCurrencyTour!==s.wantsCurrencyTour) return false;
+        return s.seen.indexOf(step.id)<0;
+      });
+      // _go() performs the actual navigation — called directly (no data) or after disclaimer
+      function _go(){
+        if(s.mainCompleted&&unseen.length>0){
+          if(_hasTrackerData()) _backup();
+          s.active=true;s.resumeMode=true;
+          s.stepId=unseen[0].id;
+          _sv(s);window.location.href=unseen[0].page;
+        } else {
+          s=_def();s.active=true;
+          s.stepId='home-welcome';
+          _sv(s);window.location.href='/';
+        }
+      }
+      // Check for existing data — localStorage first, then server (handles cleared-localStorage)
+      (async function(){
+        var _hd=_hasTrackerData();
+        if(!_hd&&_loggedIn){
+          try{
+            var _sr=await fetch('/api/load/expenses');
+            if(_sr.ok){var _sj=await _sr.json();var _sd=_sj&&_sj.data;
+              _hd=!!(_sd&&_sd.cells&&Object.keys(_sd.cells).length>0);}
+          }catch(_){}
+        }
+        if(_hd) _showDisclaimer(function(){_go();});
+        else _go();
+      })();
+    };
+    window.wtStartEnhanced=function(page){
+
+      if(page==='expenses') _runEnhanced('expenses');
+      else if(page==='income') _runEnhanced('income');
+      else if(page==='subscriptions') _runEnhanced('subscriptions');
+    };
+
+    var ENHANCED_STEPS={
+      expenses:[
+        {id:'enh-exp-tax',   text:'Did you know? Your gross income from the <strong>Income Tracker</strong> can auto-fill into the Tax Calculator. Use the <a href="/tax" style="color:var(--accent)">🧾 Tax Calculator</a> to estimate your tax - it pre-fills from income data.',           target:'[data-wt="expenses-tax-link"]', emoji:'💡'},
+        {id:'enh-exp-goal',  text:'Click the <strong>🎯</strong> next to any row total to set a monthly spending limit for that category. The total turns <span style="color:#22c55e;font-weight:700">green</span> when under budget, <span style="color:#f59e0b;font-weight:700">amber</span> when close, and <span style="color:#ef4444;font-weight:700">red</span> when over.',  target:'.goal-btn', emoji:'🎯'},
+        {id:'enh-exp-fore',  text:'<strong>Forecast mode</strong> - when you navigate to a future month, FiApp shows this banner. You can seed it with your spending history or copy last month\'s values - great for planning ahead.',                                                     target:'[data-wt="expenses-forecast"]', emoji:'📋', beforeShow:function(){if(typeof window.isForecastMonth==='function'&&!window.isForecastMonth()&&typeof window.jumpToMonth==='function'){var _n=new Date(),_fm=_n.getMonth()+1,_fy=_n.getFullYear();if(_fm>11){_fm=0;_fy++;}window.jumpToMonth(_fy+'-'+String(_fm+1).padStart(2,'0'));}}},
+        {id:'enh-exp-share', text:'You can <strong>share your expense sheet</strong> with others. Use the Share button in the toolbar - it generates a clean view without requiring a login, and you can export to CSV.',                                                                   target:'[data-wt="expenses-share"]',    emoji:'📤'}
+      ],
+      income:[
+        {id:'enh-inc-gross', text:'Your <strong>total gross income</strong> here automatically appears in the Expense Tracker\'s Budget panel and pre-fills the Tax Calculator. No manual copying needed.',                                                                                  target:'[data-wt="income-tax-link"]',   emoji:'🔗'},
+        {id:'enh-inc-curr',  text:'Each income source can have its <strong>own currency</strong>. FiApp converts everything to USD for comparisons - great for multi-currency earners.',                                                                                                     target:'[data-wt="income-currency"]',   emoji:'💱'},
+        {id:'enh-inc-share', text:'You can <strong>share your income sheet</strong> with others. Use the Share button to generate a clean view without requiring a login, or export to CSV.',                                                                                               target:'[data-wt="income-share"]',      emoji:'📤'}
+      ],
+      subscriptions:[
+        {id:'enh-sub-sync',  text:'Subscriptions you log here are <strong>automatically reflected</strong> in your Expense Tracker under the Subscriptions category. No double-entry needed.',                                                                                              target:'[data-wt="subs-add"]',          emoji:'🔄'},
+        {id:'enh-sub-mths',  text:'Use the <strong>month columns</strong> to mark when each subscription is active. Uncheck a month for subs you paused or cancelled - your totals update instantly.',                                                                                     target:null,                             emoji:'📅'},
+        {id:'enh-sub-share', text:'You can <strong>share your subscription list</strong> with others. Use the Share button to generate a clean view without requiring a login, or export to CSV.',                                                                                          target:'[data-wt="subs-share"]',        emoji:'📤'}
+      ]
+    };
+
+    function _runEnhanced(page){
+      var steps=ENHANCED_STEPS[page];if(!steps||!steps.length) return;
+      _preTourFocus=document.activeElement||null;
+      var eIdx=0;
+
+      var _origMK=typeof window.currentMK==='function'?window.currentMK():null;
+      function _cleanup(){
+        if(_origMK&&typeof window.jumpToMonth==='function'&&typeof window.currentMK==='function'&&window.currentMK()!==_origMK)
+          window.jumpToMonth(_origMK);
+      }
+      function _eSkipBtn(){
+        var b=document.createElement('button');b.className='wt-btn-ghost';b.textContent='Close guide';
+        b.style.cssText='width:100%;margin-top:.3rem;opacity:.7;font-size:.8rem;';
+        b.onclick=function(){_cleanup();_hideAll();};
+        return b;
+      }
+      function showE(){
+        if(eIdx>=steps.length){
+          _cleanup();
+          _transition(function(){
+            _avatar.textContent='✅';_text.innerHTML='That\'s everything! You now know the advanced features.';_btns.innerHTML='';_progress.innerHTML='';
+            var b=document.createElement('button');b.className='wt-btn-primary';b.textContent='Done';b.onclick=function(){_cleanup();_hideAll();};_btns.appendChild(b);
+          });
+          _setHL(null);_posBubble(null);return;
+        }
+        var s=steps[eIdx];
+        if(s.beforeShow) s.beforeShow();
+        var targetEl=s.target?document.querySelector(s.target):null;
+        _transition(function(){
+          _avatar.textContent=s.emoji||'💡';
+          _text.innerHTML=s.text;_btns.innerHTML='';
+          _dots(eIdx,steps.length);
+          var nextBtn=document.createElement('button');nextBtn.className='wt-btn-primary';
+          nextBtn.textContent=eIdx===steps.length-1?'Done':'Next →';
+          nextBtn.onclick=function(){eIdx++;showE();};
+          _btns.appendChild(nextBtn);
+          _btns.appendChild(_eSkipBtn());
+        });
+        _overlay.style.display='block';
+        if(targetEl){targetEl.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(function(){_setHL(targetEl);_posBubble(targetEl);_trackHL(targetEl);},380);}
+        else{_setHL(null);_posBubble(null);_trackHL(null);}
+      }
+      showE();
+    }
+  })();
+  </script>
+</body>
+</html>
