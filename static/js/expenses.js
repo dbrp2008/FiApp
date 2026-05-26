@@ -209,12 +209,12 @@ function checkSpendTrend(){
   var prevTotal=_monthSpendTotal(prevMk2);
   // Hide strip and bail if conditions not met
   if(thisTotal<10||prevTotal<10){
-    var old=document.getElementById('voice-strip'); if(old) old.remove(); return;
+    var old=document.getElementById('voice-strip'); if(old) old.style.display='none'; return;
   }
   var delta=thisTotal-prevTotal;
   var pct=Math.round(Math.abs(delta)/prevTotal*100);
   if(pct<10){
-    var old=document.getElementById('voice-strip'); if(old) old.remove(); return;
+    var old=document.getElementById('voice-strip'); if(old) old.style.display='none'; return;
   }
   var dir=delta>0?'up':'down';
   // Find the category with the largest absolute change vs last month
@@ -240,21 +240,9 @@ function checkSpendTrend(){
 }
 function showVoiceStrip(text){
   var el=document.getElementById('voice-strip');
-  if(!el){
-    el=document.createElement('div'); el.id='voice-strip';
-    el.style.cssText='margin:0 0 .6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;';
-    var close=document.createElement('button');
-    close.textContent='✕'; close.setAttribute('aria-label','Dismiss');
-    close.style.cssText='background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0;';
-    close.onclick=function(){ el.remove(); };
-    el.appendChild(document.createElement('span'));
-    el.appendChild(close);
-    // Insert before the table
-    var tbl=document.querySelector('.tracker-table-wrap')||document.querySelector('table');
-    if(tbl&&tbl.parentNode) tbl.parentNode.insertBefore(el,tbl);
-    else document.body.appendChild(el);
-  }
-  el.firstChild.textContent=text;
+  var txt=document.getElementById('voice-strip-text');
+  if(!el||!txt) return;
+  txt.textContent=text;
   el.style.display='flex';
 }
 // ── Phase 5e: Recurring row detection (CV < 0.15, ≥3 months) ──
