@@ -198,14 +198,11 @@ function _monthSpendTotal(mk2){
   return parseFloat(sum.toFixed(2));
 }
 function checkSpendTrend(){
-  // Only run for the current calendar month, not past months being browsed
-  var now=new Date(); var todayMk=mk(now.getFullYear(),now.getMonth());
-  if(currentMK()!==todayMk){var _s=document.getElementById('voice-strip');if(_s)_s.style.display='none';return;}
-  var mk2=todayMk;
-  var thisTotal=_monthSpendTotal(mk2);
-  var py=now.getFullYear(), pm=now.getMonth()-1;
-  if(pm<0){py--;pm=11;}
+  var mk2=currentMK();
+  var parts=mk2.split('-'); var py=parseInt(parts[0]), pm=parseInt(parts[1])-1;
+  pm--; if(pm<0){py--;pm=11;}
   var prevMk2=mk(py,pm);
+  var thisTotal=_monthSpendTotal(mk2);
   var prevTotal=_monthSpendTotal(prevMk2);
   // Hide strip and bail if conditions not met
   if(thisTotal<10||prevTotal<10){
@@ -362,7 +359,7 @@ function shiftMonth(d){
   let y=state.currentYear, m=state.currentMonth+d;
   if(m<0){y--;m=11;} if(m>11){y++;m=0;}
   state.currentYear=y; state.currentMonth=m;
-  saveLocal(); updateMonthNav(); render(); syncIncomeInputs();
+  saveLocal(); updateMonthNav(); render(); syncIncomeInputs(); checkSpendTrend();
 }
 function populateMonthJump(){
   const sel=document.getElementById('month-jump'); if(!sel) return;
@@ -384,7 +381,7 @@ function jumpToMonth(mkStr){
   const parts=mkStr.split('-');
   state.currentYear=parseInt(parts[0],10);
   state.currentMonth=parseInt(parts[1],10)-1;
-  saveLocal(); updateMonthNav(); render(); syncIncomeInputs();
+  saveLocal(); updateMonthNav(); render(); syncIncomeInputs(); checkSpendTrend();
 }
 function updateMonthNav(){
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
