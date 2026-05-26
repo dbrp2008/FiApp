@@ -740,12 +740,22 @@ function onIncomeInput(){
 function syncIncomeInputs(){
   const obj=monthIncomeObj();
   document.getElementById('inp-gross').value=obj.gross||'';
+  document.getElementById('inp-gross').readOnly=!!obj.fromIncome;
   document.getElementById('inp-tax').value  =obj.tax  ||'';
   const hasData=!!(obj.gross||obj.tax);
   document.getElementById('apply-year-btn').style.display=hasData?'inline-block':'none';
   document.getElementById('apply-year-lbl').textContent=state.currentYear;
   updateIncomeSummary();
   syncFromIncomeTracker(currentMK());
+}
+function enterIncomeManually(){
+  const obj=monthIncomeObj();
+  delete obj.fromIncome;
+  saveLocal();
+  const inp=document.getElementById('inp-gross');
+  inp.readOnly=false;
+  inp.focus(); inp.select();
+  document.getElementById('income-sync-badge').innerHTML='<span class="income-sync-badge income-sync-badge--override">Manual entry · <button class="income-sync-update" data-action="accept-income-sync" data-mk="'+currentMK()+'">↺ Re-link to Income Tracker</button></span>';
 }
 function applyIncomeToYear(){
   snapshot();
@@ -873,9 +883,11 @@ async function syncFromIncomeTracker(mk2){
     }
     const tFmt='$'+total.toFixed(2);
     if(alreadySynced||obj.fromIncome){
-      badge.innerHTML='<span class="income-sync-badge">✓ Synced from <a class="income-sync-link" href="/income">Income Tracker</a> ('+tFmt+')</span>';
+      document.getElementById('inp-gross').readOnly=true;
+      badge.innerHTML='<span class="income-sync-badge">✓ Synced from <a class="income-sync-link" href="/income">Income Tracker</a> ('+tFmt+') · <button class="income-sync-update" onclick="enterIncomeManually()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.8rem;padding:0;text-decoration:underline;">Enter manually</button></span>';
     } else {
-      badge.innerHTML='<span class="income-sync-badge income-sync-badge--override">Income Tracker has '+tFmt+' for this month <button class="income-sync-update" data-action="accept-income-sync" data-mk="'+mk2+'">↻ Update</button></span>';
+      document.getElementById('inp-gross').readOnly=false;
+      badge.innerHTML='<span class="income-sync-badge income-sync-badge--override">Manual entry · <button class="income-sync-update" data-action="accept-income-sync" data-mk="'+mk2+'">↺ Re-link to Income Tracker ('+tFmt+')</button></span>';
     }
   }catch(e){badge.innerHTML='';}
 }
