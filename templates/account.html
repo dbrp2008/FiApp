@@ -154,7 +154,7 @@
       <span><strong>{{ current_user | default('') }}</strong></span>
     </div>
     <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap;">
-      <button class="btn-ghost btn-sm" onclick="logOutStep(this)">Log out</button>
+      <button class="btn-ghost btn-sm" id="acct-page-logout-btn">Log out</button>
     </div>
   </div>
 
@@ -170,7 +170,7 @@
         <label for="change-pw">Current password</label>
         <input type="password" id="change-pw" placeholder="Confirm your password" autocomplete="current-password" />
       </div>
-      <button class="btn-primary" id="change-btn" onclick="submitChangeUsername()">Save new username</button>
+      <button class="btn-primary" id="change-btn">Save new username</button>
     </div>
   </div>
 
@@ -190,20 +190,20 @@
         <label for="confirm-pw">Confirm new password</label>
         <input type="password" id="confirm-pw" placeholder="Repeat new password" autocomplete="new-password" />
       </div>
-      <button class="btn-primary" id="pw-btn" onclick="submitChangePassword()">Save new password</button>
+      <button class="btn-primary" id="pw-btn">Save new password</button>
     </div>
   </div>
 
   <div class="account-card">
     <h2>📥 Export Data</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download all your expenses, income, and subscription data as a single CSV file.</p>
-    <button class="btn-primary" onclick="exportAllCSV()">Export all data as CSV</button>
+    <button class="btn-primary" id="export-csv-btn">Export all data as CSV</button>
   </div>
 
   <div class="account-card">
     <h2>🧭 App Walkthrough</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">New to FiApp or want a refresher? Start the guided tour - Fi will walk you through every tool.</p>
-    <button class="btn-primary" id="wt-acct-btn" onclick="window.wtStart()">Start Walkthrough</button>
+    <button class="btn-primary" id="wt-acct-btn">Start Walkthrough</button>
   </div>
   <script>
   (function(){
@@ -230,13 +230,13 @@
 
       <div id="delete-steps">
         <div id="delete-arm-step">
-          <button class="btn-danger" id="del-arm-btn" onclick="armDelete()">Delete my account</button>
+          <button class="btn-danger" id="del-arm-btn">Delete my account</button>
         </div>
         <div id="delete-confirm-step">
           <p>Are you absolutely sure? This will permanently delete everything.</p>
           <div class="confirm-btns">
-            <button class="btn-danger" id="del-confirm-btn" onclick="confirmDelete()">Yes, delete permanently</button>
-            <button class="btn-ghost btn-sm" onclick="cancelDelete()">Cancel</button>
+            <button class="btn-danger" id="del-confirm-btn">Yes, delete permanently</button>
+            <button class="btn-ghost btn-sm" id="del-cancel-btn">Cancel</button>
           </div>
         </div>
       </div>
@@ -447,5 +447,24 @@ async function submitChangePassword(){
     btn.disabled=false; btn.textContent='Save new password';
   }
 }
+
+document.addEventListener('DOMContentLoaded',function(){
+  var logoutBtn=document.getElementById('acct-page-logout-btn');
+  if(logoutBtn) logoutBtn.addEventListener('click',function(e){logOutStep(e.currentTarget);});
+  var changeBtn=document.getElementById('change-btn');
+  if(changeBtn) changeBtn.addEventListener('click',submitChangeUsername);
+  var pwBtn=document.getElementById('pw-btn');
+  if(pwBtn) pwBtn.addEventListener('click',submitChangePassword);
+  var exportBtn=document.getElementById('export-csv-btn');
+  if(exportBtn) exportBtn.addEventListener('click',exportAllCSV);
+  var wtBtn=document.getElementById('wt-acct-btn');
+  if(wtBtn) wtBtn.addEventListener('click',function(){window.wtStart();});
+  var delArmBtn=document.getElementById('del-arm-btn');
+  if(delArmBtn) delArmBtn.addEventListener('click',armDelete);
+  var delConfirmBtn=document.getElementById('del-confirm-btn');
+  if(delConfirmBtn) delConfirmBtn.addEventListener('click',confirmDelete);
+  var delCancelBtn=document.getElementById('del-cancel-btn');
+  if(delCancelBtn) delCancelBtn.addEventListener('click',cancelDelete);
+});
 </script>
 {% endblock %}
