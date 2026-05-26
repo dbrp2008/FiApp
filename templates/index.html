@@ -514,14 +514,15 @@
     return 0;
   }
 
-  // ── Helper: last active month (most recent month with expense data) ──
+  // ── Helper: last active month (most recent month with actual expense cells) ──
   function lastActiveMonth() {
     if(!exp || !exp.cells) return null;
     var months = new Set();
     Object.keys(exp.cells).forEach(function(k) {
       if(parseFloat(exp.cells[k]) > 0) { var m = k.split('|')[0]; if(m) months.add(m); }
     });
-    if(subs && subs.rows) { allSpendingMonths(exp, subs).forEach(function(m){ months.add(m); }); }
+    // Deliberately excludes subscription-generated months — those run up to today
+    // and would make lastActiveMonth always return the current month.
     var sorted = Array.from(months).sort();
     return sorted.length ? sorted[sorted.length-1] : null;
   }
@@ -621,10 +622,12 @@
     var allMons = allSpendingMonths(exp, subs);
     if(exp || subs) { var totals = combinedMonthTotals(exp, subs, [lastActive]); lastSpent = totals[lastActive] || 0; }
     html += '<div class="snap-welcome">' +
-      '<div class="snap-welcome-text">Welcome back — ' + escapeHtml(lastLabel) + ' data is here.' +
-        (lastSpent > 0 ? ' Last tracked: <strong>' + fmtMoney(lastSpent) + '</strong>' : '') +
+      '<div>' +
+        '<div style="font-size:.7rem;font-weight:700;letter-spacing:.07em;color:var(--muted);margin-bottom:.2rem">WELCOME BACK</div>' +
+        '<div class="snap-welcome-text">Last updated ' + escapeHtml(lastLabel) + (lastSpent > 0 ? ' · <strong>' + fmtMoney(lastSpent) + '</strong> spent' : '') + '</div>' +
+        '<div style="font-size:.78rem;color:var(--muted);margin-top:.15rem">' + escapeHtml(mkLabel(cmk)) + ' not started yet</div>' +
       '</div>' +
-      '<a href="/expenses" class="snap-welcome-cta">Update for ' + escapeHtml(mkLabel(cmk)) + ' →</a>' +
+      '<a href="/expenses" class="snap-welcome-cta">Start ' + escapeHtml(mkLabel(cmk)) + ' →</a>' +
     '</div>';
 
   } else if(isStateC || isStateB) {
