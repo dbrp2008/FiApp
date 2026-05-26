@@ -216,16 +216,24 @@ function checkSpendTrend(){
   var pct=Math.round(Math.abs(delta)/prevTotal*100);
   if(pct<10) return; // < 10% change not worth mentioning
   var dir=delta>0?'up':'down';
-  // Find top category by row total
-  var topCat='',topVal=0;
-  var rowIdx={};
+  // Find the category with the largest absolute change vs last month
+  var rowTotalsThis={}, rowTotalsPrev={};
   Object.keys(state.cells||{}).forEach(function(k){
-    var parts=k.split('|');
-    if(parts.length===3&&parts[0]===mk2){var n=parseFloat(state.cells[k])||0;if(n>0){if(!rowIdx[parts[1]])rowIdx[parts[1]]=0;rowIdx[parts[1]]+=n;}}
+    var parts=k.split('|'); if(parts.length!==3) return;
+    var n=parseFloat(state.cells[k])||0; if(!n) return;
+    if(parts[0]===mk2){ rowTotalsThis[parts[1]]=(rowTotalsThis[parts[1]]||0)+n; }
+    if(parts[0]===prevMk2){ rowTotalsPrev[parts[1]]=(rowTotalsPrev[parts[1]]||0)+n; }
   });
-  getRows(mk2).forEach(function(row){ if(!row.parentId&&rowIdx[row.id]>topVal){topVal=rowIdx[row.id];topCat=row.label;}});
-  var text=topCat
-    ? (topCat+' is '+dir+' '+pct+'% vs last month.')
+  var topCat='', topCatPct=0, topCatDir='up';
+  getRows(mk2).forEach(function(row){
+    if(row.parentId) return;
+    var t=rowTotalsThis[row.id]||0, p=rowTotalsPrev[row.id]||0;
+    if(p<1) return; // need prior data for this category
+    var cp=Math.round(Math.abs(t-p)/p*100);
+    if(cp>topCatPct){ topCatPct=cp; topCat=row.label; topCatDir=t>p?'up':'down'; }
+  });
+  var text=topCat && topCatPct>=10
+    ? (topCat+' is '+topCatDir+' '+topCatPct+'% vs last month.')
     : ('Spending '+dir+' '+pct+'% vs last month.');
   var msg=voice.observation('spend-trend-'+mk2, text);
   if(!msg) return;
