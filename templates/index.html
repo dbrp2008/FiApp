@@ -436,12 +436,15 @@
 {% block body_scripts %}
 <script>
 // ── Home Page Snapshot ──────────────────────────────────────────────────────
-(function(){
+(async function(){
   var _CU = {{ current_user|default(none)|tojson }};
   if(!_CU) return; // non-logged-in: no snapshot
 
   var root = document.getElementById('snapshot-root');
   if(!root) return;
+
+  // Load rates first so currency conversion is available throughout
+  try{ if(typeof fiappCoreLoadRates==='function') await fiappCoreLoadRates(); }catch(e){}
 
   // Load tracker state from localStorage
   var exp  = null, inc = null, subs = null;
@@ -483,14 +486,23 @@
     if(inc && inc.cells) {
       var rows = incRows(inc, mk2);
       var total = 0;
+      var getCurrency = function(rowId){ return (inc.monthRowCurrencies||{})[mk2+'|'+rowId]||'USD'; };
       rows.filter(function(r){ return !r.parentId; }).forEach(function(row) {
         var kids = rows.filter(function(c){ return c.parentId === row.id; });
         if(kids.length) {
           kids.forEach(function(child) {
-            (inc.cols||[]).forEach(function(col){ total += parseFloat(inc.cells[mk2+'|'+child.id+'|'+col.id]||0)||0; });
+            var cur = getCurrency(child.id);
+            (inc.cols||[]).forEach(function(col){
+              var raw = parseFloat(inc.cells[mk2+'|'+child.id+'|'+col.id]||0)||0;
+              total += _coreToUSD(raw, cur);
+            });
           });
         } else {
-          (inc.cols||[]).forEach(function(col){ total += parseFloat(inc.cells[mk2+'|'+row.id+'|'+col.id]||0)||0; });
+          var cur = getCurrency(row.id);
+          (inc.cols||[]).forEach(function(col){
+            var raw = parseFloat(inc.cells[mk2+'|'+row.id+'|'+col.id]||0)||0;
+            total += _coreToUSD(raw, cur);
+          });
         }
       });
       if(total > 0) return parseFloat(total.toFixed(2));
@@ -838,8 +850,6 @@
     winSlot.innerHTML = '<div class="snap-win">' + wins.join(' ') + '</div>';
   })();
 
-  // Async: load rates for subscription cost display
-  if(typeof fiappCoreLoadRates === 'function') fiappCoreLoadRates();
 })();
 </script>
 
