@@ -106,6 +106,77 @@ function save(){
   saveLocal();
   syncToServer();
 }
+
+// ── Phase 4b: Upcoming Renewal Alert ─────────────────────────────────────
+function upcomingRenewals(withinDays){
+  withinDays=withinDays||7;
+  if(!state.rows||!state.cols) return [];
+  var today=new Date(); today.setHours(0,0,0,0);
+  var horizon=new Date(today.getTime()+withinDays*86400000);
+  var startCol  =state.cols.find(function(c){return c.ctype==='date';});
+  var billingCol=state.cols.find(function(c){return c.ctype==='billing';});
+  var statusCol =state.cols.find(function(c){return c.ctype==='status';});
+  var costCol   =state.cols.find(function(c){return c.ctype==='number';});
+  var nameCol   =state.cols.find(function(c){return c.ctype==='text';});
+  if(!startCol||!billingCol) return [];
+  var results=[];
+  (state.rows||[]).forEach(function(row){
+    var get=function(col){return col?(state.cells||{})[row.id+'|'+col.id]||'':'';};
+    var status=statusCol?get(statusCol)||'Active':'Active';
+    if(status==='Cancelled') return;
+    var startStr=get(startCol); if(!startStr) return;
+    var billing=get(billingCol)||'Monthly';
+    var name=nameCol?get(nameCol)||'Unnamed subscription':'Unnamed subscription';
+    var rawCost=parseFloat(costCol?get(costCol):0)||0;
+    // Compute next renewal from today
+    var start=new Date(startStr); start.setHours(0,0,0,0);
+    if(start>horizon) return; // hasn't started yet
+    var intervalMs;
+    if(billing==='Monthly')    intervalMs=null; // handled separately
+    else if(billing==='Yearly')    intervalMs=365.25*86400000;
+    else if(billing==='Quarterly') intervalMs=91.3125*86400000;
+    else if(billing==='Weekly')    intervalMs=7*86400000;
+    else if(billing==='Bi-Weekly') intervalMs=14*86400000;
+    else return;
+    var nextDate;
+    if(intervalMs===null){
+      // Monthly: same day of month each month
+      var d=new Date(today); d.setDate(start.getDate());
+      if(d<today){ d.setMonth(d.getMonth()+1); }
+      nextDate=d;
+    } else {
+      nextDate=new Date(start.getTime());
+      while(nextDate<=today) nextDate=new Date(nextDate.getTime()+intervalMs);
+    }
+    if(nextDate<=horizon){
+      var daysUntil=Math.round((nextDate-today)/86400000);
+      results.push({name:name,cost:rawCost,daysUntil:daysUntil,date:nextDate,billing:billing});
+    }
+  });
+  return results.sort(function(a,b){return a.daysUntil-b.daysUntil;});
+}
+function renderRenewalAlert(){
+  var existing=document.getElementById('renewal-alert');
+  var renewals=upcomingRenewals(7);
+  if(!renewals.length){
+    if(existing) existing.remove();
+    return;
+  }
+  if(!existing){
+    existing=document.createElement('div');
+    existing.id='renewal-alert';
+    existing.style.cssText='background:#fef3c7;border:1px solid #f59e0b44;border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;font-size:.85rem;color:#92400e;';
+    // Insert above table / main content
+    var main=document.querySelector('.tracker-main')||document.querySelector('main')||document.body;
+    main.insertBefore(existing, main.firstChild);
+  }
+  var lines=renewals.map(function(r){
+    var when=r.daysUntil===0?'today':r.daysUntil===1?'tomorrow':'in '+r.daysUntil+' days';
+    return '⚠ '+escapeHtml(r.name)+' renews '+when+(r.cost>0?' ($'+r.cost.toFixed(2)+')':'');
+  });
+  existing.innerHTML=lines.join('<br>');
+}
+
 function showSaveQuotaWarning(){
   if(document.getElementById('quota-warn')) return;
   const el=document.createElement('div'); el.id='quota-warn'; el.className='error';
@@ -400,6 +471,7 @@ function recalcTotals(){
     document.getElementById('tot-y-conv').textContent=cur+' '+(yUSD*currentRate).toFixed(2)+suffix;
   }
   renderLeaderboard();
+  renderRenewalAlert();
 }
 
 
