@@ -52,7 +52,7 @@
     
     #wt-overlay{display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0);pointer-events:auto;}
     #wt-overlay.wt-allow-scroll{pointer-events:none;}
-    #wt-highlight{display:none;position:fixed;z-index:9501;border-radius:10px;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(0,0,0,0);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease;}
+    #wt-highlight{display:none;position:fixed;z-index:9501;border-radius:10px;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(0,0,0,.42);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease;}
     #wt-bubble{display:none;position:fixed;z-index:9502;width:min(310px,calc(100vw - 2rem));background:var(--panel-bg);border:1.5px solid var(--panel-border);border-radius:14px;padding:.9rem 1.05rem .85rem;box-shadow:0 8px 32px rgba(0,0,0,.22);}
     @keyframes wt-enter{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
     @keyframes wt-exit {from{opacity:1;transform:translateY(0)   scale(1)}  to{opacity:0;transform:translateY(8px) scale(.96)}}
@@ -416,7 +416,7 @@
     function _setHL(el){
       if(!el){_highlight.style.display='none';if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}return;}
       var pad=6,r=el.getBoundingClientRect();
-      _highlight.style.cssText='display:block;position:fixed;z-index:9501;border-radius:10px;pointer-events:none;transition:top .12s ease,left .12s ease,width .12s ease,height .12s ease;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(0,0,0,0);top:'+(r.top-pad)+'px;left:'+(r.left-pad)+'px;width:'+(r.width+pad*2)+'px;height:'+(r.height+pad*2)+'px;';
+      _highlight.style.cssText='display:block;position:fixed;z-index:9501;border-radius:10px;pointer-events:none;transition:top .12s ease,left .12s ease,width .12s ease,height .12s ease;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(0,0,0,.42);top:'+(r.top-pad)+'px;left:'+(r.left-pad)+'px;width:'+(r.width+pad*2)+'px;height:'+(r.height+pad*2)+'px;';
     }
     function _trackHL(el){
       if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}
