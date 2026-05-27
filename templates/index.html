@@ -546,17 +546,12 @@
     // Streak: history dimension (independent of current-month behaviour)
     var streak = trackingStreak();
     if(streak >= 2) badges.push('🔥 ' + streak + '-month streak');
-    // Current-month behaviour: Goal Setter takes priority over Power Tracker
     var hasExp  = currentMonthCellCount() > 0;
     var hasInc  = grossForMonth(cmk) > 0;
     var hasSubs = subs && subs.rows && subs.rows.length > 0;
-    if(exp && exp.goals && Object.keys(exp.goals).some(function(k){ return k.startsWith(cmk+'|'); })) {
-      badges.push('🎯 Goal Setter');
-    } else if(hasExp && hasInc && hasSubs) {
-      badges.push('📊 Power Tracker');
-    } else if(hasExp && streak < 2) {
-      badges.push('📌 Tracking');
-    }
+    if(hasExp && hasInc && hasSubs) badges.push('📊 Power Tracker');
+    if(exp && exp.goals && Object.keys(exp.goals).some(function(k){ return k.startsWith(cmk+'|'); })) badges.push('🎯 Goal Setter');
+    if(!hasExp && streak < 2) badges.push('📌 Tracking');
     return badges;
   }
 
