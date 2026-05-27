@@ -89,10 +89,10 @@ function loadState(){
     const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');
     if(_wt&&_wt.active){
       fs.rows=[
-        {id:uid(),label:'Groceries',  color:'#bbf7d0',textColor:'#1f2937',height:36,parentId:null},
-        {id:uid(),label:'Travel',     color:'#fed7aa',textColor:'#1f2937',height:36,parentId:null},
-        {id:uid(),label:'Transport',  color:'#fecaca',textColor:'#1f2937',height:36,parentId:null},
-        {id:uid(),label:'Savings',    color:'#e9d5ff',textColor:'#1f2937',height:36,parentId:null},
+        {id:uid(),label:'Groceries',    color:'#bbf7d0',textColor:'#1f2937',height:36,parentId:null},
+        {id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null,linked:'subscriptions'},
+        {id:uid(),label:'Travel',       color:'#fed7aa',textColor:'#1f2937',height:36,parentId:null},
+        {id:uid(),label:'Savings',      color:'#e9d5ff',textColor:'#1f2937',height:36,parentId:null},
       ];
     }
   }catch(_){}
