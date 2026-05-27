@@ -1036,14 +1036,68 @@ function renderTemplatePrompt(){
   const hasAnyData=Object.keys(state.cells||{}).length>0;
   const hasRows=getRows().length>0;
   if(hasAnyData||hasRows){el.innerHTML='';return;}
-  let btns=Object.keys(_TEMPLATES).map(name=>
-    '<button class="btn btn-sm" style="font-size:.82rem" onclick="applyTemplate(\''+name+'\')">'+name+'</button>'
-  ).join(' ');
-  el.innerHTML='<div style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.85rem;color:var(--fg);">'
-    +'<strong style="display:block;margin-bottom:.5rem;">Start with a template</strong>'
-    +btns
-    +' <button class="btn-ghost btn-sm" style="font-size:.82rem;margin-left:.5rem" onclick="dismissTemplatePrompt()">Start blank</button>'
-    +'</div>';
+
+  el.innerHTML='';
+  const names=Object.keys(_TEMPLATES);
+  let selectedName=names[0];
+
+  const wrap=document.createElement('div');
+  wrap.style.cssText='background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.85rem;color:var(--fg);';
+
+  const title=document.createElement('strong');
+  title.style.cssText='display:block;margin-bottom:.5rem;';
+  title.textContent='Start with a template';
+  wrap.appendChild(title);
+
+  const btnRow=document.createElement('div');
+  btnRow.style.cssText='display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;';
+
+  const previewArea=document.createElement('div');
+  previewArea.style.cssText='margin-top:.6rem;';
+
+  function _setSelected(name){
+    selectedName=name;
+    btnRow.querySelectorAll('._tpl-btn').forEach(b=>{
+      b.style.outline=b.dataset.tpl===name?'2px solid var(--accent)':'';
+    });
+  }
+  function _renderPreview(name){
+    const labels=_TEMPLATES[name]||[];
+    const chips=labels.map(l=>{
+      const c=CAT_COLORS[l]||'#e5e7eb';
+      return '<span style="display:inline-block;padding:.15rem .45rem;border-radius:4px;background:'+c+';color:#1f2937;font-size:.78rem;margin:.15rem .1rem;">'+escapeHtml(l)+'</span>';
+    }).join('');
+    previewArea.innerHTML=chips
+      +'<div style="margin-top:.6rem;">'
+      +'<button class="btn btn-sm" style="font-size:.82rem" onclick="applyTemplate(\''+name+'\')">Apply '+escapeHtml(name)+' →</button>'
+      +'</div>';
+  }
+
+  names.forEach(name=>{
+    const btn=document.createElement('button');
+    btn.className='btn btn-sm _tpl-btn';
+    btn.dataset.tpl=name;
+    btn.style.cssText='font-size:.82rem;';
+    btn.textContent=name;
+    btn.addEventListener('mouseenter',()=>_renderPreview(name));
+    btn.addEventListener('mouseleave',()=>_renderPreview(selectedName));
+    btn.addEventListener('click',()=>{ _setSelected(name); _renderPreview(name); });
+    btnRow.appendChild(btn);
+  });
+
+  const blankBtn=document.createElement('button');
+  blankBtn.className='btn-ghost btn-sm';
+  blankBtn.style.cssText='font-size:.82rem;margin-left:.25rem;';
+  blankBtn.textContent='Start blank';
+  blankBtn.addEventListener('click',dismissTemplatePrompt);
+  btnRow.appendChild(blankBtn);
+
+  wrap.appendChild(btnRow);
+  wrap.appendChild(previewArea);
+  el.appendChild(wrap);
+
+  _setSelected(selectedName);
+  _renderPreview(selectedName);
 }
 function applyTemplate(name){
   const labels=_TEMPLATES[name]; if(!labels) return;
