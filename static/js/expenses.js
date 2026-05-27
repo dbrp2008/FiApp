@@ -1128,15 +1128,14 @@ function renderTemplatePrompt(){
 }
 function applyTemplate(name){
   const labels=_TEMPLATES[name]; if(!labels) return;
-  forkCurrentMonth();
-  const mk2=currentMK();
   snapshot();
+  state.rows=[];
   labels.forEach(label=>{
-    if(getRows(mk2).filter(r=>!r.parentId).length>=MAX_ROWS) return;
+    if(state.rows.filter(r=>!r.parentId).length>=MAX_ROWS) return;
     const color=CAT_COLORS[label]||'#e5e7eb';
     const rowObj={id:uid(),label,color,textColor:'#1f2937',height:36,parentId:null};
     if(label==='Subscriptions') rowObj.linked='subscriptions';
-    state.rowsByMonth[mk2].push(rowObj);
+    state.rows.push(rowObj);
   });
   localStorage.setItem('fiapp_template_dismissed','1');
   save(); render();
