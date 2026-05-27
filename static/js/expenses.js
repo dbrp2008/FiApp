@@ -1096,7 +1096,27 @@ function renderTemplatePrompt(){
   blankBtn.className='btn-ghost btn-sm';
   blankBtn.style.cssText='font-size:.82rem;margin-left:.25rem;';
   blankBtn.textContent='Start blank';
-  blankBtn.addEventListener('click',dismissTemplatePrompt);
+  let _blankConfirming=false;
+  blankBtn.addEventListener('click',function(){
+    if(_blankConfirming) return;
+    _blankConfirming=true;
+    blankBtn.textContent='Start with no rows?';
+    const yes=document.createElement('button');
+    yes.className='btn btn-sm';
+    yes.style.cssText='font-size:.82rem;margin-left:.35rem;';
+    yes.textContent='Yes';
+    yes.addEventListener('click',dismissTemplatePrompt);
+    const no=document.createElement('button');
+    no.className='btn-ghost btn-sm';
+    no.style.cssText='font-size:.82rem;margin-left:.25rem;';
+    no.textContent='Cancel';
+    no.addEventListener('click',function(){
+      _blankConfirming=false;
+      blankBtn.textContent='Start blank';
+      yes.remove(); no.remove();
+    });
+    blankBtn.after(yes); yes.after(no);
+  });
   btnRow.appendChild(blankBtn);
 
   wrap.appendChild(btnRow);
