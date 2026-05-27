@@ -48,12 +48,7 @@ function uid(){ return '_'+Math.random().toString(36).slice(2,9); }
 function freshState(){
   const now=new Date(),y=now.getFullYear(),m=now.getMonth();
   return {
-    rows:[
-      {id:uid(),label:'Groceries',    color:'#bbf7d0',textColor:'#1f2937',height:36,parentId:null},
-      {id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null,linked:'subscriptions'},
-      {id:uid(),label:'Travel',       color:'#fed7aa',textColor:'#1f2937',height:36,parentId:null},
-      {id:uid(),label:'Savings',      color:'#e9d5ff',textColor:'#1f2937',height:36,parentId:null},
-    ],
+    rows:[],
     cols:[
       {id:uid(),label:'Week 1',width:100},
       {id:uid(),label:'Week 2',width:100},
@@ -1030,9 +1025,9 @@ function _pickLabel(itemEl, label){
 
 // ── Phase 4g: First-use row templates ──
 var _TEMPLATES={
-  Student:    ['Rent','Food','Transport','Books & Supplies','Entertainment','Misc'],
-  Freelancer: ['Rent / Mortgage','Equipment','Software','Marketing','Food','Transport','Tax Set-Aside'],
-  Family:     ['Rent / Mortgage','Groceries','Childcare','Transport','Utilities','Insurance','Entertainment'],
+  Student:    ['Rent','Food','Transport','Books & Supplies','Entertainment','Subscriptions','Misc'],
+  Freelancer: ['Rent / Mortgage','Equipment','Software','Marketing','Food','Transport','Subscriptions','Tax Set-Aside'],
+  Family:     ['Rent / Mortgage','Groceries','Childcare','Transport','Utilities','Insurance','Subscriptions','Entertainment'],
 };
 function renderTemplatePrompt(){
   const el=document.getElementById('template-prompt'); if(!el) return;
@@ -1058,7 +1053,9 @@ function applyTemplate(name){
   labels.forEach(label=>{
     if(getRows(mk2).filter(r=>!r.parentId).length>=MAX_ROWS) return;
     const color=CAT_COLORS[label]||'#e5e7eb';
-    state.rowsByMonth[mk2].push({id:uid(),label,color,textColor:'#1f2937',height:36,parentId:null});
+    const rowObj={id:uid(),label,color,textColor:'#1f2937',height:36,parentId:null};
+    if(label==='Subscriptions') rowObj.linked='subscriptions';
+    state.rowsByMonth[mk2].push(rowObj);
   });
   localStorage.setItem('fiapp_template_dismissed','1');
   save(); render();
