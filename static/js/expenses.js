@@ -1653,21 +1653,25 @@ function renderTableBody(table){
     tcInp.addEventListener('input',()=>{row.textColor=tcInp.value;rowLabel.style.color=tcInp.value;textSwatch.style.color=tcInp.value;});
     tcInp.addEventListener('change',save);
     tcWrap.appendChild(textSwatch);tcWrap.appendChild(tcInp);
-    const rowLabel=document.createElement('input');rowLabel.type='text';rowLabel.className='row-label';rowLabel.size=1;rowLabel.readOnly=row.linked==='subscriptions';rowLabel.value=row.label;
+    const isReadOnlyLabel=row.linked==='subscriptions'||row.snapshotLinkedRow;
+    const rowLabel=isReadOnlyLabel?document.createElement('span'):document.createElement('input');
+    rowLabel.className='row-label';
     rowLabel.style.color=row.textColor||'#1f2937';
-    if(row.linked!=='subscriptions'){
+    if(isReadOnlyLabel){
+      rowLabel.textContent=row.label;
+      if(row.snapshotLinkedRow){
+        rowLabel.style.textDecorationLine='underline';
+        rowLabel.style.textDecorationStyle='dashed';
+        rowLabel.style.cursor='pointer';
+        rowLabel.classList.add('tip-host');
+        rowLabel.dataset.tip='Pasted snapshot - click to restore live link to your Subscription Tracker';
+        rowLabel.addEventListener('click',e=>{e.stopPropagation();restoreSubsLink(row.id);});
+      }
+    } else {
+      rowLabel.type='text';rowLabel.size=1;rowLabel.value=row.label;
       rowLabel.addEventListener('blur',()=>{row.label=rowLabel.value.trim()||row.label;save();_hideLabelSuggest();});
       rowLabel.addEventListener('input',()=>_showLabelSuggest(rowLabel));
       rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
-    }
-    if(row.snapshotLinkedRow){
-      rowLabel.readOnly=true;
-      rowLabel.style.textDecorationLine='underline';
-      rowLabel.style.textDecorationStyle='dashed';
-      rowLabel.style.cursor='pointer';
-      rowLabel.classList.add('tip-host');
-      rowLabel.dataset.tip='Pasted snapshot - click to restore live link to your Subscription Tracker';
-      rowLabel.addEventListener('click',e=>{e.stopPropagation();restoreSubsLink(row.id);});
     }
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
     if(row.recurring){const rb=document.createElement('span');rb.textContent='🔁';rb.title='Recurring';rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
