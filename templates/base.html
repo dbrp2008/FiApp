@@ -984,8 +984,14 @@
         });
         _overlay.style.display='block';
         if(targetEl){
-          targetEl.scrollIntoView({block:'center',behavior:'smooth'});
-          setTimeout(function(){_setHL(targetEl);_posBubble(targetEl);_trackHL(targetEl);},380);
+          // If beforeShow triggered a render(), its requestAnimationFrame scroll-restore
+          // fires ~16ms later and would undo an immediate scrollIntoView.
+          // Delay past that rAF when beforeShow was present.
+          var scrollDelay=s.beforeShow?150:0;
+          setTimeout(function(){
+            targetEl.scrollIntoView({block:'center',behavior:'smooth'});
+            setTimeout(function(){_setHL(targetEl);_posBubble(targetEl);_trackHL(targetEl);},400);
+          },scrollDelay);
         } else {
           _setHL(null);_posBubble(null);_trackHL(null);
         }
