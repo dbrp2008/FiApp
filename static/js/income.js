@@ -1025,9 +1025,12 @@ function attachRowResize(handle,row,tr){
 
 function renderTableHeader(table){
   const cg=document.createElement('colgroup');
-  const _hdrW=window.innerWidth<640?Math.min(state.headerColWidth||185,150):state.headerColWidth||185;
+  const _mob=window.innerWidth<640;
+  const _vw=window.innerWidth;
+  const _hdrW=_mob?Math.max(100,Math.round(_vw*0.33)):state.headerColWidth||185;
+  const _dataW=_mob?Math.max(80,Math.round(_vw*0.27)):null;
   const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=_hdrW+'px';cg.appendChild(hc);
-  getCols().forEach(col=>{const c=document.createElement('col');c.id='cg-'+col.id;c.style.width=(col.width||120)+'px';cg.appendChild(c);});
+  getCols().forEach(col=>{const c=document.createElement('col');c.id='cg-'+col.id;c.style.width=(_mob?_dataW:col.width||120)+'px';cg.appendChild(c);});
   const tc=document.createElement('col');tc.style.width=(state.totalColWidth||110)+'px';cg.appendChild(tc);
   const dc=document.createElement('col');dc.style.width='32px';cg.appendChild(dc);
   table.appendChild(cg);
