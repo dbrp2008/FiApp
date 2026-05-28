@@ -256,6 +256,9 @@
       .drag-handle{padding:0 2px;}
       /* Hide recurring badge to save label space (col width capped in JS) */
       .row-recur-badge{display:none;}
+      /* Hide column drag handle and delete button in headers — useless on touch, eat ~60px per cell */
+      thead .col-drag-handle{display:none;}
+      thead .col-del{display:none;}
     }
 </style>
 {% endblock %}
