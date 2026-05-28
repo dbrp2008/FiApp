@@ -1025,7 +1025,8 @@ function attachRowResize(handle,row,tr){
 
 function renderTableHeader(table){
   const cg=document.createElement('colgroup');
-  const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=(state.headerColWidth||185)+'px';cg.appendChild(hc);
+  const _hdrW=window.innerWidth<640?Math.min(state.headerColWidth||185,150):state.headerColWidth||185;
+  const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=_hdrW+'px';cg.appendChild(hc);
   getCols().forEach(col=>{const c=document.createElement('col');c.id='cg-'+col.id;c.style.width=(col.width||120)+'px';cg.appendChild(c);});
   const tc=document.createElement('col');tc.style.width=(state.totalColWidth||110)+'px';cg.appendChild(tc);
   const dc=document.createElement('col');dc.style.width='32px';cg.appendChild(dc);
