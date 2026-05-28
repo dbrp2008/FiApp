@@ -239,8 +239,8 @@
     html.dark .row-gear-btn{background:rgba(255,255,255,.12);}
     html.theme-midnight .row-gear-btn{background:rgba(255,255,255,.12);}
     .row-gear-menu{background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;box-shadow:var(--shadow,0 4px 12px rgba(0,0,0,.15));padding:.3rem;min-width:170px;}
-    .row-gear-menu button{display:block;width:100%;text-align:left;padding:.42rem .75rem;border:none;background:none;cursor:pointer;font-size:.88rem;color:var(--fg);font-family:inherit;border-radius:5px;white-space:nowrap;}
-    .row-gear-menu button:hover,.row-gear-menu button:active{background:var(--hover-bg,rgba(0,0,0,.06));}
+    .row-gear-menu button,.row-gear-menu label{display:block;width:100%;text-align:left;padding:.42rem .75rem;border:none;background:none;cursor:pointer;font-size:.88rem;color:var(--fg);font-family:inherit;border-radius:5px;white-space:nowrap;box-sizing:border-box;}
+    .row-gear-menu button:hover,.row-gear-menu button:active,.row-gear-menu label:hover,.row-gear-menu label:active{background:var(--hover-bg,rgba(0,0,0,.06));}
     @media(max-width:640px){
       .curr-other-cell input,.cell-curr-sel,
       input.row-label,input.th-label{font-size:16px!important;}
