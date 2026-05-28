@@ -1960,9 +1960,14 @@ function applyMobileColVisibility(mk){
   sheetWrap.parentElement.insertBefore(btn,sheetWrap);
 }
 let _resizeRenderTimer=null;
+let _lastRenderW=window.innerWidth;
 window.addEventListener('resize',()=>{
   _mobileColPair=null; applyMobileColVisibility(currentMK());
-  // Rebuild column widths after fold/unfold (debounced so it doesn't fire on every pixel)
+  // Only re-render when WIDTH changes (keyboard open/close only changes height — re-rendering
+  // on height-only resize destroys the focused input and closes the keyboard immediately).
+  const w=window.innerWidth;
+  if(w===_lastRenderW) return;
+  _lastRenderW=w;
   clearTimeout(_resizeRenderTimer);
   _resizeRenderTimer=setTimeout(()=>render(),300);
 });
