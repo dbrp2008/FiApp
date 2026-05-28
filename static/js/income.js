@@ -718,6 +718,7 @@ function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
   if(!isChild){
     mBtn('＋ Add sub-source',()=>{ showSubMenu(btn,row); });
   }
+  mBtn('🗑 Delete row',()=>{ deleteRow(row.id); });
 
   const r=btn.getBoundingClientRect();
   const left=Math.max(4,Math.min(r.left,window.innerWidth-180));
@@ -1317,11 +1318,11 @@ function renderMobileCards(){
     cols.forEach(col=>{
       const wk=document.createElement('div');wk.className='mc-wk';
       const lbl=document.createElement('div');lbl.className='mc-wl';lbl.textContent=col.label;
-      const v=getCell(row.id,col.id);
+      const v=hasKids?children(row.id).reduce((s,c)=>s+getCell(c.id,col.id),0):getCell(row.id,col.id);
       const val=document.createElement('div');val.className='mc-wv'+(v===0?' mc-wv-empty':'');
       val.textContent=v>0?fmt(v):'—';
       wk.appendChild(lbl);wk.appendChild(val);
-      if(v>0){const cc=document.createElement('div');cc.className='mc-wc';cc.textContent=cur;wk.appendChild(cc);}
+      if(v>0&&!hasKids){const cc=document.createElement('div');cc.className='mc-wc';cc.textContent=cur;wk.appendChild(cc);}
       weeksEl.appendChild(wk);
     });
     main.appendChild(weeksEl);
@@ -1344,6 +1345,7 @@ function renderMobileCards(){
 
     if(isExpanded){
       const form=document.createElement('div');form.className='mc-form';
+      form.addEventListener('click',e=>e.stopPropagation());
       const grid=document.createElement('div');grid.className='mc-form-grid';
       const inputs=[];
       const codes=getAllUsedCurrencies();
