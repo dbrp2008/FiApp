@@ -929,21 +929,21 @@
     };
     var MOBILE_STEPS={
       expenses:[
-        {id:'mob-exp-cards', emoji:'📋', text:'On mobile, your expenses appear as <strong>cards</strong> — one per category. Each card shows your spending by week at a glance.'},
-        {id:'mob-exp-edit',  emoji:'✏️', text:'<strong>Tap any card</strong> to expand it and edit your weekly amounts. Tap Save when done, or Cancel to discard.'},
-        {id:'mob-exp-goal',  emoji:'🎯', text:'Tap <strong>🎯</strong> next to any total to set a monthly spending limit. The total pill turns green / amber / red as you approach or exceed it.'},
-        {id:'mob-exp-sub',   emoji:'📂', text:'Categories with <strong>subcategories</strong> show "edit via subcategories below" — tap the indented child cards to edit their values individually.'},
-        {id:'mob-exp-gear',  emoji:'⚙️', text:'Tap the <strong>⚙</strong> on any card to change its colour, add a subcategory, or delete the row.'},
-        {id:'mob-exp-subs',  emoji:'🔗', text:'A card with a <strong>pink → Subs badge</strong> is auto-filled from your Subscriptions tracker — tap the badge to view the detail.'}
+        {id:'mob-exp-cards', emoji:'📋', text:'On mobile, your expenses appear as <strong>cards</strong> — one per category. Each card shows your spending by week at a glance.', target:'#exp-mobile-cards'},
+        {id:'mob-exp-edit',  emoji:'✏️', text:'<strong>Tap any card</strong> to expand it and edit your weekly amounts. Tap Save when done, or Cancel to discard.', target:'.mc-hint-edit'},
+        {id:'mob-exp-goal',  emoji:'🎯', text:'Tap <strong>🎯</strong> next to any total to set a monthly spending limit. The total pill turns green / amber / red as you approach or exceed it.', target:'.mc-goal-btn'},
+        {id:'mob-exp-sub',   emoji:'📂', text:'Categories with <strong>subcategories</strong> show "edit via subcategories below" — tap the indented child cards to edit their values individually.', target:'.mc-hint-subs'},
+        {id:'mob-exp-gear',  emoji:'⚙️', text:'Tap the <strong>⚙</strong> on any card to change its colour, add a subcategory, or delete the row.', target:'.mc-gear'},
+        {id:'mob-exp-subs',  emoji:'🔗', text:'A card with a <strong>pink → Subs badge</strong> is auto-filled from your Subscriptions tracker — tap the badge to view the detail.', target:'.mc-subs-badge'}
       ],
       income:[
-        {id:'mob-inc-cards', emoji:'📋', text:'On mobile, your income sources appear as <strong>cards</strong>. Each card shows your income by week and the currency used.'},
-        {id:'mob-inc-edit',  emoji:'✏️', text:'<strong>Tap any card</strong> to expand it. Edit each week\'s amount and change the currency with the dropdown next to it.'},
-        {id:'mob-inc-gear',  emoji:'⚙️', text:'Tap the <strong>⚙</strong> on any card to change its colour, add a sub-source, or delete the row.'}
+        {id:'mob-inc-cards', emoji:'📋', text:'On mobile, your income sources appear as <strong>cards</strong>. Each card shows your income by week and the currency used.', target:'#inc-mobile-cards'},
+        {id:'mob-inc-edit',  emoji:'✏️', text:'<strong>Tap any card</strong> to expand it. Edit each week\'s amount and change the currency with the dropdown next to it.', target:'.mc-hint-edit'},
+        {id:'mob-inc-gear',  emoji:'⚙️', text:'Tap the <strong>⚙</strong> on any card to change its colour, add a sub-source, or delete the row.', target:'.mc-gear'}
       ],
       subscriptions:[
-        {id:'mob-sub-cards', emoji:'📋', text:'Your subscriptions are shown as <strong>cards</strong>. Tap any card to edit its details — name, cost, billing cycle, and status.'},
-        {id:'mob-sub-gear',  emoji:'⚙️', text:'Use the <strong>🗑 delete button</strong> on a card to remove a subscription.'}
+        {id:'mob-sub-cards', emoji:'📋', text:'Your subscriptions are shown as <strong>cards</strong>. Tap any card to edit its details — name, cost, billing cycle, and status.', target:'.sub-card'},
+        {id:'mob-sub-gear',  emoji:'⚙️', text:'Use the <strong>🗑 delete button</strong> on a card to remove a subscription.', target:'.sub-del-btn'}
       ]
     };
     function _runMobileGuide(page){
@@ -957,9 +957,10 @@
             var b=document.createElement('button');b.className='wt-btn-primary';b.textContent='Done';
             b.onclick=function(){_hideAll();};_btns.appendChild(b);
           });
-          _setHL(null);_posBubble(null);return;
+          _setHL(null);_posBubble(null);_trackHL(null);return;
         }
         var s=steps[idx];
+        var targetEl=s.target?document.querySelector(s.target):null;
         _transition(function(){
           _avatar.textContent=s.emoji||'📱';
           _text.innerHTML=s.text;_btns.innerHTML='';
@@ -974,7 +975,12 @@
           _btns.appendChild(skipBtn);
         });
         _overlay.style.display='block';
-        _setHL(null);_posBubble(null);
+        if(targetEl){
+          targetEl.scrollIntoView({block:'center',behavior:'smooth'});
+          setTimeout(function(){_setHL(targetEl);_posBubble(targetEl);_trackHL(targetEl);},380);
+        } else {
+          _setHL(null);_posBubble(null);_trackHL(null);
+        }
       }
       show();
     }
