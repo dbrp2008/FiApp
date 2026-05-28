@@ -1267,7 +1267,13 @@ function adjustBodyWidth(){
 }
 window.addEventListener('resize',adjustBodyWidth);
 let _resizeRenderTimer=null;
+let _lastRenderW=window.innerWidth;
 window.addEventListener('resize',()=>{
+  // Only re-render when WIDTH changes (keyboard open/close only changes height — re-rendering
+  // on height-only resize destroys the focused input and closes the keyboard immediately).
+  const w=window.innerWidth;
+  if(w===_lastRenderW) return;
+  _lastRenderW=w;
   clearTimeout(_resizeRenderTimer);
   _resizeRenderTimer=setTimeout(()=>render(),300);
 });
