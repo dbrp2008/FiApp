@@ -242,8 +242,10 @@
     .row-gear-menu button,.row-gear-menu label{display:block;width:100%;text-align:left;padding:.42rem .75rem;border:none;background:none;cursor:pointer;font-size:.88rem;color:var(--fg);font-family:inherit;border-radius:5px;white-space:nowrap;box-sizing:border-box;}
     .row-gear-menu button:hover,.row-gear-menu button:active,.row-gear-menu label:hover,.row-gear-menu label:active{background:var(--hover-bg,rgba(0,0,0,.06));}
     @media(max-width:640px){
-      .curr-other-cell input,.cell-curr-sel,
+      .curr-other-cell input,
       input.row-label,input.th-label{font-size:16px!important;}
+      /* cell-curr-sel is a wheel-picker select (no keyboard), keep it compact on mobile */
+      .cell-curr-sel{font-size:.82rem;max-width:52px;}
       /* Free up label column space on mobile */
       .color-swatch-wrap{display:none;}
       .sub-dropdown{display:none;}
