@@ -839,12 +839,22 @@ function deleteRow(id){
   forkCurrentMonth();
   snapshot();
   const mk2=currentMK();
+  const rowToDelete=getRows(mk2).find(r=>r.id===id);
+  const parentId=rowToDelete?rowToDelete.parentId:null;
   const kids=getRows(mk2).filter(r=>r.parentId===id).map(r=>r.id);
   const toDelete=[id,...kids];
   state.rowsByMonth[mk2]=getRows(mk2).filter(r=>!toDelete.includes(r.id));
   Object.keys(state.cells).forEach(k=>{ if(toDelete.some(d=>k.includes('|'+d+'|'))) delete state.cells[k]; });
+  const lastChildGone=parentId&&!getRows(mk2).some(r=>r.parentId===parentId);
+  if(lastChildGone){
+    Object.keys(state.cells).forEach(k=>{ if(k.startsWith(mk2+'|'+parentId+'|')) delete state.cells[k]; });
+  }
   save();
-  (function(){var tbody=document.querySelector('#sheet tbody');if(!tbody){render();return;}toDelete.forEach(function(rId){var tr=tbody.querySelector('[data-tr-row-id="'+rId+'"]');if(tr)tr.remove();});updateGrandTotal();})();
+  if(lastChildGone){
+    render();
+  } else {
+    (function(){var tbody=document.querySelector('#sheet tbody');if(!tbody){render();return;}toDelete.forEach(function(rId){var tr=tbody.querySelector('[data-tr-row-id="'+rId+'"]');if(tr)tr.remove();});updateGrandTotal();})();
+  }
   showToast('Row deleted.', false, 5000, undo);
 }
 function deleteCol(id){
