@@ -1061,8 +1061,12 @@ function showSubMenu(btn, row){
   menu.style.left=rect.left+'px';
   document.body.appendChild(menu);
   openMenu=menu;
-  if(menu.getBoundingClientRect().bottom > window.innerHeight - 8){
+  const mRect=menu.getBoundingClientRect();
+  if(mRect.bottom > window.innerHeight - 8){
     menu.style.top=(rect.top - menu.offsetHeight - 4)+'px';
+  }
+  if(mRect.right > window.innerWidth - 8){
+    menu.style.left=Math.max(4, window.innerWidth - mRect.width - 8)+'px';
   }
 }
 
