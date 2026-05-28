@@ -251,10 +251,11 @@
       .subs-link-btn{display:none;}
       /* Show gear button */
       .row-gear-btn{display:inline-flex;}
-      /* Tighten label cell spacing + cap column width */
+      /* Tighten label cell spacing */
       .rh-inner{gap:3px;padding-left:4px;padding-right:4px;}
       .drag-handle{padding:0 2px;}
-      #cg-hdr{width:140px!important;}
+      /* Hide recurring badge to save label space (col width capped in JS) */
+      .row-recur-badge{display:none;}
     }
 </style>
 {% endblock %}
