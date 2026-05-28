@@ -1292,6 +1292,92 @@ function render(){
 }
 
 
+function _openCardEdit(row){
+  const serviceCol=colByType('text');
+  const notesCol=state.cols.filter(c=>c.ctype==='text')[1];
+  const costCol=colByType('number');
+  const billingCol=colByType('billing');
+  const dateCol=colByType('date');
+  const cancelCol=colByType('canceldate');
+  const statusCol=colByType('status');
+
+  const overlay=document.createElement('div');overlay.className='share-overlay';
+  const modal=document.createElement('div');modal.className='share-modal';modal.style.maxWidth='420px';
+  const title=document.createElement('h3');title.textContent='Edit Subscription';modal.appendChild(title);
+
+  function field(labelTxt,el){
+    const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
+    const lbl=document.createElement('label');lbl.textContent=labelTxt;lbl.style.cssText='font-size:.78rem;font-weight:600;color:var(--muted);';
+    wrap.appendChild(lbl);wrap.appendChild(el);modal.appendChild(wrap);
+  }
+  function inp(type,val){
+    const el=document.createElement('input');el.type=type;el.value=val||'';
+    el.style.cssText='padding:8px 10px;border:1px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--fg);font-size:16px;font-family:inherit;width:100%;box-sizing:border-box;';
+    return el;
+  }
+  function sel(opts,val){
+    const el=document.createElement('select');
+    el.style.cssText='padding:8px 10px;border:1px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--fg);font-size:16px;font-family:inherit;width:100%;box-sizing:border-box;';
+    opts.forEach(o=>{const opt=document.createElement('option');opt.value=o;opt.textContent=o;if(o===val)opt.selected=true;el.appendChild(opt);});
+    return el;
+  }
+
+  const nameInp=serviceCol?inp('text',getCell(row.id,serviceCol.id)):null;
+  if(nameInp) field('Service name',nameInp);
+
+  // Cost + currency on same row
+  const costInp=costCol?inp('number',getCell(row.id,costCol.id)):null;
+  if(costInp){
+    costInp.min='0';costInp.step='0.01';costInp.inputMode='decimal';
+    const cur=rowCurrency(row.id);
+    const codes=getAllUsedCurrencies();if(!codes.includes(cur))codes.push(cur);codes.push('Other…');
+    const curSel=sel(codes,cur);curSel.style.width='auto';curSel.style.flex='0 0 auto';
+    const row2=document.createElement('div');row2.style.cssText='display:flex;gap:6px;align-items:center;';
+    costInp.style.flex='1';row2.appendChild(costInp);row2.appendChild(curSel);
+    const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
+    const lbl=document.createElement('label');lbl.textContent='Cost';lbl.style.cssText='font-size:.78rem;font-weight:600;color:var(--muted);';
+    wrap.appendChild(lbl);wrap.appendChild(row2);modal.appendChild(wrap);
+    curSel.addEventListener('change',()=>{ if(curSel.value!=='Other…') setRowCurrency(row.id,curSel.value); });
+  }
+
+  const billSel=billingCol?sel(BILLING_OPTS,getCell(row.id,billingCol.id)||'Monthly'):null;
+  if(billSel) field('Billing cycle',billSel);
+  const statusSel=statusCol?sel(Object.keys(STATUS_CLR),getCell(row.id,statusCol.id)||'Active'):null;
+  if(statusSel) field('Status',statusSel);
+  const startInp=dateCol?inp('date',getCell(row.id,dateCol.id)):null;
+  if(startInp) field('Start date',startInp);
+  const cancelInp=cancelCol?inp('date',getCell(row.id,cancelCol.id)):null;
+  if(cancelInp) field('Cancel date (optional)',cancelInp);
+  const notesInp=notesCol?inp('text',getCell(row.id,notesCol.id)):null;
+  if(notesInp) field('Notes',notesInp);
+
+  // Buttons
+  const actions=document.createElement('div');actions.className='share-actions';
+  const saveBtn=document.createElement('button');saveBtn.className='btn';saveBtn.textContent='Save';
+  saveBtn.style.cssText='background:#065f46;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:6px;font-size:1rem;cursor:pointer;';
+  const cancelBtn=document.createElement('button');cancelBtn.className='btn btn-ghost';cancelBtn.textContent='Cancel';
+  cancelBtn.style.cssText='padding:.5rem 1rem;border-radius:6px;font-size:1rem;cursor:pointer;';
+  actions.appendChild(cancelBtn);actions.appendChild(saveBtn);modal.appendChild(actions);
+
+  saveBtn.addEventListener('click',()=>{
+    snapshot();
+    if(nameInp&&serviceCol) setCell(row.id,serviceCol.id,nameInp.value.trim());
+    if(costInp&&costCol) setCell(row.id,costCol.id,costInp.value);
+    if(billSel&&billingCol) setCell(row.id,billingCol.id,billSel.value);
+    if(statusSel&&statusCol) setCell(row.id,statusCol.id,statusSel.value);
+    if(startInp&&dateCol) setCell(row.id,dateCol.id,startInp.value);
+    if(cancelInp&&cancelCol) setCell(row.id,cancelCol.id,cancelInp.value);
+    if(notesInp&&notesCol) setCell(row.id,notesCol.id,notesInp.value.trim());
+    save();render();recalcTotals();renderChart();
+    overlay.remove();
+  });
+  cancelBtn.addEventListener('click',()=>overlay.remove());
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) overlay.remove(); });
+
+  overlay.appendChild(modal);document.body.appendChild(overlay);
+  if(nameInp) setTimeout(()=>nameInp.focus(),50);
+}
+
 function renderMobileCards(){
   const MOBILE=window.innerWidth<640;
   const sheetWrap=document.querySelector('.sheet-wrap');
@@ -1347,6 +1433,9 @@ function renderMobileCards(){
       if(dateCol){const s=getCell(row.id,dateCol.id);if(s){const d=new Date(s+'T00:00:00');meta.push('Since '+MONTHS_SHORT[d.getMonth()]+' '+d.getFullYear());}}
       if(cancelCol){const s=getCell(row.id,cancelCol.id);if(s){const d=new Date(s+'T00:00:00');meta.push('Cancels '+MONTHS_SHORT[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear());}}
       if(meta.length){const metaEl=document.createElement('div');metaEl.className='sub-card-meta';metaEl.textContent=meta.join(' · ');card.appendChild(metaEl);}
+
+      // Tap card to edit (exclude delete button)
+      card.addEventListener('click',e=>{ if(!e.target.closest('.sub-card-del')) _openCardEdit(row); });
 
       // Delete button
       const delBtn=document.createElement('button');delBtn.className='sub-card-del';
