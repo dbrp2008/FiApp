@@ -235,6 +235,7 @@ function checkSpendTrend(){
   var topCat='', topCatPct=0, topCatDir='up';
   getRows(mk2).forEach(function(row){
     if(row.parentId) return;
+    if(row.linked==='subscriptions'||row.snapshotLinkedRow) return; // auto-filled rows, skip
     var kids=getRows(mk2).filter(function(r){return r.parentId===row.id;});
     var t=kids.length>0
       ? kids.reduce(function(s,c){return s+(rowTotalsThis[c.id]||0);},0)
