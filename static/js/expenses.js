@@ -1595,7 +1595,8 @@ function virtualSubChildren(){
 
 function renderTableHeader(table){
   const cg=document.createElement('colgroup');
-  const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=(state.headerColWidth||185)+'px';cg.appendChild(hc);
+  const _hdrW=window.innerWidth<640?Math.min(state.headerColWidth||185,150):state.headerColWidth||185;
+  const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=_hdrW+'px';cg.appendChild(hc);
   getCols().forEach(col=>{const c=document.createElement('col');c.id='cg-'+col.id;c.style.width=(col.width||100)+'px';cg.appendChild(c);});
   const tc=document.createElement('col');tc.style.width=(state.totalColWidth||110)+'px';cg.appendChild(tc);
   const dc=document.createElement('col');dc.style.width='32px';cg.appendChild(dc);
@@ -1731,7 +1732,7 @@ function renderTableBody(table){
       rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
     }
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
-    if(row.recurring){const rb=document.createElement('span');rb.textContent='🔁';rb.title='Recurring';rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
+    if(row.recurring){const rb=document.createElement('span');rb.className='row-recur-badge';rb.textContent='🔁';rb.title='Recurring';rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
     if(!isChild && !row.linked && !row.snapshotLinkedRow){
       const dd=document.createElement('div');dd.className='sub-dropdown';
       const addBtn=document.createElement('button');addBtn.className='sub-add-btn';addBtn.textContent='+Sub';addBtn.title='Add subcategory';
