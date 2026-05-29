@@ -1093,7 +1093,7 @@ function _openExplainer(d){
         const _f = n => 'HK$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
         return '<hr style="border:none;border-top:1px solid var(--panel-border);margin:.75rem 0;">'+
           '<p><strong>Immigrant first-year assessment (IRD two-segment method):</strong></p>'+
-          '<p>Assumed annual income: <strong>'+_f(d.income)+'</strong></p>'+
+          '<p>Assumed annual income: <strong>'+_f(1000000)+'</strong></p>'+
           '<p>The IRD does not prorate a single annual bill. They calculate two separate assessments on one notice:</p>'+
           '<p><strong>Year 1 — Actual tax</strong> ('+_MOS[im.arrivalMonth-1]+' '+im.arrivalYear+' → Mar '+im.y1EndYear+', '+im.y1Months+' month'+(im.y1Months>1?'s':'')+'): '+
             'Full-year tax is computed on your annual income using both the progressive and standard rate methods; the lower applies. The result is then scaled by '+im.y1Months+'/12 to reflect the actual months worked. Tax reduction is applied after scaling.</p>'+
