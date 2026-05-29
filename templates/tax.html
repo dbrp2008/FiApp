@@ -1197,8 +1197,15 @@ document.getElementById('tax-form').addEventListener('submit', async function(e)
         y2ChildAllow: _y2a.child,
         y2Method: _y2Result.method, y2Prog: _y2Result.prog, y2Std: _y2Result.std,
         totalTax: _total,
-        janPayment: _y1Tax + _y2Result.tax * 0.75,
-        aprPayment: _total - (_y1Tax + _y2Result.tax * 0.75) };
+        janPayment: (function(){
+          const _r2 = n => Math.round(n*100)/100;
+          return _r2(_y1Tax) + _r2(_y2Result.tax * 0.75);
+        })(),
+        aprPayment: (function(){
+          const _r2 = n => Math.round(n*100)/100;
+          const _jan = _r2(_y1Tax) + _r2(_y2Result.tax * 0.75);
+          return _r2(_total) - _jan;
+        })() };
       tax = _total;
     }
     resultData = {country:'HK', income, married, singleParent:_hkSingleParent,
