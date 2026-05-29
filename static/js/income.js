@@ -1267,38 +1267,37 @@ function _getMCLayout(){try{return localStorage.getItem(_MC_LAYOUT_KEY)||'defaul
 function _setMCLayout(v){try{localStorage.setItem(_MC_LAYOUT_KEY,v);}catch(e){}}
 function _applyMobileLayout(){
   if(window.innerWidth>=640) return;
-  const old=document.getElementById('mc-panel-nav');
-  if(old) old.remove();
+  const oldCtrl=document.getElementById('mc-layout-controls'); if(oldCtrl) oldCtrl.remove();
   const summaryEl=document.getElementById('summary-bar');
   const cardsEl=document.getElementById('inc-mobile-cards');
   if(!summaryEl||!cardsEl) return;
-  if(_getMCLayout()!=='carousel'){
-    summaryEl.classList.remove('mc-panel-hidden');
-    cardsEl.classList.remove('mc-panel-hidden');
-    return;
+  summaryEl.classList.remove('mc-panel-hidden'); cardsEl.classList.remove('mc-panel-hidden');
+  const isCarousel=_getMCLayout()==='carousel';
+  const ctrl=document.createElement('div'); ctrl.id='mc-layout-controls';
+  const toggleBtn=document.createElement('button'); toggleBtn.className='mc-layout-btn';
+  toggleBtn.textContent=isCarousel?'⊞ Scroll view':'⊟ Carousel view';
+  toggleBtn.addEventListener('click',()=>{_setMCLayout(isCarousel?'default':'carousel');if(!isCarousel) _mcPanel=1;render();});
+  ctrl.appendChild(toggleBtn);
+  if(isCarousel){
+    const panels=[summaryEl,cardsEl]; const labels=['Summary','Cards'];
+    const nav=document.createElement('div'); nav.className='mc-panel-nav';
+    function showPanel(i){
+      _mcPanel=i; panels.forEach((p,j)=>p.classList.toggle('mc-panel-hidden',j!==i));
+      nav.querySelectorAll('.mc-panel-dot').forEach((d,j)=>d.classList.toggle('active',j===i));
+      const lbl=nav.querySelector('.mc-panel-label'); if(lbl) lbl.textContent=labels[i];
+      nav.querySelector('.mc-panel-prev').disabled=i===0; nav.querySelector('.mc-panel-next').disabled=i===panels.length-1;
+    }
+    const prevBtn=document.createElement('button'); prevBtn.className='mc-panel-arrow mc-panel-prev'; prevBtn.textContent='◀';
+    prevBtn.addEventListener('click',()=>showPanel(Math.max(0,_mcPanel-1)));
+    const dotsWrap=document.createElement('div'); dotsWrap.className='mc-panel-dots';
+    labels.forEach((_,i)=>{const dot=document.createElement('span');dot.className='mc-panel-dot';dot.addEventListener('click',()=>showPanel(i));dotsWrap.appendChild(dot);});
+    const labelEl=document.createElement('span'); labelEl.className='mc-panel-label';
+    const nextBtn=document.createElement('button'); nextBtn.className='mc-panel-arrow mc-panel-next'; nextBtn.textContent='▶';
+    nextBtn.addEventListener('click',()=>showPanel(Math.min(panels.length-1,_mcPanel+1)));
+    nav.appendChild(prevBtn); nav.appendChild(dotsWrap); nav.appendChild(labelEl); nav.appendChild(nextBtn);
+    ctrl.appendChild(nav); showPanel(_mcPanel);
   }
-  const panels=[summaryEl,cardsEl];
-  const labels=['Summary','Cards'];
-  const nav=document.createElement('div');
-  nav.id='mc-panel-nav'; nav.className='mc-panel-nav';
-  function showPanel(i){
-    _mcPanel=i;
-    panels.forEach((p,j)=>p.classList.toggle('mc-panel-hidden',j!==i));
-    nav.querySelectorAll('.mc-panel-dot').forEach((d,j)=>d.classList.toggle('active',j===i));
-    const lbl=nav.querySelector('.mc-panel-label'); if(lbl) lbl.textContent=labels[i];
-    nav.querySelector('.mc-panel-prev').disabled=i===0;
-    nav.querySelector('.mc-panel-next').disabled=i===panels.length-1;
-  }
-  const prevBtn=document.createElement('button'); prevBtn.className='mc-panel-arrow mc-panel-prev'; prevBtn.textContent='◀';
-  prevBtn.addEventListener('click',()=>showPanel(Math.max(0,_mcPanel-1)));
-  const dotsWrap=document.createElement('div'); dotsWrap.className='mc-panel-dots';
-  labels.forEach((_,i)=>{const dot=document.createElement('span');dot.className='mc-panel-dot';dot.addEventListener('click',()=>showPanel(i));dotsWrap.appendChild(dot);});
-  const labelEl=document.createElement('span'); labelEl.className='mc-panel-label';
-  const nextBtn=document.createElement('button'); nextBtn.className='mc-panel-arrow mc-panel-next'; nextBtn.textContent='▶';
-  nextBtn.addEventListener('click',()=>showPanel(Math.min(panels.length-1,_mcPanel+1)));
-  nav.appendChild(prevBtn); nav.appendChild(dotsWrap); nav.appendChild(labelEl); nav.appendChild(nextBtn);
-  summaryEl.parentNode.insertBefore(nav,summaryEl);
-  showPanel(_mcPanel);
+  summaryEl.parentNode.insertBefore(ctrl,summaryEl);
 }
 
 function render(){
@@ -1315,7 +1314,7 @@ function render(){
   } else {
     if(sheetWrap) sheetWrap.style.display='';
     if(cardsDiv) cardsDiv.style.display='none';
-    const _oldNav=document.getElementById('mc-panel-nav'); if(_oldNav) _oldNav.remove();
+    const _oldNav=document.getElementById('mc-layout-controls'); if(_oldNav) _oldNav.remove();
     const _sumEl=document.getElementById('summary-bar'); if(_sumEl) _sumEl.classList.remove('mc-panel-hidden');
     renderTableHeader(table);
     renderTableBody(table);
@@ -1338,17 +1337,6 @@ function renderMobileCards(){
   const container=document.getElementById('inc-mobile-cards');
   if(!container) return;
   container.innerHTML='';
-  const _isCarousel=_getMCLayout()==='carousel';
-  const layoutBtn=document.createElement('button');
-  layoutBtn.className='mc-layout-btn';
-  layoutBtn.textContent=_isCarousel?'⊞ Scroll view':'⊟ Carousel view';
-  layoutBtn.addEventListener('click',()=>{
-    const newL=_isCarousel?'default':'carousel';
-    _setMCLayout(newL);
-    if(newL==='carousel') _mcPanel=1;
-    render();
-  });
-  container.appendChild(layoutBtn);
   const cols=getCols();
 
   function buildCard(row){
