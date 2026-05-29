@@ -298,6 +298,12 @@ function _hkAllows(yoa){
   if(yoa >= 2023) return {basic:132000, mpa:264000, spa:132000, child:130000};
   return              {basic:132000, mpa:264000, spa:132000, child:120000};
 }
+// Tax relief cap by year of assessment
+function _hkRelief(yoa){
+  if(yoa === null || yoa >= 2023) return 3000;
+  if(yoa >= 2022) return 6000;   // 2022/23
+  return 10000;                  // 2021/22 and earlier
+}
 
 
 
@@ -397,13 +403,16 @@ function calcHKTax(incomeHKD, married, rentalHKD=0, applyRelief=true, singlePare
     prog += (Math.min(assessable,lim)-prev)*rate; prev=lim;
     if(lim===Infinity) break;
   }
-  const std = incomeHKD <= HK_STD_TIER
-    ? incomeHKD * HK_STD_RATE
-    : HK_STD_TIER * HK_STD_RATE + (incomeHKD - HK_STD_TIER) * HK_STD_RATE_HIGH;
+  // Two-tier standard rate (15%/16%) only from 2024/25; flat 15% for earlier years
+  const twoTier = yoa === null || yoa >= 2024;
+  const std = (twoTier && incomeHKD > HK_STD_TIER)
+    ? HK_STD_TIER * HK_STD_RATE + (incomeHKD - HK_STD_TIER) * HK_STD_RATE_HIGH
+    : incomeHKD * HK_STD_RATE;
   let tax   = Math.min(prog, std);
   tax      += rentalHKD * 0.80 * 0.15;
   const taxBeforeRelief = tax;
-  if(applyRelief) tax = Math.max(0, tax - HK_TAX_RELIEF);
+  const relief = _hkRelief(yoa);
+  if(applyRelief) tax = Math.max(0, tax - relief);
   return { tax, taxBeforeRelief, method: prog<=std ? 'progressive' : 'standard rate', prog, std };
 }
 
@@ -1009,12 +1018,12 @@ function _updateResultBox(d){
           _allowLines(d.immigrant.y2BasicAllow, d.immigrant.y2SpaAllow, d.immigrant.y2BaseAllow, d.married, d.singleParent,
                       (d.immigrant.arrivalFiscalYear+1)+'/'+(d.immigrant.arrivalFiscalYear+2))
         : _allowLines(HK_BASIC_ALLOW, HK_SPA, HK_MPA, d.married, d.singleParent, null))+
-      (ch>0  ? '<p><strong>Child Allowance ('+ch+' child'+(ch>1?'ren:':':')+'):</strong> −'+fmt(ch*HK_CHILD_ALLOW,sym)+'</p>' : '')+
-      (chb>0 ? '<p><strong>Birth Allowance ('+chb+' born this year):</strong> −'+fmt(chb*HK_CHILD_ALLOW,sym)+'</p>' : '')+
+      (ch>0  ? '<p><strong>Child Allowance ('+ch+' child'+(ch>1?'ren:':':')+'):</strong> −'+fmt(ch*(d.immigrant ? d.immigrant.y2ChildAllow : HK_CHILD_ALLOW),sym)+'</p>' : '')+
+      (chb>0 ? '<p><strong>Birth Allowance ('+chb+' born this year):</strong> −'+fmt(chb*(d.immigrant ? d.immigrant.y2ChildAllow : HK_CHILD_ALLOW),sym)+'</p>' : '')+
       '<p><strong>Method:</strong> '+(d.immigrant ? d.immigrant.y2Method : d.method)+
         ' (progressive '+fmt(d.immigrant ? d.immigrant.y2Prog : d.prog, sym)+' vs standard rate '+fmt(d.immigrant ? d.immigrant.y2Std : d.std, sym)+')</p>'+
       (d.rentalHKD>0 ? '<p><strong>Rental Tax (15% on 80%):</strong> '+fmt(d.rentalHKD*.8*.15,sym)+'</p>' : '')+
-      (d.immigrant ? '' : '<p><strong>Tax Reduction:</strong> −'+fmt(Math.min(HK_TAX_RELIEF,d.taxBeforeRelief),sym)+'</p>')+
+      (d.immigrant ? '' : (d.taxBeforeRelief > d.tax ? '<p><strong>Tax Reduction:</strong> −'+fmt(d.taxBeforeRelief - d.tax, sym)+'</p>' : ''))+
       '<p><strong>'+(d.immigrant?'Year 2 Provisional Tax:':'Salaries Tax:')+'</strong> '+fmt(d.immigrant ? d.immigrant.y2Tax : d.tax, sym)+'</p>'+
       (d.immigrant ? (function(im){
         const y1Label = _MOS[im.arrivalMonth-1]+' '+im.arrivalYear+' → Mar '+im.y1EndYear+' ('+im.y1Months+' month'+(im.y1Months>1?'s':'')+')';
@@ -1176,10 +1185,12 @@ document.getElementById('tax-form').addEventListener('submit', async function(e)
         y1BasicAllow: _y1a.basic,
         y1SpaAllow:   _hkSingleParent ? _y1a.spa : 0,
         y1BaseAllow:  married ? _y1a.mpa : (_y1a.basic + (_hkSingleParent ? _y1a.spa : 0)),
+        y1ChildAllow: _y1a.child,
         y2Tax: _y2Result.tax,
         y2BasicAllow: _y2a.basic,
         y2SpaAllow:   _hkSingleParent ? _y2a.spa : 0,
         y2BaseAllow:  married ? _y2a.mpa : (_y2a.basic + (_hkSingleParent ? _y2a.spa : 0)),
+        y2ChildAllow: _y2a.child,
         y2Method: _y2Result.method, y2Prog: _y2Result.prog, y2Std: _y2Result.std,
         totalTax: _total,
         janPayment: _y1Result.tax + _y2Result.tax * 0.75,
