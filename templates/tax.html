@@ -181,7 +181,29 @@
     <div id="hk-married-row" style="display:none;margin-bottom:1rem;">
       <div class="tax-src-head" style="margin-bottom:.5rem;">Allowance</div>
       <div class="tax-mode-bar">
-        <button type="button" class="tax-mode-btn" id="hk-married-btn" onclick="_toggleHKMarried()">Married Person's Allowance (HK$264,000)</button>
+        <button type="button" class="tax-mode-btn" id="hk-married-btn" onclick="_toggleHKMarried()">Married Person's Allowance (HK$290,000)</button>
+        <button type="button" class="tax-mode-btn" id="hk-sp-btn" onclick="_toggleHKSingleParent()">Single Parent Allowance (HK$145,000)</button>
+      </div>
+    </div>
+    <div id="hk-children-row" style="display:none;margin-bottom:1rem;">
+      <div class="tax-src-head" style="margin-bottom:.5rem;">Children (HK$140,000 each)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:1.25rem;align-items:flex-start;">
+        <div>
+          <span class="tax-hint" style="display:block;margin-bottom:.35rem;">Number of children (1st–9th):</span>
+          <div style="display:flex;align-items:center;gap:.4rem;">
+            <button type="button" class="tax-mode-btn" onclick="_hkChildrenAdj(-1)">−</button>
+            <span id="hk-ch-val" style="min-width:1.5rem;text-align:center;font-weight:700;font-size:.95rem;">0</span>
+            <button type="button" class="tax-mode-btn" onclick="_hkChildrenAdj(1)">+</button>
+          </div>
+        </div>
+        <div>
+          <span class="tax-hint" style="display:block;margin-bottom:.35rem;">Born this year (+HK$140,000 each):</span>
+          <div style="display:flex;align-items:center;gap:.4rem;">
+            <button type="button" class="tax-mode-btn" onclick="_hkChildrenBornAdj(-1)">−</button>
+            <span id="hk-cb-val" style="min-width:1.5rem;text-align:center;font-weight:700;font-size:.95rem;">0</span>
+            <button type="button" class="tax-mode-btn" onclick="_hkChildrenBornAdj(1)">+</button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="hk-immigrant-row" style="display:none;margin-bottom:1rem;">
@@ -264,8 +286,10 @@ const HK_BRACKETS = [
 const HK_STD_RATE      = 0.15;
 const HK_STD_RATE_HIGH = 0.16;
 const HK_STD_TIER      = 5000000;
-const HK_BASIC_ALLOW   = 132000;
-const HK_MPA           = 264000;
+const HK_BASIC_ALLOW   = 145000;
+const HK_MPA           = 290000;
+const HK_SPA           = 145000;  // Single Parent Allowance
+const HK_CHILD_ALLOW   = 140000;  // per child; doubles for birth year
 const HK_TAX_RELIEF    = 3000;
 
 
@@ -273,6 +297,9 @@ const HK_TAX_RELIEF    = 3000;
 let _country     = 'US';
 let _inResidency = 'ROR';
 let _hkMarried      = false;
+let _hkSingleParent = false;
+let _hkChildren     = 0;
+let _hkChildrenBorn = 0;
 let _hkImmigrant    = false;
 let _hkArrivalYear  = new Date().getFullYear();
 let _hkArrivalMonth = new Date().getMonth() + 1;
@@ -283,7 +310,28 @@ let _lastResultByCountry = {};
 
 function _toggleHKMarried(){
   _hkMarried = !_hkMarried;
+  if(_hkMarried) _hkSingleParent = false;
   document.getElementById('hk-married-btn').classList.toggle('active', _hkMarried);
+  document.getElementById('hk-sp-btn').classList.toggle('active', _hkSingleParent);
+  _saveTaxUI();
+}
+function _toggleHKSingleParent(){
+  _hkSingleParent = !_hkSingleParent;
+  if(_hkSingleParent) _hkMarried = false;
+  document.getElementById('hk-married-btn').classList.toggle('active', _hkMarried);
+  document.getElementById('hk-sp-btn').classList.toggle('active', _hkSingleParent);
+  _saveTaxUI();
+}
+function _hkChildrenAdj(delta){
+  _hkChildren = Math.max(0, Math.min(9, _hkChildren + delta));
+  _hkChildrenBorn = Math.min(_hkChildrenBorn, _hkChildren);
+  document.getElementById('hk-ch-val').textContent = _hkChildren;
+  document.getElementById('hk-cb-val').textContent = _hkChildrenBorn;
+  _saveTaxUI();
+}
+function _hkChildrenBornAdj(delta){
+  _hkChildrenBorn = Math.max(0, Math.min(_hkChildren, _hkChildrenBorn + delta));
+  document.getElementById('hk-cb-val').textContent = _hkChildrenBorn;
   _saveTaxUI();
 }
 function _toggleHKImmigrant(){
@@ -330,8 +378,9 @@ function calcIndiaTax(grossINR, residency){
 }
 
 
-function calcHKTax(incomeHKD, married, rentalHKD=0, applyRelief=true){
-  const allowance  = married ? HK_MPA : HK_BASIC_ALLOW;
+function calcHKTax(incomeHKD, married, rentalHKD=0, applyRelief=true, singleParent=false, children=0, childrenBorn=0){
+  const baseAllow  = married ? HK_MPA : (singleParent ? HK_SPA : HK_BASIC_ALLOW);
+  const allowance  = baseAllow + (children + childrenBorn) * HK_CHILD_ALLOW;
   const assessable = Math.max(0, incomeHKD - allowance);
   let prog=0, prev=0;
   for(const [lim,rate] of HK_BRACKETS){
@@ -540,6 +589,7 @@ function _saveTaxUI(){
   try{
     localStorage.setItem(_TAX_UI_KEY, JSON.stringify({
       country:_country, residency:_inResidency, hkMarried:_hkMarried,
+      hkSingleParent:_hkSingleParent, hkChildren:_hkChildren, hkChildrenBorn:_hkChildrenBorn,
       hkImmigrant:_hkImmigrant, hkArrivalYear:_hkArrivalYear, hkArrivalMonth:_hkArrivalMonth,
       mode:_mode, pY:_pY, pSel:_pSel,
       nriSourced:_nriSourced===null?null:[..._nriSourced],
@@ -557,6 +607,9 @@ function _loadTaxUI(){
     if(['US','IN','HK'].includes(s.country))             _country=s.country;
     if(['ROR','NRI'].includes(s.residency))               _inResidency=s.residency;
     if(typeof s.hkMarried==='boolean')                    _hkMarried=s.hkMarried;
+    if(typeof s.hkSingleParent==='boolean')               _hkSingleParent=s.hkSingleParent;
+    if(typeof s.hkChildren==='number')                    _hkChildren=s.hkChildren;
+    if(typeof s.hkChildrenBorn==='number')                _hkChildrenBorn=s.hkChildrenBorn;
     if(typeof s.hkImmigrant==='boolean')                  _hkImmigrant=s.hkImmigrant;
     if(typeof s.hkArrivalYear==='number')                 _hkArrivalYear=s.hkArrivalYear;
     if(typeof s.hkArrivalMonth==='number')                _hkArrivalMonth=s.hkArrivalMonth;
@@ -616,6 +669,9 @@ function _setCountry(c){
 
   _country = c;
   _hkMarried = false;
+  _hkSingleParent = false;
+  _hkChildren = 0;
+  _hkChildrenBorn = 0;
   _hkImmigrant = false;
   document.querySelectorAll('.tax-mode-btn[id^="btn-"]').forEach(b=>b.classList.remove('active'));
   document.getElementById('btn-'+c.toLowerCase()).classList.add('active');
@@ -648,10 +704,12 @@ function _renderCountryUI(){
 
   const immRow  = document.getElementById('hk-immigrant-row');
   const immPick = document.getElementById('hk-immigrant-picks');
+  const chRow   = document.getElementById('hk-children-row');
   if(_country==='US'){
     statusRow.style.display = '';
     hkRow.style.display     = 'none';
     immRow.style.display    = 'none';
+    chRow.style.display     = 'none';
     regimeRow.style.display = 'none'; regimeRow.innerHTML='';
     ccySym.textContent = '($)';
     document.getElementById('status').required = true;
@@ -660,6 +718,7 @@ function _renderCountryUI(){
     document.getElementById('status').required = false;
     hkRow.style.display     = 'none';
     immRow.style.display    = 'none';
+    chRow.style.display     = 'none';
     ccySym.textContent = '(₹)';
     regimeRow.style.display = '';
     regimeRow.innerHTML =
@@ -675,6 +734,10 @@ function _renderCountryUI(){
     ccySym.textContent = '(HK$)';
     regimeRow.style.display = 'none'; regimeRow.innerHTML='';
     // Build arrival pickers
+    chRow.style.display = '';
+    document.getElementById('hk-ch-val').textContent = _hkChildren;
+    document.getElementById('hk-cb-val').textContent = _hkChildrenBorn;
+    document.getElementById('hk-sp-btn').classList.toggle('active', _hkSingleParent);
     immRow.style.display = '';
     immPick.innerHTML = '';
     const _hint = document.createElement('span'); _hint.className='tax-hint'; _hint.style.display='block'; _hint.textContent='Arrival month & year:';
@@ -919,12 +982,15 @@ function _updateResultBox(d){
     document.getElementById('tax-explain-btn').style.display = '';
 
   } else {
-    const sym     = 'HK$';
-    const allow   = d.married ? HK_MPA : HK_BASIC_ALLOW;
-    const allowLbl = d.married ? 'Married Person' : 'Basic';
+    const sym      = 'HK$';
+    const baseAllow = d.married ? HK_MPA : (d.singleParent ? HK_SPA : HK_BASIC_ALLOW);
+    const baseLbl   = d.married ? 'Married Person' : (d.singleParent ? 'Single Parent' : 'Basic');
+    const ch        = d.children||0, chb = d.childrenBorn||0;
     el.innerHTML =
       '<p><strong>Income:</strong> '+fmt(d.income,sym)+'</p>'+
-      '<p><strong>'+allowLbl+' Allowance:</strong> −'+fmt(allow,sym)+'</p>'+
+      '<p><strong>'+baseLbl+' Allowance:</strong> −'+fmt(baseAllow,sym)+'</p>'+
+      (ch>0  ? '<p><strong>Child Allowance ('+ch+' child'+(ch>1?'ren:':':')+'):</strong> −'+fmt(ch*HK_CHILD_ALLOW,sym)+'</p>' : '')+
+      (chb>0 ? '<p><strong>Birth Allowance ('+chb+' born this year):</strong> −'+fmt(chb*HK_CHILD_ALLOW,sym)+'</p>' : '')+
       '<p><strong>Method:</strong> '+d.method+
         ' (progressive '+fmt(d.prog,sym)+' vs standard rate '+fmt(d.std,sym)+')</p>'+
       (d.rentalHKD>0 ? '<p><strong>Rental Tax (15% on 80%):</strong> '+fmt(d.rentalHKD*.8*.15,sym)+'</p>' : '')+
@@ -989,7 +1055,7 @@ function _openExplainer(d){
       '<tr><td>Next 50,000</td><td>14%</td></tr>'+
       '<tr><td>Remainder</td><td>17%</td></tr></table>'+
       '<p style="margin-top:.75rem"><strong>Standard rate (AY 2026-27):</strong> 15% on net assessable income up to HK$5,000,000 · 16% on the remainder (no allowance deducted). The lower of progressive vs standard rate applies.</p>'+
-      '<p><strong>Allowances:</strong> Basic HK$132,000 · Married Person HK$264,000</p>'+
+      '<p><strong>Allowances:</strong> Basic HK$145,000 · Married Person HK$290,000 · Single Parent HK$145,000 · Child HK$140,000/child (doubles for birth year, 1st–9th child)</p>'+
       '<p><strong>Tax reduction:</strong> HK$3,000 relief cap applied after calculation.</p>'+
       '<p><strong>Exempt income:</strong> Dividends, Interest Income, Capital Gains are not included (HK$0 tax).</p>'+
       '<p><strong>Rental income:</strong> Taxed separately - 15% on 80% of rental (20% deemed expenses deduction).</p>'+
@@ -1072,29 +1138,28 @@ document.getElementById('tax-form').addEventListener('submit', async function(e)
         rentalHKD *= 12;
       }
     }
-    const hkResult = calcHKTax(income, married, rentalHKD); // relief applied — used for normal display
+    const hkResult = calcHKTax(income, married, rentalHKD, true, _hkSingleParent, _hkChildren, _hkChildrenBorn);
     tax = hkResult.tax;
     let immigrant = null;
     if(_hkImmigrant){
       const _info     = _hkImmigrantInfo(_hkArrivalYear, _hkArrivalMonth);
-      // Year 1: actual tax on prorated income; relief applies to Year 1 only
       const _y1Income = income    * (_info.y1Months / 12);
       const _y1Rental = rentalHKD * (_info.y1Months / 12);
-      const _y1Result = calcHKTax(_y1Income, married, _y1Rental, true);
-      // Year 2: provisional tax — IRD never applies a relief concession to provisional years
-      const _y2Tax    = calcHKTax(income, married, rentalHKD, false).tax;
+      const _y1Result = calcHKTax(_y1Income, married, _y1Rental, true,  _hkSingleParent, _hkChildren, _hkChildrenBorn);
+      const _y2Tax    = calcHKTax(income,    married, rentalHKD, false, _hkSingleParent, _hkChildren, _hkChildrenBorn).tax;
       const _total    = _y1Result.tax + _y2Tax;
       immigrant = { ..._info,
         y1Income: _y1Income, y1Tax: _y1Result.tax,
         y1TaxBeforeRelief: _y1Result.taxBeforeRelief,
         y2Tax: _y2Tax,
         totalTax: _total,
-        // Jan = full Year 1 + 75% of Year 2; Apr = 25% of Year 2
         janPayment: _y1Result.tax + _y2Tax * 0.75,
         aprPayment: _y2Tax * 0.25 };
       tax = _total;
     }
-    resultData = {country:'HK', income, married, rentalHKD, ...hkResult, immigrant};
+    resultData = {country:'HK', income, married, singleParent:_hkSingleParent,
+                  children:_hkChildren, childrenBorn:_hkChildrenBorn,
+                  rentalHKD, ...hkResult, immigrant};
   }
 
   _updateResultBox(resultData);
