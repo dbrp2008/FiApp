@@ -349,13 +349,14 @@ function calcHKTax(incomeHKD, married, rentalHKD=0){
 }
 
 function _hkImmigrantInfo(arrYear, arrMonth){
-  // arrMonth 1-12. First April on or after arrival = start of first full fiscal year.
-  // That year ends 12 months later. Total months from arrival to that end date.
-  const fiscalStartYear = arrMonth <= 4 ? arrYear : arrYear + 1;
-  const fiscalEndYear   = fiscalStartYear + 1;
-  const totalMonths     = (fiscalEndYear - arrYear) * 12 + (4 - arrMonth);
+  // Determine which fiscal year (Apr-Mar) the arrival falls in.
+  // Apr-Dec → fiscal year starting that April; Jan-Mar → fiscal year starting previous April.
+  // First complete fiscal year is the one after that; period ends the following April.
+  const arrivalFiscalYear = arrMonth >= 4 ? arrYear : arrYear - 1;
+  const periodEndYear     = arrivalFiscalYear + 2;
+  const totalMonths       = (periodEndYear - arrYear) * 12 + (4 - arrMonth);
   return { totalMonths, scale: totalMonths / 12,
-           janYear: fiscalEndYear, aprYear: fiscalEndYear,
+           janYear: periodEndYear, aprYear: periodEndYear,
            arrivalYear: arrYear, arrivalMonth: arrMonth };
 }
 
