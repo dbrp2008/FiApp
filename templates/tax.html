@@ -1091,22 +1091,32 @@ function _openExplainer(d){
       '<p><strong>Rental income:</strong> Taxed separately - 15% on 80% of rental (20% deemed expenses deduction).</p>'+
       (d.immigrant ? (function(im){
         const _f = n => 'HK$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+        const _exInc   = 1000000;
+        const _exRatio = im.y1Months / 12;
+        const _exY1Ann = calcHKTax(_exInc, _hkMarried, 0, false, _hkSingleParent, _hkChildren, _hkChildrenBorn, im.arrivalFiscalYear);
+        const _exY1TBR = _exY1Ann.tax * _exRatio;
+        const _exY1Tax = Math.max(0, _exY1TBR - im.y1ReliefAmt);
+        const _exY2    = calcHKTax(_exInc, _hkMarried, 0, false, _hkSingleParent, _hkChildren, _hkChildrenBorn, im.arrivalFiscalYear + 1);
+        const _exTotal = _exY1Tax + _exY2.tax;
+        const _r2x = n => Math.round(n*100)/100;
+        const _exJan = _r2x(_exY1Tax) + _r2x(_exY2.tax * 0.75);
+        const _exApr = _r2x(_exTotal) - _exJan;
         return '<hr style="border:none;border-top:1px solid var(--panel-border);margin:.75rem 0;">'+
           '<p><strong>Immigrant first-year assessment (IRD two-segment method):</strong></p>'+
-          '<p>Assumed annual income: <strong>'+_f(1000000)+'</strong></p>'+
+          '<p>Assumed annual income: <strong>'+_f(_exInc)+'</strong></p>'+
           '<p>The IRD does not prorate a single annual bill. They calculate two separate assessments on one notice:</p>'+
           '<p><strong>Year 1 — Actual tax</strong> ('+_MOS[im.arrivalMonth-1]+' '+im.arrivalYear+' → Mar '+im.y1EndYear+', '+im.y1Months+' month'+(im.y1Months>1?'s':'')+'): '+
             'Full-year tax is computed on your annual income using both the progressive and standard rate methods; the lower applies. The result is then scaled by '+im.y1Months+'/12 to reflect the actual months worked. Tax reduction is applied after scaling.</p>'+
-          '<p>Year 1 prorated income: '+_f(im.y1Income)+' ('+im.y1Months+'/12 × '+_f(d.income)+')</p>'+
-          '<p>Method: '+im.y1Method+' (progressive '+_f(im.y1ProgScaled)+' vs standard rate '+_f(im.y1StdScaled)+')</p>'+
-          (im.y1TaxBeforeRelief > im.y1Tax
-            ? '<p>Tax before HK$'+im.y1ReliefAmt.toLocaleString()+' reduction: '+_f(im.y1TaxBeforeRelief)+' → Actual tax: '+_f(im.y1Tax)+'</p>'
-            : '<p>Actual tax: '+_f(im.y1Tax)+(im.y1Tax===0?' (income below allowance)':'')+'</p>')+
+          '<p>Year 1 prorated income: '+_f(_exInc * _exRatio)+' ('+im.y1Months+'/12 × '+_f(_exInc)+')</p>'+
+          '<p>Method: '+_exY1Ann.method+' (progressive '+_f(_exY1Ann.prog * _exRatio)+' vs standard rate '+_f(_exY1Ann.std * _exRatio)+')</p>'+
+          (_exY1TBR > _exY1Tax
+            ? '<p>Tax before HK$'+im.y1ReliefAmt.toLocaleString()+' reduction: '+_f(_exY1TBR)+' → Actual tax: '+_f(_exY1Tax)+'</p>'
+            : '<p>Actual tax: '+_f(_exY1Tax)+(_exY1Tax===0?' (income below allowance)':'')+'</p>')+
           '<p><strong>Year 2 — Provisional tax</strong> (Apr '+im.y1EndYear+' → Mar '+im.payYear+'): '+
-            'The IRD projects your full annual income ('+_f(d.income)+') forward. No tax concession is applied to provisional years.</p>'+
-          '<p>Provisional tax: '+_f(im.y2Tax)+'</p>'+
-          '<p><strong>Total obligation</strong> = '+_f(im.y1Tax)+' + '+_f(im.y2Tax)+' = '+_f(im.totalTax)+'</p>'+
-          '<p>Jan '+im.payYear+': '+_f(im.janPayment)+' (Year 1 in full + 75% of Year 2)  ·  Apr '+im.payYear+': '+_f(im.aprPayment)+' (25% of Year 2)</p>'+
+            'The IRD projects your full annual income ('+_f(_exInc)+') forward. No tax concession is applied to provisional years.</p>'+
+          '<p>Provisional tax: '+_f(_exY2.tax)+'</p>'+
+          '<p><strong>Total obligation</strong> = '+_f(_exY1Tax)+' + '+_f(_exY2.tax)+' = '+_f(_exTotal)+'</p>'+
+          '<p>Jan '+im.payYear+': '+_f(_exJan)+' (Year 1 in full + 75% of Year 2)  ·  Apr '+im.payYear+': '+_f(_exApr)+' (25% of Year 2)</p>'+
           '<p style="font-size:.8rem;color:var(--muted)">Note: allowances and brackets may differ between years as the HK Budget updates them annually. This calculator applies the currently configured rates to both assessments.</p>';
       })(d.immigrant) : '');
   }
