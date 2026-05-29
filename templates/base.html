@@ -699,7 +699,8 @@
       }
       var state=_ld()||_def();
       var targetEl=step.target?document.querySelector(step.target):null;
-      if(targetEl&&typeof window._mcShowForTarget==='function') window._mcShowForTarget(targetEl);
+      // If target is inside a hidden carousel panel, reveal it directly
+      if(targetEl){var _mcHid=targetEl.closest('.mc-panel-hidden');if(_mcHid)_mcHid.classList.remove('mc-panel-hidden');}
       _transition(function(){
         _avatar.textContent=_emojiFor(step);
         _text.innerHTML=step.text.replace(/\n/g,'<br>');
