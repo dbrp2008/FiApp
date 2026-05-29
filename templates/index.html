@@ -446,10 +446,17 @@
   // Load rates first so currency conversion is available throughout
   try{ if(typeof fiappCoreLoadRates==='function') await fiappCoreLoadRates(); }catch(e){}
 
-  // Pull server data into localStorage if this device hasn't loaded it yet.
-  // Only fetches if the key is absent — never overwrites existing local data.
+  // Pull server data into localStorage if local data is absent or empty.
+  // Skips if local data already has cells (expenses/income) or subscription rows.
   async function _fetchIfEmpty(key, apiPath) {
-    if(localStorage.getItem(key)) return;
+    var local = localStorage.getItem(key);
+    if(local) {
+      try {
+        var p = JSON.parse(local);
+        // Real expense/income data has cells; real subscription data has rows but no cells property
+        if((p.cells && Object.keys(p.cells).length > 0) || (!p.cells && p.rows && p.rows.length > 0)) return;
+      } catch(e) {}
+    }
     try {
       var r = await fetch(apiPath, {credentials:'same-origin'});
       if(!r.ok) return;
