@@ -767,7 +767,7 @@ function _renderCountryUI(){
     _mSel.addEventListener('change',()=>{_hkArrivalMonth=parseInt(_mSel.value);_saveTaxUI();});
     const _ySel = document.createElement('select'); _ySel.className='tax-month-sel'; _ySel.style.minWidth='88px';
     const _cY2 = new Date().getFullYear();
-    for(let _y=_cY2-5;_y<=_cY2+2;_y++){const _o=document.createElement('option');_o.value=_y;_o.textContent=_y;if(_y===_hkArrivalYear)_o.selected=true;_ySel.appendChild(_o);}
+    for(let _y=_cY2-5;_y<=_cY2;_y++){const _o=document.createElement('option');_o.value=_y;_o.textContent=_y;if(_y===_hkArrivalYear)_o.selected=true;_ySel.appendChild(_o);}
     _ySel.addEventListener('change',()=>{_hkArrivalYear=parseInt(_ySel.value);_saveTaxUI();});
     _sw.appendChild(_mSel); _sw.appendChild(_ySel);
     immPick.appendChild(_hint); immPick.appendChild(_sw);
