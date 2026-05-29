@@ -1269,6 +1269,7 @@ function addSubRow(parentRow, subLabel){
 }
 function addCol(){
   try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
   if(getCols(mk2).length>=MAX_COLS){showToast('Maximum '+MAX_COLS+' columns per month.');return;}
@@ -1305,6 +1306,7 @@ function deleteRow(id){
 }
 function deleteCol(id){
   try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
   const mk2=currentMK();
