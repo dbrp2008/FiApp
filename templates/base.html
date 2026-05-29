@@ -472,7 +472,12 @@
 
     function _wtValidate(key){
       if(key==='hasExpenseData'){
-        return [].slice.call(document.querySelectorAll('.sheet td input')).some(function(i){return !!(parseFloat(i.value)||0);});
+        // Desktop: check live inputs in the table
+        var domHas=[].slice.call(document.querySelectorAll('.sheet td input')).some(function(i){return !!(parseFloat(i.value)||0);});
+        if(domHas) return true;
+        // Mobile (card view): table not rendered — check localStorage cells directly
+        try{var _es=JSON.parse(localStorage.getItem('fiapp_expenses_v4')||'{}');var _c=_es.cells||{};return Object.keys(_c).some(function(k){return !!(parseFloat(_c[k])||0);});}catch(e){}
+        return false;
       }
       if(key==='hasSubData'){
         try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');return (s.rows||[]).length>0;}catch(e){return false;}
