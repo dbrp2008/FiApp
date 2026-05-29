@@ -1043,6 +1043,7 @@ function renderOtherForm(menu, row){
 }
 
 function showSubMenu(btn, row){
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   closeMenu();
   let subs=[];
   const mainCat=CAT_KEYS.find(k=>k===row.label)||CAT_KEYS.find(k=>CATEGORIES[k].includes(row.label));
@@ -1243,6 +1244,7 @@ function dismissTemplatePrompt(){
 
 function addRow(){
   try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
   if(getRows(mk2).filter(r=>!r.parentId).length>=MAX_ROWS){showToast('Maximum '+MAX_ROWS+' rows per month.');return;}
@@ -1276,6 +1278,7 @@ function addCol(){
 }
 function deleteRow(id){
   try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
   const mk2=currentMK();
