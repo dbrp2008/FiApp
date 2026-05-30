@@ -213,6 +213,21 @@
   })();
   </script>
 
+  <!-- Voice Settings -->
+  <div class="account-card">
+    <h3>Voice Input</h3>
+    <div class="info-row" style="justify-content:space-between;align-items:center;">
+      <span class="info-label">Always confirm before logging</span>
+      <label class="voice-toggle-label">
+        <input type="checkbox" id="voice-always-confirm" onchange="localStorage.setItem('fiapp_voice_always_confirm', this.checked.toString());">
+        <span class="voice-toggle-track"></span>
+      </label>
+    </div>
+    <p style="font-size:.8rem;color:var(--muted);margin-top:.4rem;">
+      When off, high-confidence entries log instantly without a confirmation sheet.
+    </p>
+  </div>
+
   <div class="account-card danger-card">
     <h2>⚠ Delete Account</h2>
     <p class="danger-warning">
@@ -466,5 +481,11 @@ document.addEventListener('DOMContentLoaded',function(){
   var delCancelBtn=document.getElementById('del-cancel-btn');
   if(delCancelBtn) delCancelBtn.addEventListener('click',cancelDelete);
 });
+</script>
+<script>
+(function(){
+  var cb = document.getElementById('voice-always-confirm');
+  if (cb) cb.checked = localStorage.getItem('fiapp_voice_always_confirm') === 'true';
+})();
 </script>
 {% endblock %}
