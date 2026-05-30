@@ -441,7 +441,7 @@
   if(!_CU) return; // non-logged-in: no snapshot
 
   var root = document.getElementById('snapshot-root');
-  if(!root) return;
+  if(!root) return;   
 
   // Load rates first so currency conversion is available throughout
   try{ if(typeof fiappCoreLoadRates==='function') await fiappCoreLoadRates(); }catch(e){}
@@ -909,7 +909,7 @@
   if(!curUser) return;
   var wt = null;
   try{ wt = JSON.parse(localStorage.getItem('fiapp_wt_u_'+curUser)||'null'); }catch{}
-  if(wt && wt.mainCompleted){
+  if(wt && (wt.mainCompleted || (wt.seen && wt.seen.length > 0))){
     var el = document.getElementById('wt-restart-link');
     if(el) el.style.display = 'block';
     var lbl = document.getElementById('wt-restart-lbl');
