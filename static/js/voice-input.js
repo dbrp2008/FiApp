@@ -529,7 +529,7 @@ window.VoiceInput = (function () {
       '<div id="_vi-tts-row" class="voice-tts-row"><span>&#x1F50A;</span><span id="_vi-tts-text"></span></div>' +
       '<div id="_vi-heard" class="voice-heard"></div>' +
       '<div id="_vi-last-week-note" class="voice-warning" style="display:none">' +
-        'Did you mean last month’s Week 4? If so, close and navigate to that month first.' +
+        'Did you mean last month\’s Week 4? If so, close and navigate to that month first.' +
       '</div>' +
       '<div id="_vi-forecast-note" class="voice-forecast-note" style="display:none">' +
         '📂 Forecast month — you\'re editing a future month.' +
