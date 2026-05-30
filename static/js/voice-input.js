@@ -67,6 +67,11 @@ window.VoiceInput = (function () {
     return _tracker;
   }
 
+  function _detectAction(lower) {
+    if (/\b(delete|remove|subtract|minus|take off|deduct|reduce|cancel)\b/.test(lower)) return 'remove';
+    return 'add';
+  }
+
   function _extractAmount(lower) {
     var m = lower.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
     return m ? parseFloat(m[1].replace(',', '.')) : null;
@@ -145,6 +150,7 @@ window.VoiceInput = (function () {
     return {
       transcript:      transcript,
       tracker:         _detectTracker(lower),
+      action:          _detectAction(lower),
       amount:          _extractAmount(lower),
       weekIndex:       weekIdx,
       rowId:           match.rowId,
@@ -241,13 +247,17 @@ window.VoiceInput = (function () {
     br.forkCurrentMonth();
     br.snapshot();
     var existing = parseFloat(br.getCell(effectiveRowId, colId) || '0') || 0;
-    br.setCell(effectiveRowId, colId, (existing + p.amount).toFixed(2));
+    var isRemove = p.action === 'remove';
+    var newVal = isRemove ? Math.max(0, existing - p.amount) : existing + p.amount;
+    br.setCell(effectiveRowId, colId, newVal.toFixed(2));
     br.updateAll(effectiveRowId);
     br.render();
     _saveLearned(_learnedKeys(p.transcript), p.rowId, p.rowLabel);
     _hideConfirmSheet();
-    _speak('Added ' + p.amount.toFixed(0) + ' dollars to ' + p.rowLabel);
-    _toast('Added $' + p.amount.toFixed(2) + ' to ' + p.rowLabel);
+    var verb = isRemove ? 'Removed' : 'Added';
+    var prep  = isRemove ? 'from'    : 'to';
+    _speak(verb + ' ' + p.amount.toFixed(0) + ' dollars ' + prep + ' ' + p.rowLabel);
+    _toast(verb + ' $' + p.amount.toFixed(2) + ' ' + prep + ' ' + p.rowLabel);
   }
 
   // ── TTS ────────────────────────────────────────────────────────────────
@@ -286,9 +296,11 @@ window.VoiceInput = (function () {
     _pendingResult = p;
     _refreshSheet();
     document.getElementById('_vi-sheet').classList.add('active');
-    var msg = 'Please confirm: ' +
+    var _verb = p.action === 'remove' ? 'remove' : 'add';
+    var _prep = p.action === 'remove' ? 'from'   : 'to';
+    var msg = 'Please confirm: ' + _verb + ' ' +
       (p.amount !== null ? p.amount.toFixed(0) + ' dollars' : 'unknown amount') +
-      (p.rowLabel ? ' to ' + p.rowLabel : '') +
+      (p.rowLabel ? ' ' + _prep + ' ' + p.rowLabel : '') +
       ' ' + (p.colLabel || '');
     _speak(msg);
     var ttsEl = document.getElementById('_vi-tts-text');
