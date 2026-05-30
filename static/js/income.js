@@ -1400,6 +1400,7 @@ function renderMobileCards(){
       card.style.cursor='pointer';
       card.addEventListener('click',e=>{
         if(e.target.closest('.mc-gear')) return;
+        if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
         _expandedCardId=isExpanded?null:row.id;
         renderMobileCards();
       });
@@ -2116,5 +2117,7 @@ window._incVoiceBridge = {
   getRows, getCols, currentMK, snapshot, setCell, updateAll, render,
   addRow, forkCurrentMonth,
   getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
+  isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
+  isForecastMonth: function() { return isForecastMonth(); },
 };
 
