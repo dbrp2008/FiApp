@@ -961,12 +961,14 @@
         {id:'mob-exp-sub',   emoji:'📂', text:'Categories with <strong>subcategories</strong> show "edit via subcategories below" — tap the indented child cards to edit their values individually.', target:'.mc-card.mc-child'},
         {id:'mob-exp-gear',  emoji:'⚙️', text:'Tap the <strong>⚙</strong> on any card to change its colour, add a subcategory, or delete the row.', target:'.mc-gear'},
         {id:'mob-exp-fore',  emoji:'📋', text:'<strong>Forecast mode</strong> — navigate to a future month and FiApp shows this banner. Seed it with your spending history or copy last month\'s values to plan ahead.', target:'[data-wt="expenses-forecast"]', beforeShow:function(){if(typeof window.isForecastMonth==='function'&&!window.isForecastMonth()&&typeof window.jumpToMonth==='function'){var _n=new Date(),_fm=_n.getMonth()+1,_fy=_n.getFullYear();if(_fm>11){_fm=0;_fy++;}window.jumpToMonth(_fy+'-'+String(_fm+1).padStart(2,'0'));}}},
-        {id:'mob-exp-subs',  emoji:'🔗', text:'A card with a <strong>pink → Subs badge</strong> is auto-filled from your Subscriptions tracker — tap the badge to view the detail.', target:'.mc-subs-badge'}
+        {id:'mob-exp-subs',  emoji:'🔗', text:'A card with a <strong>pink → Subs badge</strong> is auto-filled from your Subscriptions tracker — tap the badge to view the detail.', target:'.mc-subs-badge'},
+        {id:'mob-exp-voice', emoji:'🎤', text:'Tap the <strong>🎤 mic button</strong> (bottom-right) to log an expense by speaking — e.g. <em>"I spent $30 on groceries"</em>. Fi matches what you say to your categories and asks for confirmation before saving.', target:'#_vi-fab', skipIf:function(){return !(window.SpeechRecognition||window.webkitSpeechRecognition);}}
       ],
       income:[
         {id:'mob-inc-cards', emoji:'📋', text:'On mobile, your income sources appear as <strong>cards</strong>. Each card shows your income by week and the currency used.', target:'#inc-mobile-cards'},
         {id:'mob-inc-edit',  emoji:'✏️', text:'<strong>Tap any card</strong> to expand it. Edit each week\'s amount and change the currency with the dropdown next to it.', target:'.mc-hint-edit'},
-        {id:'mob-inc-gear',  emoji:'⚙️', text:'Tap the <strong>⚙</strong> on any card to change its colour, add a sub-source, or delete the row.', target:'.mc-gear'}
+        {id:'mob-inc-gear',  emoji:'⚙️', text:'Tap the <strong>⚙</strong> on any card to change its colour, add a sub-source, or delete the row.', target:'.mc-gear'},
+        {id:'mob-inc-voice', emoji:'🎤', text:'Tap the <strong>🎤 mic button</strong> (bottom-right) to log income by speaking — e.g. <em>"I earned $5000 salary"</em>. Fi matches what you say to your income sources and confirms before saving.', target:'#_vi-fab', skipIf:function(){return !(window.SpeechRecognition||window.webkitSpeechRecognition);}}
       ],
       subscriptions:[
         {id:'mob-sub-cards', emoji:'📋', text:'Your subscriptions are shown as <strong>cards</strong>. Tap any card to edit its details — name, cost, billing cycle, and status.', target:'.sub-card'},
@@ -974,7 +976,7 @@
       ]
     };
     function _runMobileGuide(page){
-      var steps=MOBILE_STEPS[page]||MOBILE_STEPS.expenses;
+      var steps=(MOBILE_STEPS[page]||MOBILE_STEPS.expenses).filter(function(s){return !s.skipIf||!s.skipIf();});
       var idx=0;
       var _origMK=typeof window.currentMK==='function'?window.currentMK():null;
       function _cleanup(){
