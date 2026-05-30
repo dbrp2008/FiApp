@@ -243,6 +243,7 @@ window.VoiceInput = (function () {
     var existing = parseFloat(br.getCell(effectiveRowId, colId) || '0') || 0;
     br.setCell(effectiveRowId, colId, (existing + p.amount).toFixed(2));
     br.updateAll(effectiveRowId);
+    br.render();
     _saveLearned(_learnedKeys(p.transcript), p.rowId, p.rowLabel);
     _hideConfirmSheet();
     _speak('Added ' + p.amount.toFixed(0) + ' dollars to ' + p.rowLabel);
