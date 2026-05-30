@@ -2963,3 +2963,10 @@ function toggleDropdown(id, e){
 function closeDropdown(id){ document.getElementById(id+'-menu').classList.remove('open'); }
 document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open')); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') document.querySelectorAll('.dropdown-menu.open').forEach(function(m){m.classList.remove('open');}); });
+
+// ── Voice Input Bridge ──────────────────────────────────────────────────
+window._expVoiceBridge = {
+  getRows, getCols, currentMK, snapshot, setCell, updateAll, render,
+  addRow, forkCurrentMonth,
+  getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
+};
