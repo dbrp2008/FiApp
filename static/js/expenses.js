@@ -2968,7 +2968,7 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape') document.q
 // ── Voice Input Bridge ──────────────────────────────────────────────────
 window._expVoiceBridge = {
   getRows, getCols, currentMK, snapshot, setCell, updateAll, render,
-  addRow, forkCurrentMonth,
+  addRow, forkCurrentMonth, deleteRow,
   getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
   isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
   isForecastMonth: function() { return isForecastMonth(); },
