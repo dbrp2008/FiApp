@@ -725,6 +725,11 @@ function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
   menu.style.cssText=`position:fixed;top:${r.bottom+4}px;left:${left}px;z-index:9999;`;
   document.body.appendChild(menu);
   _gearMenuEl=menu;
+  // Flip upward if menu clips the bottom of the viewport
+  const mh=menu.getBoundingClientRect().height;
+  if(r.bottom+4+mh>window.innerHeight-8){
+    menu.style.top=Math.max(8,r.top-4-mh)+'px';
+  }
 }
 
 function renderOtherForm(menu, row){
