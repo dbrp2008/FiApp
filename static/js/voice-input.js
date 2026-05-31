@@ -520,10 +520,6 @@ window.VoiceInput = (function () {
         ? Math.max(0, existing - amountInRowCurrency)
         : existing + amountInRowCurrency;
       br.setCell(effectiveRowId, colId, newVal.toFixed(2));
-      // Only update row currency when we're NOT converting (currency stays the same)
-      if (typeof br.setRowCurrency === 'function' && appliedCurrency) {
-        br.setRowCurrency(effectiveRowId, appliedCurrency);
-      }
       br.updateAll(effectiveRowId);
       br.render();
       _saveLearned(_learnedKeys(p.transcript), p.rowId, p.rowLabel);
@@ -609,6 +605,13 @@ window.VoiceInput = (function () {
   function _refreshSheet() {
     var p = _pendingResult; if (!p) return;
     var br = _bridge();
+
+    // Always reset the currency picker rows to hidden on each new command so stale
+    // state from a previous command (e.g. SAR from "add 1 riyal to X") never bleeds
+    // into the next command's sheet.
+    document.getElementById('_vi-cur-row').style.display = 'none';
+    document.getElementById('_vi-cur-other-row').style.display = 'none';
+    document.querySelector('.voice-chips').style.display = 'flex';
 
     document.getElementById('_vi-heard').textContent = '"' + p.transcript + '"';
     document.getElementById('_vi-last-week-note').style.display = p.lastWeekInWeek1 ? '' : 'none';
@@ -741,6 +744,9 @@ window.VoiceInput = (function () {
 
   function _hideConfirmSheet() {
     document.getElementById('_vi-sheet').classList.remove('active');
+    document.getElementById('_vi-cur-row').style.display = 'none';
+    document.getElementById('_vi-cur-other-row').style.display = 'none';
+    document.querySelector('.voice-chips').style.display = 'flex';
     _pendingResult = null;
   }
 
