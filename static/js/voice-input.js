@@ -41,6 +41,7 @@ window.VoiceInput = (function () {
     'streaming':'Entertainment','games':'Entertainment',
     // Income — Salary
     'salary':'Salary','wage':'Salary','paycheck':'Salary','pay':'Salary',
+    'earn':'Salary','earns':'Salary','earning':'Salary','earnings':'Salary',
     'bonus':'Salary','commission':'Salary','tips':'Salary','tip':'Salary',
     'got paid':'Salary','got my pay':'Salary','received salary':'Salary',
     // Income — Freelance
@@ -57,7 +58,9 @@ window.VoiceInput = (function () {
 
   // ── Currency dictionary ────────────────────────────────────────────────
   var CURRENCIES = {
-    'dollar':'USD','dollars':'USD','usd':'USD',
+    'dollar':  { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD'] },
+    'dollars': { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD'] },
+    'usd':'USD',
     'euro':'EUR','euros':'EUR','eur':'EUR',
     'pound':'GBP','pounds':'GBP','sterling':'GBP','gbp':'GBP',
     'yen':'JPY','jpy':'JPY',
@@ -83,13 +86,32 @@ window.VoiceInput = (function () {
     'kroner':['DKK','NOK'],
   };
 
+  var CURRENCY_NAMES = {
+    'USD':'dollars','AUD':'Australian dollars','CAD':'Canadian dollars',
+    'SGD':'Singapore dollars','HKD':'Hong Kong dollars','NZD':'New Zealand dollars',
+    'EUR':'euros','GBP':'pounds','JPY':'yen','CNY':'yuan','KRW':'won',
+    'INR':'Indian rupees','PKR':'Pakistani rupees','NPR':'Nepali rupees','LKR':'Sri Lankan rupees',
+    'MYR':'ringgit','THB':'baht','VND':'dong','RUB':'rubles','AED':'dirhams',
+    'PLN':'zloty','CHF':'Swiss francs','XOF':'West African francs','XAF':'Central African francs',
+    'MXN':'Mexican pesos','PHP':'Philippine pesos','COP':'Colombian pesos','ARS':'Argentine pesos',
+    'SAR':'Saudi riyals','QAR':'Qatari riyals','TRY':'lira','LBP':'Lebanese pounds',
+    'DKK':'Danish krone','NOK':'Norwegian krone',
+  };
+
+  function _currencyLabel(p) {
+    var code = p && p.currency && p.currency.code;
+    return code ? (CURRENCY_NAMES[code] || code) : 'dollars';
+  }
+
   function _extractCurrency(lower) {
     if (/\bswiss\s+francs?\b/.test(lower)) return { code: 'CHF', candidates: null };
     var keys = Object.keys(CURRENCIES);
     for (var i = 0; i < keys.length; i++) {
       if (new RegExp('\\b' + keys[i] + '\\b').test(lower)) {
         var val = CURRENCIES[keys[i]];
-        return Array.isArray(val) ? { code: null, candidates: val } : { code: val, candidates: null };
+        if (Array.isArray(val))               return { code: null,     candidates: val };
+        if (typeof val === 'object' && val.candidates) return { code: val.code, candidates: val.candidates };
+        return { code: val, candidates: null };
       }
     }
     return null;
@@ -429,7 +451,7 @@ window.VoiceInput = (function () {
     var verb = isRemove ? 'Removed' : 'Added';
     var prep  = isRemove ? 'from'    : 'to';
     var weekPart = p.colLabel ? ', ' + p.colLabel : '';
-    _speak(verb + ' ' + p.amount.toFixed(0) + ' dollars ' + prep + ' ' + p.rowLabel + weekPart);
+    _speak(verb + ' ' + p.amount.toFixed(0) + ' ' + _currencyLabel(p) + ' ' + prep + ' ' + p.rowLabel + weekPart);
     _toast(verb + ' $' + p.amount.toFixed(2) + ' ' + prep + ' ' + p.rowLabel + weekPart);
   }
 
@@ -478,7 +500,7 @@ window.VoiceInput = (function () {
       var _verb = p.action === 'remove' ? 'remove' : 'add';
       var _prep = p.action === 'remove' ? 'from'   : 'to';
       msg = 'Please confirm: ' + _verb + ' ' +
-        (p.amount !== null ? p.amount.toFixed(0) + ' dollars' : 'unknown amount') +
+        (p.amount !== null ? p.amount.toFixed(0) + ' ' + _currencyLabel(p) : 'unknown amount') +
         (p.rowLabel ? ' ' + _prep + ' ' + p.rowLabel : '') +
         ' ' + (p.colLabel || '');
     }
