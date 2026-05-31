@@ -1273,6 +1273,20 @@ let _expandedCardId=null;
 const _MC_LAYOUT_KEY='fiapp_mc_layout_v1';
 let _mcPanel=0; // carousel mode: 0=summary, 1=cards
 window._mcSetPanel=function(i){_mcPanel=i;}; // called by walkthrough in base.html
+// Ensure mobile cards are visible for walkthrough steps that need them
+window._wtShowCards=function(){
+  if(window.innerWidth>=640) return;
+  if(getRows().length===0){
+    forkCurrentMonth();
+    var mk2=currentMK();
+    if(!state.rowsByMonth[mk2]) state.rowsByMonth[mk2]=[];
+    ['Salary','Freelance','Investments','Other Income'].forEach(function(l){
+      if(state.rowsByMonth[mk2].length>=MAX_ROWS) return;
+      state.rowsByMonth[mk2].push({id:uid(),label:l,color:'#d1fae5',textColor:'#1f2937',height:36,parentId:null});
+    });
+  }
+  _setMCLayout('carousel'); _mcPanel=1; render();
+};
 function _getMCLayout(){try{return localStorage.getItem(_MC_LAYOUT_KEY)||'default';}catch(e){return 'default';}}
 function _setMCLayout(v){try{localStorage.setItem(_MC_LAYOUT_KEY,v);}catch(e){}}
 function _applyMobileLayout(){
