@@ -184,7 +184,12 @@ window.VoiceInput = (function () {
 
   function _detectAction(lower) {
     var hasAmount = /\$?\s*\d/.test(lower);
-    if (/\b(delete|remove)\b/.test(lower) && !hasAmount) return 'delete-row';
+    if (/\b(delete|remove)\b/.test(lower) && !hasAmount) {
+      // "remove all money/values/entries" = clear cells, not delete the row itself
+      if (/\ball\b/.test(lower)) return 'clear-row';
+      return 'delete-row';
+    }
+    if (/\b(clear|zero\s+out|wipe|reset)\b/.test(lower) && !hasAmount) return 'clear-row';
     if (/\b(delete|remove|subtract|minus|take off|deduct|reduce|cancel)\b/.test(lower)) return 'remove';
     if (/\b(add|create|new)\s+sub(?:category)?\b/.test(lower)) return 'add-subcategory';
     return 'add';
@@ -458,6 +463,16 @@ window.VoiceInput = (function () {
   // ── Apply (commit) ─────────────────────────────────────────────────────
   function _applyResult(p) {
     if (!p || !p.rowId) return;
+    if (p.action === 'clear-row') {
+      var br = _bridge();
+      br.snapshot();
+      var cols = br.getCols();
+      cols.forEach(function(col) { if (col.id) br.setCell(p.rowId, col.id, ''); });
+      br.render();
+      _hideConfirmSheet();
+      _toast('Cleared all values from ' + (p.rowLabel || 'row') + '.');
+      return;
+    }
     if (p.action === 'delete-row') {
       var br = _bridge();
       br.snapshot();
@@ -574,6 +589,8 @@ window.VoiceInput = (function () {
     var msg;
     if (p.action === 'delete-row') {
       msg = 'Please confirm: delete category ' + (p.rowLabel || 'unknown');
+    } else if (p.action === 'clear-row') {
+      msg = 'Please confirm: clear all values from ' + (p.rowLabel || 'row');
     } else if (p.action === 'add-subcategory') {
       msg = 'Please confirm: add subcategory ' + (p.subLabel || 'unknown') + ' under ' + (p.rowLabel || 'unknown category');
     } else {
@@ -632,8 +649,9 @@ window.VoiceInput = (function () {
     }
 
     var isDeleteRow   = p.action === 'delete-row';
+    var isClearRow    = p.action === 'clear-row';
     var isAddSub      = p.action === 'add-subcategory';
-    var hideAmtWk     = isDeleteRow || isAddSub;
+    var hideAmtWk     = isDeleteRow || isClearRow || isAddSub;
 
     var catChip = document.getElementById('_vi-c-cat');
     catChip.textContent = p.rowLabel || 'Category ?';
@@ -664,7 +682,7 @@ window.VoiceInput = (function () {
 
     // Currency chip — always shown on income tracker
     var curChip = document.getElementById('_vi-c-cur');
-    var showCur = _tracker === 'income' && !isDeleteRow && !isAddSub;
+    var showCur = _tracker === 'income' && !isDeleteRow && !isClearRow && !isAddSub;
     curChip.style.display = showCur ? '' : 'none';
     if (showCur) {
       // If no currency was detected at all, initialise from the row's existing currency
@@ -706,7 +724,7 @@ window.VoiceInput = (function () {
   function _updateConfirmBtn() {
     var p = _pendingResult;
     var ok;
-    if (p && p.action === 'delete-row') {
+    if (p && (p.action === 'delete-row' || p.action === 'clear-row')) {
       ok = !!p.rowId;
     } else if (p && p.action === 'add-subcategory') {
       ok = !!(p.rowId && p.subLabel);
