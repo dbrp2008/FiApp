@@ -493,27 +493,45 @@ window.VoiceInput = (function () {
     br.snapshot();
     var existing = parseFloat(br.getCell(effectiveRowId, colId) || '0') || 0;
     var isRemove = p.action === 'remove';
-    // If currency is changing, don't add to the old value — they're in different currencies
     var newCurrency = p.currency && p.currency.code;
     var existingCurrency = (newCurrency && typeof br.rowCurrency === 'function')
       ? br.rowCurrency(effectiveRowId) : null;
     var currencyChanging = newCurrency && existingCurrency && newCurrency !== existingCurrency;
-    var newVal = isRemove
-      ? Math.max(0, existing - p.amount)
-      : (currencyChanging ? p.amount : existing + p.amount);
-    br.setCell(effectiveRowId, colId, newVal.toFixed(2));
-    if (typeof br.setRowCurrency === 'function' && newCurrency) {
-      br.setRowCurrency(effectiveRowId, newCurrency);
+
+    // Helper that finishes writing after we have the final amount
+    function _commit(amountInRowCurrency, appliedCurrency, convertedNote) {
+      var newVal = isRemove
+        ? Math.max(0, existing - amountInRowCurrency)
+        : existing + amountInRowCurrency;
+      br.setCell(effectiveRowId, colId, newVal.toFixed(2));
+      // Only update row currency when we're NOT converting (currency stays the same)
+      if (typeof br.setRowCurrency === 'function' && appliedCurrency) {
+        br.setRowCurrency(effectiveRowId, appliedCurrency);
+      }
+      br.updateAll(effectiveRowId);
+      br.render();
+      _saveLearned(_learnedKeys(p.transcript), p.rowId, p.rowLabel);
+      _hideConfirmSheet();
+      var verb = isRemove ? 'Removed' : 'Added';
+      var prep  = isRemove ? 'from'    : 'to';
+      var weekPart = p.colLabel ? ', ' + p.colLabel : '';
+      var spokenAmt = p.amount.toFixed(0) + ' ' + (CURRENCY_NAMES[newCurrency] || newCurrency || 'dollars');
+      _speak(verb + ' ' + spokenAmt + ' ' + prep + ' ' + p.rowLabel + weekPart);
+      var toastAmt = (newCurrency || 'USD') + ' ' + p.amount.toFixed(2);
+      _toast(verb + ' ' + toastAmt + (convertedNote ? ' ' + convertedNote : '') + ' ' + prep + ' ' + p.rowLabel + weekPart);
     }
-    br.updateAll(effectiveRowId);
-    br.render();
-    _saveLearned(_learnedKeys(p.transcript), p.rowId, p.rowLabel);
-    _hideConfirmSheet();
-    var verb = isRemove ? 'Removed' : 'Added';
-    var prep  = isRemove ? 'from'    : 'to';
-    var weekPart = p.colLabel ? ', ' + p.colLabel : '';
-    _speak(verb + ' ' + p.amount.toFixed(0) + ' ' + _currencyLabel(p) + ' ' + prep + ' ' + p.rowLabel + weekPart);
-    _toast(verb + ' $' + p.amount.toFixed(2) + ' ' + prep + ' ' + p.rowLabel + weekPart);
+
+    if (currencyChanging && typeof window.fiappConvert === 'function') {
+      // Convert the spoken amount into the row's existing currency, then add
+      _toast('Converting ' + newCurrency + ' → ' + existingCurrency + '…');
+      window.fiappConvert(p.amount, newCurrency, existingCurrency).then(function(converted) {
+        _commit(converted, null, '(≈ ' + existingCurrency + ' ' + converted.toFixed(2) + ')');
+      }).catch(function() {
+        _toast('Could not convert ' + newCurrency + ' → ' + existingCurrency + '. Check connection.');
+      });
+    } else {
+      _commit(p.amount, newCurrency || null, null);
+    }
   }
 
   // ── TTS ────────────────────────────────────────────────────────────────
