@@ -26,30 +26,36 @@ _rates_ts: dict = {}
 RATES_TTL = 3600
 RATES_TTL_DB = 7 * 24 * 3600
 
-# Row/column/subscription limits — enforced both server-side and client-side.
+# Row/column/subscription limits — enforced server-side (via _within_limits) and client-side.
 MAX_SUBS = 100
 MAX_ROWS = 20
 MAX_COLS = 12
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY environment variable is required")
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = not app.debug
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' and not app.debug
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
 EXCHANGE_API_KEY = os.environ.get("EXCHANGE_API_KEY")
+
+# Currency codes are ISO-4217 three-letter uppercase. Validating before building
+# the upstream URL prevents control-char/path injection into the exchange API call.
+_CCY_RE = re.compile(r'^[A-Z]{3}$')
 
 
 if _limiter_available:
     limiter = Limiter(get_remote_address, app=app, default_limits=[],
-        storage_uri="memory://")
-    def _rl(*limits):
+        storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"))
+    def _rl(*limits, **kwargs):
         """Apply rate limits only when Flask-Limiter is available."""
-        return limiter.limit("; ".join(limits))
+        return limiter.limit("; ".join(limits), **kwargs)
 else:
     class _NoopDecorator:
         def __call__(self, f): return f
-    def _rl(*limits):
+    def _rl(*limits, **kwargs):
         return _NoopDecorator()
 
 @app.errorhandler(429)
@@ -82,6 +88,15 @@ def service_unavailable(e):
     except Exception:
         ctx = {}
     return render_template('500.html', **ctx), 503
+
+@app.after_request
+def set_security_headers(resp):
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    resp.headers['Referrer-Policy'] = 'no-referrer'
+    if not app.debug:
+        resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return resp
 
 
 _db_pool = None
@@ -186,6 +201,26 @@ def _ctx():
         "theme": session.get('theme', 'light'),
     }
 
+# Constant-time guard: comparing against a real hash when the user is absent
+# keeps the "no such user" path as slow as the "wrong password" path.
+_DUMMY_PWHASH = generate_password_hash('timing-equalizer')
+
+def _within_limits(data):
+    """Server-side mirror of the client MAX_ROWS/MAX_COLS caps."""
+    rows = data.get('rows')
+    if not isinstance(rows, list) or len(rows) > MAX_ROWS:
+        return False
+    cols = data.get('cols')
+    if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
+        return False
+    for arr in (data.get('rowsByMonth') or {}).values():
+        if isinstance(arr, list) and len(arr) > MAX_ROWS:
+            return False
+    for arr in (data.get('colsByMonth') or {}).values():
+        if isinstance(arr, list) and len(arr) > MAX_COLS:
+            return False
+    return True
+
 
 @app.route('/styles.css')
 def serve_css():
@@ -225,6 +260,7 @@ def account():
     return render_template('account.html', **_ctx())
 
 @app.route('/currency', methods=['GET', 'POST'])
+@_rl("20 per minute", "200 per hour", methods=["POST"])
 def currency():
     if request.method == 'POST':
         currency_i = request.form.get('currency_i', '').upper()
@@ -313,6 +349,7 @@ def interest():
     return render_template('interest.html', **_ctx())
 
 @app.route('/tax', methods=['GET', 'POST'])
+@_rl("20 per minute", "200 per hour", methods=["POST"])
 def tax():
     if request.method == 'POST':
         income = request.form.get('income', '').strip()
@@ -325,6 +362,9 @@ def tax():
             display_status = 'Single'
         elif status == 'married':
             display_status = 'Married'
+        else:
+            flash('Please select a valid filing status.', 'error')
+            return render_template('tax.html', income=income, status='', **_ctx())
 
         try:
             income_float = float(income)
@@ -367,6 +407,8 @@ def register():
         return jsonify({"error": "Username may only contain letters, numbers, _, . or -"}), 400
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters"}), 400
+    if len(password) > 128:
+        return jsonify({"error": "Password must be at most 128 characters"}), 400
     if not re.search(r'[A-Z]', password):
         return jsonify({"error": "Password must contain at least one uppercase letter"}), 400
     if not re.search(r'[0-9]', password):
@@ -402,7 +444,10 @@ def auth_login():
             with conn.cursor() as cur:
                 cur.execute("SELECT id, password_hash, theme FROM users WHERE username=%s", (username,))
                 row = cur.fetchone()
-        if not row or not check_password_hash(row[1], password):
+        if not row:
+            check_password_hash(_DUMMY_PWHASH, password)  # equalize timing
+            return jsonify({"error": "Invalid username or password"}), 401
+        if not check_password_hash(row[1], password):
             return jsonify({"error": "Invalid username or password"}), 401
         session['user_id'] = row[0]
         session['username'] = username
@@ -510,6 +555,8 @@ def change_password():
         return jsonify({"error": "Both passwords are required"}), 400
     if len(new_password) < 8:
         return jsonify({"error": "New password must be at least 8 characters"}), 400
+    if len(new_password) > 128:
+        return jsonify({"error": "New password must be at most 128 characters"}), 400
     if not re.search(r'[A-Z]', new_password):
         return jsonify({"error": "New password must contain at least one uppercase letter"}), 400
     if not re.search(r'[0-9]', new_password):
@@ -541,6 +588,8 @@ def save_expenses():
         return jsonify({"error": "Invalid data format"}), 400
     if 'rows' not in data:
         return jsonify({"error": "Missing required field: rows"}), 400
+    if not _within_limits(data):
+        return jsonify({"error": "Row/column limit exceeded"}), 400
     conn = get_db()
     try:
         with conn:
@@ -617,6 +666,8 @@ def save_income():
         return jsonify({"error": "Invalid data format"}), 400
     if 'rows' not in data:
         return jsonify({"error": "Missing required field: rows"}), 400
+    if not _within_limits(data):
+        return jsonify({"error": "Row/column limit exceeded"}), 400
     conn = get_db()
     try:
         with conn:
@@ -652,6 +703,10 @@ def api_exchange():
     base = (request.args.get('base') or request.args.get('from', 'USD')).upper()
     to_currency = request.args.get('to', '').upper()
     force = request.args.get('force', '0') == '1'
+    if not _CCY_RE.match(base):
+        return jsonify({"error": "Invalid base currency"}), 400
+    if to_currency and not _CCY_RE.match(to_currency):
+        return jsonify({"error": "Invalid target currency"}), 400
     try:
         rates, fetched_at = fetch(base, force=force)
         fetched_str = fetched_at.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -661,8 +716,9 @@ def api_exchange():
                 return jsonify({"error": f"Unknown currency: {to_currency}"}), 400
             return jsonify({"rate": rate, "from": base, "to": to_currency, "fetched_at": fetched_str})
         return jsonify({"rates": rates, "base": base, "from": base, "fetched_at": fetched_str})
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 502
+    except requests.exceptions.RequestException:
+        app.logger.exception("Exchange rate fetch failed (base=%s)", base)
+        return jsonify({"error": "Exchange rate service unavailable"}), 502
 
 
 def simple_interest(principal, rate, years):
