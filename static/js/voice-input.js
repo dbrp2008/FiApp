@@ -5,21 +5,41 @@ window.VoiceInput = (function () {
 
   // ── Synonym dictionary ─────────────────────────────────────────────────
   var SYNONYMS = {
+    // Groceries
     'food':'Groceries','grocery':'Groceries','groceries':'Groceries',
     'supermarket':'Groceries','market':'Groceries',
+    'bought groceries':'Groceries','grocery run':'Groceries',
+    // Dining Out
     'restaurant':'Dining Out','dining':'Dining Out','cafe':'Dining Out',
     'coffee shop':'Dining Out','lunch':'Dining Out','dinner':'Dining Out',
     'takeout':'Dining Out','takeaway':'Dining Out','delivery':'Dining Out',
+    'eat at':'Dining Out','ate at':'Dining Out','eating out':'Dining Out',
+    'lunch at':'Dining Out','dinner at':'Dining Out','breakfast at':'Dining Out',
+    'went to restaurant':'Dining Out',
+    // Transport
     'transport':'Transport','uber':'Transport','taxi':'Transport',
     'bus':'Transport','train':'Transport','mrt':'Transport','subway':'Transport',
+    'grab ride':'Transport','took bus':'Transport','took train':'Transport',
+    'took uber':'Transport','took taxi':'Transport','took mrt':'Transport',
+    // Travel
+    'trip to':'Travel','flew to':'Travel','fly to':'Travel','flight to':'Travel',
+    'go to':'Travel','going to':'Travel','travel to':'Travel','travelled to':'Travel',
+    'drive to':'Travel','drove to':'Travel','road trip':'Travel',
+    'hotel':'Travel','airbnb':'Travel','vacation':'Travel','holiday':'Travel',
+    // Housing
     'rent':'Housing','mortgage':'Housing',
+    // Utilities
     'electricity':'Utilities','internet':'Utilities','wifi':'Utilities',
     'phone bill':'Utilities','water bill':'Utilities',
+    // Healthcare
     'doctor':'Healthcare','hospital':'Healthcare','pharmacy':'Healthcare',
     'gym':'Healthcare','medicine':'Healthcare',
+    // Shopping
     'clothes':'Shopping','clothing':'Shopping','shopping':'Shopping',
+    // Entertainment
     'movie':'Entertainment','netflix':'Entertainment','spotify':'Entertainment',
     'streaming':'Entertainment','games':'Entertainment',
+    // Income
     'salary':'Salary','wage':'Salary','paycheck':'Salary','pay':'Salary',
     'freelance':'Freelance','consulting':'Freelance',
     'dividend':'Investments','interest':'Investments',
@@ -50,10 +70,16 @@ window.VoiceInput = (function () {
   }
 
   function _learnedKeys(transcript) {
-    return transcript.toLowerCase()
+    var allWords = transcript.toLowerCase()
       .replace(/\$?\s*\d+(?:[.,]\d+)?/g, '')
       .split(/\s+/)
-      .filter(function(w) { return w.length >= 3 && !STOPWORDS.has(w); });
+      .filter(function(w) { return w.length >= 2; });
+    var unigrams = allWords.filter(function(w) { return w.length >= 3 && !STOPWORDS.has(w); });
+    var bigrams = [];
+    for (var i = 0; i < allWords.length - 1; i++) {
+      bigrams.push(allWords[i] + ' ' + allWords[i + 1]);
+    }
+    return unigrams.concat(bigrams);
   }
 
   // ── NLU helpers ────────────────────────────────────────────────────────
@@ -137,7 +163,9 @@ window.VoiceInput = (function () {
     var learned = _loadLearned();
     var learnedDirty = false;
     var words = lower.split(/\s+/);
-    words.forEach(function(w) {
+    var candidates = words.slice();
+    for (var _i = 0; _i < words.length - 1; _i++) candidates.push(words[_i] + ' ' + words[_i + 1]);
+    candidates.forEach(function(w) {
       if (w.length < 3) return;
       var entry = learned[w];
       if (!entry) return;
