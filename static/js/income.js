@@ -1337,6 +1337,19 @@ function render(){
   const eb=document.getElementById('expand-btn'), cb2=document.getElementById('collapse-btn');
   if(eb) eb.style.display=hasSubcats?'':'none';
   if(cb2) cb2.style.display=hasSubcats?'':'none';
+  (function(){
+    const el=document.getElementById('del-col-items'); if(!el) return;
+    el.innerHTML='';
+    const cols=getCols(); if(cols.length<=1) return;
+    const sep=document.createElement('hr'); sep.style.cssText='margin:.3rem 0;border:none;border-top:1px solid var(--panel-border);';
+    el.appendChild(sep);
+    cols.forEach(function(col){
+      const btn=document.createElement('button');
+      btn.textContent='× '+col.label;
+      btn.addEventListener('click',function(){ deleteCol(col.id); });
+      el.appendChild(btn);
+    });
+  })();
   requestAnimationFrame(function(){window.scrollTo(0,_sy);});
 }
 
