@@ -75,6 +75,7 @@ window.VoiceInput = (function () {
     // Ambiguous — value is array of candidates
     'rupee':['INR','PKR','NPR','LKR'],
     'rupees':['INR','PKR','NPR','LKR'],
+    'rs':['INR','PKR','NPR','LKR'],
     'franc':['CHF','XOF','XAF'],
     'francs':['CHF','XOF','XAF'],
     'peso':['MXN','PHP','COP','ARS'],
@@ -136,7 +137,7 @@ window.VoiceInput = (function () {
     'cost','spend','purchase','made','got','my','in','of','from',
     // currency words — too generic to be useful category signals
     'dollar','dollars','cent','cents','euro','euros','pound','pounds',
-    'yen','yuan','rupee','rupees','franc','francs','peso','pesos',
+    'yen','yuan','rupee','rupees','rs','franc','francs','peso','pesos',
     'won','baht','ringgit','ruble','rubles','dirham','lira']);
 
   function _loadLearned() {
