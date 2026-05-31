@@ -270,7 +270,11 @@ window.VoiceInput = (function () {
       return parseFloat(mulM[1].replace(',', '.')) * multipliers[mulM[2]];
     }
 
-    // 6. Regular number (with pre-merged decimal)
+    // 6. Spelled-out number word ("one dirham", "two dollars", etc.)
+    var wM = s.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/);
+    if (wM) return _wordToNum(wM[1]);
+
+    // 7. Regular number (with pre-merged decimal)
     var m = s.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
     return m ? parseFloat(m[1].replace(',', '.')) : null;
   }
