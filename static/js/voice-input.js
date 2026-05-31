@@ -199,10 +199,11 @@ window.VoiceInput = (function () {
   }
 
   function _extractRelative(lower) {
-    if (/\b(all|everything|whole|entire)\b/.test(lower))                    return 'all';
-    if (/\b(half|50\s*%|50\s*percent)\b/.test(lower))                      return 'half';
-    if (/\b(quarter|a\s+quarter|25\s*%|25\s*percent)\b/.test(lower))       return 'quarter';
-    if (/\b(third|a\s+third|one\s+third|33\s*%)\b/.test(lower))            return 'third';
+    if (/\b(all|everything|whole|entire)\b/.test(lower))                         return 'all';
+    if (/\b(half|50\s*%|50\s*percent)\b/.test(lower))                           return 'half';
+    // "a quarter of X" = relative; "paid a quarter" = coin ($0.25) — only treat as relative when "of" follows
+    if (/\b(quarter|a\s+quarter)\s+of\b|\b25\s*%|25\s*percent\b/.test(lower))  return 'quarter';
+    if (/\b(third|a\s+third|one\s+third|33\s*%)\b/.test(lower))                 return 'third';
     return null;
   }
 
@@ -214,8 +215,36 @@ window.VoiceInput = (function () {
     return null;
   }
 
+  function _wordToNum(w) {
+    var map = {'a':1,'an':1,'one':1,'two':2,'three':3,'four':4,'five':5,
+               'six':6,'seven':7,'eight':8,'nine':9,'ten':10};
+    return map[w.toLowerCase()] !== undefined ? map[w.toLowerCase()] : (parseInt(w) || 1);
+  }
+
   function _extractAmount(lower) {
-    var m = lower.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
+    // 1. Merge split decimals: "1.0 1" → "1.01" (speech recognition artefact)
+    var s = lower.replace(/(\d+[.,]\d+)\s+(\d+)/g, function(_, a, b) { return a + b; });
+
+    // 2. "X dollars and Y cents" / "X dollar Y cents"
+    var dcM = s.match(/(\d+(?:[.,]\d+)?)\s+dollars?\s+(?:and\s+)?(\d+)\s+cents?\b/);
+    if (dcM) return parseFloat(dcM[1].replace(',', '.')) + parseInt(dcM[2]) / 100;
+
+    // 3. "X cents" → 0.0X
+    var cM = s.match(/(\d+(?:[.,]\d+)?)\s+cents?\b/);
+    if (cM) return parseFloat(cM[1].replace(',', '.')) / 100;
+
+    // 4. Coins: quarters ($0.25), dimes ($0.10), nickels ($0.05)
+    var qM = s.match(/\b(\d+|a|an|one|two|three|four|five|six|seven|eight)\s+quarters?\b/);
+    if (qM) return _wordToNum(qM[1]) * 0.25;
+
+    var dM = s.match(/\b(\d+|a|an|one|two|three|four|five)\s+dimes?\b/);
+    if (dM) return _wordToNum(dM[1]) * 0.10;
+
+    var nM = s.match(/\b(\d+|a|an|one|two|three)\s+nickels?\b/);
+    if (nM) return _wordToNum(nM[1]) * 0.05;
+
+    // 5. Regular number (with pre-merged decimal)
+    var m = s.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
     return m ? parseFloat(m[1].replace(',', '.')) : null;
   }
 
