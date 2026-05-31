@@ -284,7 +284,16 @@ window.VoiceInput = (function () {
   function _matchCategory(lower, rows) {
     var best = { rowId: null, rowLabel: null, confidence: 0 };
 
-    // 1. Adaptive learned dictionary (checked first)
+    // 1. Exact label match — always beats learned dict (prevents stale learning overriding real category names)
+    rows.forEach(function(row) {
+      var label = row.label.toLowerCase();
+      if (lower.indexOf(label) !== -1) {
+        if (1.0 > best.confidence) best = { rowId: row.id, rowLabel: row.label, confidence: 1.0 };
+      }
+    });
+    if (best.confidence >= 1.0) return best;
+
+    // 2. Adaptive learned dictionary
     var learned = _loadLearned();
     var learnedDirty = false;
     var words = lower.split(/\s+/);
@@ -292,7 +301,7 @@ window.VoiceInput = (function () {
     for (var _i = 0; _i < words.length - 1; _i++) candidates.push(words[_i] + ' ' + words[_i + 1]);
     candidates.forEach(function(w) {
       if (w.length < 3) return;
-      if (STOPWORDS.has(w)) return;  // skip stopwords even if they're in an old learned entry
+      if (STOPWORDS.has(w)) return;
       var entry = learned[w];
       if (!entry) return;
       // Stale guard: row no longer exists — purge and skip
@@ -306,15 +315,6 @@ window.VoiceInput = (function () {
     });
     if (learnedDirty) try { localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch(e) {}
     if (best.confidence >= 0.95) return best;
-
-    // 2. Exact label match
-    rows.forEach(function(row) {
-      var label = row.label.toLowerCase();
-      if (lower.indexOf(label) !== -1 && best.confidence < 1.0) {
-        best = { rowId: row.id, rowLabel: row.label, confidence: 1.0 };
-      }
-    });
-    if (best.confidence >= 1.0) return best;
 
     // 3. Partial: any label word (>2 chars) found in transcript
     rows.forEach(function(row) {
