@@ -697,6 +697,7 @@
       if(_mob&&(step.mobileText||step.hasOwnProperty('mobileTarget'))){
         step=Object.assign({},step,{text:step.mobileText||step.text,target:step.hasOwnProperty('mobileTarget')?step.mobileTarget:step.target});
       }
+      if(step.beforeShow) step.beforeShow();
       var state=_ld()||_def();
       var targetEl=step.target?document.querySelector(step.target):null;
       // If target is inside a carousel panel that's hidden, switch to that panel
