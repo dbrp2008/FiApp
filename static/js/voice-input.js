@@ -75,13 +75,22 @@ window.VoiceInput = (function () {
     return 'add';
   }
 
-  function _extractSubLabel(lower) {
-    // Handles: "subcategory NAME", "sub NAME", "sub category NAME"
-    var m = lower.match(/\bsub(?:\s*category)?\s+(.+?)(?:\s+(?:to|under|for|in)\b|$)/);
-    if (!m) return null;
-    // Strip a leading "category" word if the two-word form "sub category NAME" was used
-    var label = m[1].replace(/^category\s*/i, '').trim();
-    return label.length >= 2 ? _titleCase(label) : null;
+  function _extractSubLabel(lower, rows) {
+    // 1. Most explicit: "called NAME" / "named NAME"
+    var m = lower.match(/\b(?:called|named)\s+(.+?)(?:\s+(?:to|under|for|in)\b|$)/);
+    if (m && m[1].trim().length >= 2) return _titleCase(m[1].trim());
+    // 2. Positional: "sub[category] NAME to/under/for PARENT"
+    m = lower.match(/\bsub(?:\s*category)?\s+(.+?)(?:\s+(?:to|under|for)\b)/);
+    if (m) {
+      var label = m[1].replace(/^category\s*/i, '').trim();
+      // Strip any known category names from the extracted label
+      if (rows) rows.forEach(function(r) {
+        label = label.replace(new RegExp('\\b' + r.label.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), '').trim();
+      });
+      label = label.replace(/\b(in|the|a|an|and|or)\b/gi, '').replace(/\s+/g, ' ').trim();
+      if (label.length >= 2) return _titleCase(label);
+    }
+    return null;
   }
 
   function _titleCase(str) {
@@ -196,7 +205,7 @@ window.VoiceInput = (function () {
       action:          action,
       amount:          _extractAmount(lower),
       relAmount:       _extractRelative(lower),
-      subLabel:        action === 'add-subcategory' ? _extractSubLabel(lower) : null,
+      subLabel:        action === 'add-subcategory' ? _extractSubLabel(lower, rows) : null,
       weekIndex:       weekIdx,
       weekExplicit:    weekResult.explicit,
       rowId:           match.rowId,
