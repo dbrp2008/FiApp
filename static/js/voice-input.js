@@ -905,8 +905,88 @@ window.VoiceInput = (function () {
     fab.id = '_vi-fab'; fab.className = 'voice-fab';
     fab.setAttribute('aria-label', 'Voice input');
     fab.innerHTML = '🎤';
-    fab.addEventListener('click', start);
+    // ── Drag-to-reposition ────────────────────────────────────────
+    var _fabHoldTimer = null, _fabDragActive = false, _fabDragReady = false;
+    var _fabOffX = 0, _fabOffY = 0, _fabStartX = 0, _fabStartY = 0;
+    var _fabDidDrag = false, _fabPtrId = null;
+    var _FAB_HOLD_MS = 400, _FAB_CANCEL_PX = 8;
+
+    function _fabSwitchAbs() {
+      var r = fab.getBoundingClientRect();
+      fab.style.top = r.top + 'px'; fab.style.left = r.left + 'px';
+      fab.style.bottom = 'auto'; fab.style.right = 'auto';
+    }
+    function _fabSavePos() {
+      try { localStorage.setItem('fiapp_mic_pos', JSON.stringify({top: parseInt(fab.style.top), left: parseInt(fab.style.left)})); } catch(e) {}
+    }
+    function _fabRestorePos() {
+      try {
+        var s = JSON.parse(localStorage.getItem('fiapp_mic_pos') || 'null');
+        if (!s) return;
+        var vw = window.innerWidth, vh = window.innerHeight, sz = 56;
+        fab.style.top  = Math.max(8, Math.min(s.top,  vh - sz - 8)) + 'px';
+        fab.style.left = Math.max(8, Math.min(s.left, vw - sz - 8)) + 'px';
+        fab.style.bottom = 'auto'; fab.style.right = 'auto';
+      } catch(e) {}
+    }
+
+    fab.addEventListener('pointerdown', function(e) {
+      if (fab.classList.contains('listening')) return;
+      _fabDidDrag = false; _fabDragActive = false; _fabDragReady = false;
+      _fabStartX = e.clientX; _fabStartY = e.clientY;
+      _fabPtrId = e.pointerId;
+      _fabHoldTimer = setTimeout(function() {
+        _fabHoldTimer = null;
+        _fabDragReady = true;
+        fab.classList.add('drag-ready');
+        _fabSwitchAbs();
+        try { fab.setPointerCapture(_fabPtrId); } catch(err) {}
+      }, _FAB_HOLD_MS);
+    });
+
+    fab.addEventListener('pointermove', function(e) {
+      // Cancel hold detection if the user moves too far (they're scrolling past)
+      if (_fabHoldTimer) {
+        if (Math.abs(e.clientX - _fabStartX) > _FAB_CANCEL_PX || Math.abs(e.clientY - _fabStartY) > _FAB_CANCEL_PX) {
+          clearTimeout(_fabHoldTimer); _fabHoldTimer = null;
+        }
+        return;
+      }
+      if (!_fabDragReady && !_fabDragActive) return;
+      // First move after hold fires — lock in the drag offset and enter dragging state
+      if (_fabDragReady) {
+        var r = fab.getBoundingClientRect();
+        _fabOffX = e.clientX - r.left; _fabOffY = e.clientY - r.top;
+        _fabDragActive = true; _fabDragReady = false; _fabDidDrag = true;
+        fab.classList.remove('drag-ready'); fab.classList.add('dragging');
+      }
+      if (_fabDragActive) {
+        e.preventDefault();
+        var vw = window.innerWidth, vh = window.innerHeight, sz = 56;
+        fab.style.left = Math.max(8, Math.min(e.clientX - _fabOffX, vw - sz - 8)) + 'px';
+        fab.style.top  = Math.max(8, Math.min(e.clientY - _fabOffY, vh - sz - 8)) + 'px';
+      }
+    });
+
+    fab.addEventListener('pointerup', function(e) {
+      if (_fabHoldTimer) { clearTimeout(_fabHoldTimer); _fabHoldTimer = null; }
+      fab.classList.remove('drag-ready', 'dragging');
+      try { fab.releasePointerCapture(e.pointerId); } catch(err) {}
+      var wasDragging = _fabDragActive;
+      _fabDragActive = false; _fabDragReady = false;
+      if (wasDragging) { _fabSavePos(); return; } // dropped — save & don't open mic
+      if (!_fabDidDrag) start();                   // normal tap — open mic
+    });
+
+    fab.addEventListener('pointercancel', function() {
+      if (_fabHoldTimer) { clearTimeout(_fabHoldTimer); _fabHoldTimer = null; }
+      fab.classList.remove('drag-ready', 'dragging');
+      _fabDragActive = false; _fabDragReady = false;
+    });
+    // ── end drag ──────────────────────────────────────────────────
+
     document.body.appendChild(fab);
+    _fabRestorePos();
 
     // Listening overlay
     var ov = document.createElement('div');
