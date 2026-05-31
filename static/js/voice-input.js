@@ -58,8 +58,8 @@ window.VoiceInput = (function () {
 
   // ── Currency dictionary ────────────────────────────────────────────────
   var CURRENCIES = {
-    'dollar':  { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD'] },
-    'dollars': { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD'] },
+    'dollar':  { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD','TWD','BND','FJD','TTD','BBD','XCD','BZD','JMD','NAD','SBD','GYD','BMD','KYD'] },
+    'dollars': { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD','TWD','BND','FJD','TTD','BBD','XCD','BZD','JMD','NAD','SBD','GYD','BMD','KYD'] },
     'usd':'USD',
     'euro':'EUR','euros':'EUR','eur':'EUR',
     'pound':'GBP','pounds':'GBP','sterling':'GBP','gbp':'GBP',
@@ -89,6 +89,11 @@ window.VoiceInput = (function () {
   var CURRENCY_NAMES = {
     'USD':'dollars','AUD':'Australian dollars','CAD':'Canadian dollars',
     'SGD':'Singapore dollars','HKD':'Hong Kong dollars','NZD':'New Zealand dollars',
+    'TWD':'Taiwan dollars','BND':'Brunei dollars','FJD':'Fiji dollars',
+    'TTD':'Trinidad dollars','BBD':'Barbados dollars','XCD':'East Caribbean dollars',
+    'BZD':'Belize dollars','JMD':'Jamaican dollars','NAD':'Namibian dollars',
+    'SBD':'Solomon Islands dollars','GYD':'Guyanese dollars',
+    'BMD':'Bermuda dollars','KYD':'Cayman dollars',
     'EUR':'euros','GBP':'pounds','JPY':'yen','CNY':'yuan','KRW':'won',
     'INR':'Indian rupees','PKR':'Pakistani rupees','NPR':'Nepali rupees','LKR':'Sri Lankan rupees',
     'MYR':'ringgit','THB':'baht','VND':'dong','RUB':'rubles','AED':'dirhams',
@@ -119,6 +124,8 @@ window.VoiceInput = (function () {
         return { code: val, candidates: null };
       }
     }
+    // $ sign without a currency word → recognizer converted "dollars" to "$"
+    if (/\$/.test(lower)) return { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD','TWD','BND','FJD','TTD','BBD','XCD','BZD','JMD','NAD','SBD','GYD','BMD','KYD'] };
     return null;
   }
 
@@ -755,6 +762,13 @@ window.VoiceInput = (function () {
       var p = _pendingResult;
       if (!p || !p.currency) return;
       var list = p.currency.candidates || COMMON_CURRENCIES;
+      // If using the full common list, surface the current code and USD at the top
+      if (!p.currency.candidates) {
+        var cur = p.currency.code || 'USD';
+        var top = [cur];
+        if (cur !== 'USD') top.push('USD');
+        list = top.concat(COMMON_CURRENCIES.filter(function(c){ return top.indexOf(c) === -1; }));
+      }
       var sel = document.getElementById('_vi-cur-select');
       sel.innerHTML = '';
       list.forEach(function(code) {
@@ -764,12 +778,22 @@ window.VoiceInput = (function () {
         if (code === p.currency.code) opt.selected = true;
         sel.appendChild(opt);
       });
+      var otherOpt = document.createElement('option');
+      otherOpt.value = '__other__';
+      otherOpt.textContent = '— Other —';
+      sel.appendChild(otherOpt);
       document.getElementById('_vi-cur-row').style.display = 'flex';
       document.querySelector('.voice-chips').style.display = 'none';
     });
 
     function _commitCurrency() {
       var sel = document.getElementById('_vi-cur-select');
+      if (sel.value === '__other__') {
+        document.getElementById('_vi-cur-row').style.display = 'none';
+        document.getElementById('_vi-cur-other-row').style.display = 'flex';
+        setTimeout(function(){ document.getElementById('_vi-cur-other-input').focus(); }, 50);
+        return;
+      }
       if (_pendingResult && sel.value) _pendingResult.currency.code = sel.value;
       document.getElementById('_vi-cur-row').style.display = 'none';
       document.querySelector('.voice-chips').style.display = 'flex';
@@ -777,6 +801,23 @@ window.VoiceInput = (function () {
     }
 
     document.getElementById('_vi-cur-ok').addEventListener('click', _commitCurrency);
+
+    function _commitCurrencyOther() {
+      var inp = document.getElementById('_vi-cur-other-input');
+      var code = inp.value.trim().toUpperCase();
+      if (code.length >= 2 && code.length <= 4 && _pendingResult) {
+        _pendingResult.currency.code = code;
+        if (!_pendingResult.currency.candidates) _pendingResult.currency.candidates = [code];
+      }
+      document.getElementById('_vi-cur-other-row').style.display = 'none';
+      document.querySelector('.voice-chips').style.display = 'flex';
+      _refreshSheet();
+    }
+
+    document.getElementById('_vi-cur-other-ok').addEventListener('click', _commitCurrencyOther);
+    document.getElementById('_vi-cur-other-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); _commitCurrencyOther(); }
+    });
 
     // Sub-name chip
     document.getElementById('_vi-c-sub').addEventListener('click', function () {
@@ -894,6 +935,10 @@ window.VoiceInput = (function () {
       '<div id="_vi-cur-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
         '<select id="_vi-cur-select" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;"></select>' +
         '<button id="_vi-cur-ok" class="voice-btn-confirm" style="flex:none;padding:.55rem .9rem;">OK</button>' +
+      '</div>' +
+      '<div id="_vi-cur-other-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
+        '<input id="_vi-cur-other-input" type="text" maxlength="4" placeholder="Currency code (e.g. BDT)" autocomplete="off" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;text-transform:uppercase;">' +
+        '<button id="_vi-cur-other-ok" class="voice-btn-confirm" style="flex:none;padding:.55rem .9rem;">OK</button>' +
       '</div>' +
       '<div id="_vi-sub-name-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
         '<input id="_vi-sub-name-input" type="text" placeholder="Subcategory name" autocomplete="off" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;">' +
