@@ -103,6 +103,9 @@ window.VoiceInput = (function () {
     return code ? (CURRENCY_NAMES[code] || code) : 'dollars';
   }
 
+  var COMMON_CURRENCIES = ['USD','EUR','GBP','JPY','CNY','AUD','CAD','SGD',
+    'INR','KRW','MYR','THB','HKD','NZD','AED','CHF'];
+
   function _extractCurrency(lower) {
     if (/\bswiss\s+francs?\b/.test(lower)) return { code: 'CHF', candidates: null };
     var keys = Object.keys(CURRENCIES);
@@ -592,11 +595,18 @@ window.VoiceInput = (function () {
       wkChip.textContent = p.colLabel || ('Week ' + (p.weekIndex + 1));
     }
 
-    // Currency chip — income only, only when a currency was detected
+    // Currency chip — always shown on income tracker
     var curChip = document.getElementById('_vi-c-cur');
-    var showCur = _tracker === 'income' && p.currency && !isDeleteRow && !isAddSub;
+    var showCur = _tracker === 'income' && !isDeleteRow && !isAddSub;
     curChip.style.display = showCur ? '' : 'none';
     if (showCur) {
+      // If no currency was detected at all, initialise from the row's existing currency
+      if (!p.currency) {
+        var existingCode = (p.rowId && typeof br.rowCurrency === 'function')
+          ? br.rowCurrency(p.rowId) : 'USD';
+        p.currency = { code: existingCode, candidates: COMMON_CURRENCIES };
+      }
+      // If detected but no default code set yet (truly ambiguous like rupees), leave blocked
       var isAmbiguous = !!(p.currency.candidates && !p.currency.code);
       curChip.textContent = p.currency.code || (p.currency.candidates[0] + '?');
       curChip.classList.toggle('voice-chip-unset', isAmbiguous);
