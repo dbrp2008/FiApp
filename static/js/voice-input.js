@@ -68,6 +68,7 @@ window.VoiceInput = (function () {
   }
 
   function _detectAction(lower) {
+    if (/\b(delete|remove)\s+(category|row|the category|the row)\b/.test(lower)) return 'delete-row';
     if (/\b(delete|remove|subtract|minus|take off|deduct|reduce|cancel)\b/.test(lower)) return 'remove';
     return 'add';
   }
@@ -253,6 +254,7 @@ window.VoiceInput = (function () {
       _toast('🔒 This month is locked — reopen it to make changes.');
       return;
     }
+    if (p.action === 'delete-row') { _showConfirmSheet(p); return; }
     var autoLog = (
       p.confidence >= 0.95
       && !_hasSubcategories(p.rowId)
@@ -267,7 +269,18 @@ window.VoiceInput = (function () {
 
   // ── Apply (commit) ─────────────────────────────────────────────────────
   function _applyResult(p) {
-    if (!p || !p.rowId || p.amount === null) return;
+    if (!p || !p.rowId) return;
+    if (p.action === 'delete-row') {
+      var br = _bridge();
+      br.snapshot();
+      br.deleteRow(p.rowId);
+      br.render();
+      _hideConfirmSheet();
+      _speak('Deleted ' + p.rowLabel);
+      _toast('🗑 Deleted ' + p.rowLabel);
+      return;
+    }
+    if (p.amount === null) return;
     var br = _bridge();
     var cols = br.getCols();
     var effectiveRowId = (p._subRowId !== null && p._subRowId !== undefined) ? p._subRowId : p.rowId;
@@ -326,12 +339,17 @@ window.VoiceInput = (function () {
     _pendingResult = p;
     _refreshSheet();
     document.getElementById('_vi-sheet').classList.add('active');
-    var _verb = p.action === 'remove' ? 'remove' : 'add';
-    var _prep = p.action === 'remove' ? 'from'   : 'to';
-    var msg = 'Please confirm: ' + _verb + ' ' +
-      (p.amount !== null ? p.amount.toFixed(0) + ' dollars' : 'unknown amount') +
-      (p.rowLabel ? ' ' + _prep + ' ' + p.rowLabel : '') +
-      ' ' + (p.colLabel || '');
+    var msg;
+    if (p.action === 'delete-row') {
+      msg = 'Please confirm: delete category ' + (p.rowLabel || 'unknown');
+    } else {
+      var _verb = p.action === 'remove' ? 'remove' : 'add';
+      var _prep = p.action === 'remove' ? 'from'   : 'to';
+      msg = 'Please confirm: ' + _verb + ' ' +
+        (p.amount !== null ? p.amount.toFixed(0) + ' dollars' : 'unknown amount') +
+        (p.rowLabel ? ' ' + _prep + ' ' + p.rowLabel : '') +
+        ' ' + (p.colLabel || '');
+    }
     _speak(msg);
     var ttsEl = document.getElementById('_vi-tts-text');
     if (ttsEl) ttsEl.textContent = '"' + msg + '"';
@@ -389,32 +407,51 @@ window.VoiceInput = (function () {
       p._subRowId = undefined;
     }
 
+    var isDeleteRow = p.action === 'delete-row';
     var catChip = document.getElementById('_vi-c-cat');
     catChip.textContent = p.rowLabel || 'Category ?';
     catChip.classList.toggle('voice-chip-unset', !p.rowId);
 
     var amtChip = document.getElementById('_vi-c-amt');
-    if (p.amount !== null) {
-      amtChip.textContent = p.relAmount
-        ? p.relAmount + ' → $' + p.amount.toFixed(2)
-        : '$' + p.amount.toFixed(2);
-    } else {
-      amtChip.textContent = 'Amount ?';
+    var wkChip  = document.getElementById('_vi-c-wk');
+    amtChip.style.display = isDeleteRow ? 'none' : '';
+    wkChip.style.display  = isDeleteRow ? 'none' : '';
+    if (!isDeleteRow) {
+      if (p.amount !== null) {
+        amtChip.textContent = p.relAmount
+          ? p.relAmount + ' → $' + p.amount.toFixed(2)
+          : '$' + p.amount.toFixed(2);
+      } else {
+        amtChip.textContent = 'Amount ?';
+      }
+      amtChip.classList.toggle('voice-chip-unset', p.amount === null);
+      wkChip.textContent = p.colLabel || ('Week ' + (p.weekIndex + 1));
     }
-    amtChip.classList.toggle('voice-chip-unset', p.amount === null);
 
-    document.getElementById('_vi-c-wk').textContent = p.colLabel || ('Week ' + (p.weekIndex + 1));
+    var confirmBtn = document.getElementById('_vi-confirm');
+    if (isDeleteRow) {
+      confirmBtn.textContent = '🗑 Delete';
+      confirmBtn.style.background = '#dc2626';
+    } else {
+      confirmBtn.textContent = '✓ Confirm';
+      confirmBtn.style.background = '';
+    }
 
     _updateConfirmBtn();
   }
 
   function _updateConfirmBtn() {
     var p = _pendingResult;
-    var hasSubs = p && p.rowId
-      ? _bridge().getRows().some(function(r){ return r.parentId === p.rowId; })
-      : false;
-    var subOk = !hasSubs || (p._subRowId !== null && p._subRowId !== undefined);
-    var ok = !!(p && p.rowId && p.amount !== null && subOk);
+    var ok;
+    if (p && p.action === 'delete-row') {
+      ok = !!p.rowId;
+    } else {
+      var hasSubs = p && p.rowId
+        ? _bridge().getRows().some(function(r){ return r.parentId === p.rowId; })
+        : false;
+      var subOk = !hasSubs || (p._subRowId !== null && p._subRowId !== undefined);
+      ok = !!(p && p.rowId && p.amount !== null && subOk);
+    }
     document.getElementById('_vi-confirm').disabled = !ok;
   }
 
