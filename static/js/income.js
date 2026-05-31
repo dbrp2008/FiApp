@@ -2116,6 +2116,10 @@ document.getElementById('help-close-btn').addEventListener('click',closeHelp);
 window._incVoiceBridge = {
   getRows, getCols, currentMK, snapshot, setCell, updateAll, render,
   addRow, forkCurrentMonth, deleteRow,
+  addSubRow: function(parentRowId, subLabel) {
+    var parentRow = getRows().find(function(r){ return r.id === parentRowId; });
+    if (parentRow) addSubRow(parentRow, subLabel);
+  },
   getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
   isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
   isForecastMonth: function() { return isForecastMonth(); },
