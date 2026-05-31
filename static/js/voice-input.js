@@ -126,7 +126,11 @@ window.VoiceInput = (function () {
   var LEARN_KEY = 'fiapp_voice_learned';
   var STOPWORDS = new Set(['i','on','to','a','the','and','at','for','some',
     'spent','paid','bought','earned','received','income','salary','expense',
-    'cost','spend','purchase','made','got','my','in','of','from']);
+    'cost','spend','purchase','made','got','my','in','of','from',
+    // currency words — too generic to be useful category signals
+    'dollar','dollars','cent','cents','euro','euros','pound','pounds',
+    'yen','yuan','rupee','rupees','franc','francs','peso','pesos',
+    'won','baht','ringgit','ruble','rubles','dirham','lira']);
 
   function _loadLearned() {
     try { return JSON.parse(localStorage.getItem(LEARN_KEY) || '{}'); } catch(e) { return {}; }
@@ -246,7 +250,14 @@ window.VoiceInput = (function () {
     var nM = s.match(/\b(\d+|a|an|one|two|three)\s+nickels?\b/);
     if (nM) return _wordToNum(nM[1]) * 0.05;
 
-    // 5. Regular number (with pre-merged decimal)
+    // 5. Number with multiplier: "50 million", "5 thousand", "1.5 billion"
+    var mulM = s.match(/\$?\s*(\d+(?:[.,]\d+)?)\s+(billion|million|thousand|hundred)\b/);
+    if (mulM) {
+      var multipliers = { billion: 1e9, million: 1e6, thousand: 1e3, hundred: 100 };
+      return parseFloat(mulM[1].replace(',', '.')) * multipliers[mulM[2]];
+    }
+
+    // 6. Regular number (with pre-merged decimal)
     var m = s.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
     return m ? parseFloat(m[1].replace(',', '.')) : null;
   }
@@ -274,6 +285,7 @@ window.VoiceInput = (function () {
     for (var _i = 0; _i < words.length - 1; _i++) candidates.push(words[_i] + ' ' + words[_i + 1]);
     candidates.forEach(function(w) {
       if (w.length < 3) return;
+      if (STOPWORDS.has(w)) return;  // skip stopwords even if they're in an old learned entry
       var entry = learned[w];
       if (!entry) return;
       // Stale guard: row no longer exists — purge and skip
