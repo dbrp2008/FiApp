@@ -71,7 +71,17 @@ window.VoiceInput = (function () {
     var hasAmount = /\$?\s*\d/.test(lower);
     if (/\b(delete|remove)\b/.test(lower) && !hasAmount) return 'delete-row';
     if (/\b(delete|remove|subtract|minus|take off|deduct|reduce|cancel)\b/.test(lower)) return 'remove';
+    if (/\b(add|create|new)\s+sub(?:category)?\b/.test(lower)) return 'add-subcategory';
     return 'add';
+  }
+
+  function _extractSubLabel(lower) {
+    var m = lower.match(/\b(?:sub(?:category)?)\s+(.+?)(?:\s+(?:to|under|for|in)\b|$)/);
+    return m ? _titleCase(m[1].trim()) : null;
+  }
+
+  function _titleCase(str) {
+    return str.replace(/\b\w/g, function(c){ return c.toUpperCase(); });
   }
 
   function _extractRelative(lower) {
@@ -169,12 +179,14 @@ window.VoiceInput = (function () {
     var col         = cols[weekIdx] || cols[0] || {};
     var match       = _matchCategory(lower, rows);
     var isLastWeekInWeek1 = /\blast\s+week\b/.test(lower) && weekIdx === 0;
+    var action = _detectAction(lower);
     return {
       transcript:      transcript,
       tracker:         _detectTracker(lower),
-      action:          _detectAction(lower),
+      action:          action,
       amount:          _extractAmount(lower),
       relAmount:       _extractRelative(lower),
+      subLabel:        action === 'add-subcategory' ? _extractSubLabel(lower) : null,
       weekIndex:       weekIdx,
       weekExplicit:    weekResult.explicit,
       rowId:           match.rowId,
@@ -255,7 +267,7 @@ window.VoiceInput = (function () {
       _toast('🔒 This month is locked — reopen it to make changes.');
       return;
     }
-    if (p.action === 'delete-row') { _showConfirmSheet(p); return; }
+    if (p.action === 'delete-row' || p.action === 'add-subcategory') { _showConfirmSheet(p); return; }
     var autoLog = (
       p.confidence >= 0.95
       && !_hasSubcategories(p.rowId)
@@ -276,9 +288,25 @@ window.VoiceInput = (function () {
       br.snapshot();
       br.deleteRow(p.rowId);
       br.render();
+      // Purge learned entries pointing to the now-deleted row
+      var learned = _loadLearned();
+      var dirty = false;
+      Object.keys(learned).forEach(function(k) {
+        if (learned[k].rowId === p.rowId) { delete learned[k]; dirty = true; }
+      });
+      if (dirty) try { localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch(e) {}
       _hideConfirmSheet();
       _speak('Deleted ' + p.rowLabel);
       _toast('🗑 Deleted ' + p.rowLabel);
+      return;
+    }
+    if (p.action === 'add-subcategory') {
+      if (!p.subLabel) { _toast('No subcategory name.'); return; }
+      var br = _bridge();
+      br.addSubRow(p.rowId, p.subLabel);
+      _hideConfirmSheet();
+      _speak('Added subcategory ' + p.subLabel + ' under ' + p.rowLabel);
+      _toast('Added subcategory "' + p.subLabel + '" under ' + p.rowLabel);
       return;
     }
     if (p.amount === null) return;
@@ -343,6 +371,8 @@ window.VoiceInput = (function () {
     var msg;
     if (p.action === 'delete-row') {
       msg = 'Please confirm: delete category ' + (p.rowLabel || 'unknown');
+    } else if (p.action === 'add-subcategory') {
+      msg = 'Please confirm: add subcategory ' + (p.subLabel || 'unknown') + ' under ' + (p.rowLabel || 'unknown category');
     } else {
       var _verb = p.action === 'remove' ? 'remove' : 'add';
       var _prep = p.action === 'remove' ? 'from'   : 'to';
@@ -408,16 +438,26 @@ window.VoiceInput = (function () {
       p._subRowId = undefined;
     }
 
-    var isDeleteRow = p.action === 'delete-row';
+    var isDeleteRow   = p.action === 'delete-row';
+    var isAddSub      = p.action === 'add-subcategory';
+    var hideAmtWk     = isDeleteRow || isAddSub;
+
     var catChip = document.getElementById('_vi-c-cat');
     catChip.textContent = p.rowLabel || 'Category ?';
     catChip.classList.toggle('voice-chip-unset', !p.rowId);
 
+    var subChip = document.getElementById('_vi-c-sub');
+    subChip.style.display = isAddSub ? '' : 'none';
+    if (isAddSub) {
+      subChip.textContent = p.subLabel || 'Sub name ?';
+      subChip.classList.toggle('voice-chip-unset', !p.subLabel);
+    }
+
     var amtChip = document.getElementById('_vi-c-amt');
     var wkChip  = document.getElementById('_vi-c-wk');
-    amtChip.style.display = isDeleteRow ? 'none' : '';
-    wkChip.style.display  = isDeleteRow ? 'none' : '';
-    if (!isDeleteRow) {
+    amtChip.style.display = hideAmtWk ? 'none' : '';
+    wkChip.style.display  = hideAmtWk ? 'none' : '';
+    if (!hideAmtWk) {
       if (p.amount !== null) {
         amtChip.textContent = p.relAmount
           ? p.relAmount + ' → $' + p.amount.toFixed(2)
@@ -433,6 +473,9 @@ window.VoiceInput = (function () {
     if (isDeleteRow) {
       confirmBtn.textContent = '🗑 Delete';
       confirmBtn.style.background = '#dc2626';
+    } else if (isAddSub) {
+      confirmBtn.textContent = '+ Add Subcategory';
+      confirmBtn.style.background = '';
     } else {
       confirmBtn.textContent = '✓ Confirm';
       confirmBtn.style.background = '';
@@ -446,6 +489,8 @@ window.VoiceInput = (function () {
     var ok;
     if (p && p.action === 'delete-row') {
       ok = !!p.rowId;
+    } else if (p && p.action === 'add-subcategory') {
+      ok = !!(p.rowId && p.subLabel);
     } else {
       var hasSubs = p && p.rowId
         ? _bridge().getRows().some(function(r){ return r.parentId === p.rowId; })
@@ -509,6 +554,29 @@ window.VoiceInput = (function () {
       document.querySelector('.voice-chips').style.display = 'flex';
       _refreshSheet();
     }
+
+    // Sub-name chip
+    document.getElementById('_vi-c-sub').addEventListener('click', function () {
+      var inp = document.getElementById('_vi-sub-name-input');
+      inp.value = _pendingResult.subLabel || '';
+      document.getElementById('_vi-sub-name-row').style.display = 'flex';
+      document.querySelector('.voice-chips').style.display = 'none';
+      setTimeout(function () { inp.focus(); }, 50);
+    });
+
+    function _commitSubName() {
+      var inp = document.getElementById('_vi-sub-name-input');
+      var v = inp.value.trim();
+      if (v) _pendingResult.subLabel = v;
+      document.getElementById('_vi-sub-name-row').style.display = 'none';
+      document.querySelector('.voice-chips').style.display = 'flex';
+      _refreshSheet();
+    }
+
+    document.getElementById('_vi-sub-name-ok').addEventListener('click', _commitSubName);
+    document.getElementById('_vi-sub-name-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); _commitSubName(); }
+    });
 
     document.getElementById('_vi-amt-ok').addEventListener('click', _commitAmt);
     document.getElementById('_vi-amt-input').addEventListener('keydown', function (e) {
@@ -595,8 +663,13 @@ window.VoiceInput = (function () {
       '</div>' +
       '<div class="voice-chips">' +
         '<button id="_vi-c-cat" class="voice-chip">Category ?</button>' +
+        '<button id="_vi-c-sub" class="voice-chip" style="display:none">Sub name ?</button>' +
         '<button id="_vi-c-amt" class="voice-chip">Amount ?</button>' +
         '<button id="_vi-c-wk"  class="voice-chip">Week ?</button>' +
+      '</div>' +
+      '<div id="_vi-sub-name-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
+        '<input id="_vi-sub-name-input" type="text" placeholder="Subcategory name" autocomplete="off" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;">' +
+        '<button id="_vi-sub-name-ok" class="voice-btn-confirm" style="flex:none;padding:.55rem .9rem;">OK</button>' +
       '</div>' +
       '<div id="_vi-amt-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
         '<input id="_vi-amt-input" type="number" inputmode="decimal" min="0" step="any" placeholder="0.00" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;">' +
