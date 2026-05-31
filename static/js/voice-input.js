@@ -39,11 +39,61 @@ window.VoiceInput = (function () {
     // Entertainment
     'movie':'Entertainment','netflix':'Entertainment','spotify':'Entertainment',
     'streaming':'Entertainment','games':'Entertainment',
-    // Income
+    // Income — Salary
     'salary':'Salary','wage':'Salary','paycheck':'Salary','pay':'Salary',
-    'freelance':'Freelance','consulting':'Freelance',
-    'dividend':'Investments','interest':'Investments',
+    'bonus':'Salary','commission':'Salary','tips':'Salary','tip':'Salary',
+    'got paid':'Salary','got my pay':'Salary','received salary':'Salary',
+    // Income — Freelance
+    'freelance':'Freelance','consulting':'Freelance','side hustle':'Freelance',
+    'client payment':'Freelance','project payment':'Freelance','gig':'Freelance',
+    'contract work':'Freelance','invoiced':'Freelance',
+    // Income — Investments
+    'dividend':'Investments','interest':'Investments','stocks':'Investments',
+    'stock':'Investments','shares':'Investments','crypto':'Investments',
+    'bitcoin':'Investments','trading':'Investments','capital gain':'Investments',
+    'from stocks':'Investments','from shares':'Investments','from crypto':'Investments',
+    'investment return':'Investments','portfolio':'Investments',
   };
+
+  // ── Currency dictionary ────────────────────────────────────────────────
+  var CURRENCIES = {
+    'dollar':'USD','dollars':'USD','usd':'USD',
+    'euro':'EUR','euros':'EUR','eur':'EUR',
+    'pound':'GBP','pounds':'GBP','sterling':'GBP','gbp':'GBP',
+    'yen':'JPY','jpy':'JPY',
+    'yuan':'CNY','rmb':'CNY','renminbi':'CNY','cny':'CNY',
+    'ringgit':'MYR','myr':'MYR',
+    'baht':'THB','thb':'THB',
+    'won':'KRW','krw':'KRW',
+    'ruble':'RUB','rouble':'RUB','rubles':'RUB','roubles':'RUB','rub':'RUB',
+    'dirham':'AED','aed':'AED',
+    'dong':'VND','vnd':'VND',
+    'zloty':'PLN','pln':'PLN',
+    // Ambiguous — value is array of candidates
+    'rupee':['INR','PKR','NPR','LKR'],
+    'rupees':['INR','PKR','NPR','LKR'],
+    'franc':['CHF','XOF','XAF'],
+    'francs':['CHF','XOF','XAF'],
+    'peso':['MXN','PHP','COP','ARS'],
+    'pesos':['MXN','PHP','COP','ARS'],
+    'riyal':['SAR','QAR'],
+    'riyals':['SAR','QAR'],
+    'lira':['TRY','LBP'],
+    'krone':['DKK','NOK'],
+    'kroner':['DKK','NOK'],
+  };
+
+  function _extractCurrency(lower) {
+    if (/\bswiss\s+francs?\b/.test(lower)) return { code: 'CHF', candidates: null };
+    var keys = Object.keys(CURRENCIES);
+    for (var i = 0; i < keys.length; i++) {
+      if (new RegExp('\\b' + keys[i] + '\\b').test(lower)) {
+        var val = CURRENCIES[keys[i]];
+        return Array.isArray(val) ? { code: null, candidates: val } : { code: val, candidates: null };
+      }
+    }
+    return null;
+  }
 
   // ── Adaptive learning ──────────────────────────────────────────────────
   var LEARN_KEY = 'fiapp_voice_learned';
@@ -234,6 +284,7 @@ window.VoiceInput = (function () {
       amount:          _extractAmount(lower),
       relAmount:       _extractRelative(lower),
       subLabel:        action === 'add-subcategory' ? _extractSubLabel(lower, rows) : null,
+      currency:        _extractCurrency(lower),
       weekIndex:       weekIdx,
       weekExplicit:    weekResult.explicit,
       rowId:           match.rowId,
@@ -368,6 +419,9 @@ window.VoiceInput = (function () {
     var isRemove = p.action === 'remove';
     var newVal = isRemove ? Math.max(0, existing - p.amount) : existing + p.amount;
     br.setCell(effectiveRowId, colId, newVal.toFixed(2));
+    if (typeof br.setRowCurrency === 'function' && p.currency && p.currency.code) {
+      br.setRowCurrency(effectiveRowId, p.currency.code);
+    }
     br.updateAll(effectiveRowId);
     br.render();
     _saveLearned(_learnedKeys(p.transcript), p.rowId, p.rowLabel);
@@ -516,6 +570,16 @@ window.VoiceInput = (function () {
       wkChip.textContent = p.colLabel || ('Week ' + (p.weekIndex + 1));
     }
 
+    // Currency chip — income only, only when a currency was detected
+    var curChip = document.getElementById('_vi-c-cur');
+    var showCur = _tracker === 'income' && p.currency && !isDeleteRow && !isAddSub;
+    curChip.style.display = showCur ? '' : 'none';
+    if (showCur) {
+      var isAmbiguous = !!(p.currency.candidates && !p.currency.code);
+      curChip.textContent = p.currency.code || (p.currency.candidates[0] + '?');
+      curChip.classList.toggle('voice-chip-unset', isAmbiguous);
+    }
+
     var confirmBtn = document.getElementById('_vi-confirm');
     if (isDeleteRow) {
       confirmBtn.textContent = '🗑 Delete';
@@ -543,7 +607,8 @@ window.VoiceInput = (function () {
         ? _bridge().getRows().some(function(r){ return r.parentId === p.rowId; })
         : false;
       var subOk = !hasSubs || (p._subRowId !== null && p._subRowId !== undefined);
-      ok = !!(p && p.rowId && p.amount !== null && subOk);
+      var curOk = !(_tracker === 'income' && p.currency && p.currency.candidates && !p.currency.code);
+      ok = !!(p && p.rowId && p.amount !== null && subOk && curOk);
     }
     document.getElementById('_vi-confirm').disabled = !ok;
   }
@@ -601,6 +666,18 @@ window.VoiceInput = (function () {
       document.querySelector('.voice-chips').style.display = 'flex';
       _refreshSheet();
     }
+
+    // Currency chip — cycles through candidates (for ambiguous) or does nothing (unambiguous)
+    document.getElementById('_vi-c-cur').addEventListener('click', function () {
+      var p = _pendingResult;
+      if (!p || !p.currency) return;
+      var list = p.currency.candidates;
+      if (!list || !list.length) return;
+      var cur = p.currency.code;
+      var idx = cur ? (list.indexOf(cur) + 1) % list.length : 0;
+      p.currency.code = list[idx];
+      _refreshSheet();
+    });
 
     // Sub-name chip
     document.getElementById('_vi-c-sub').addEventListener('click', function () {
@@ -713,6 +790,7 @@ window.VoiceInput = (function () {
         '<button id="_vi-c-sub" class="voice-chip" style="display:none">Sub name ?</button>' +
         '<button id="_vi-c-amt" class="voice-chip">Amount ?</button>' +
         '<button id="_vi-c-wk"  class="voice-chip">Week ?</button>' +
+        '<button id="_vi-c-cur" class="voice-chip" style="display:none">Currency</button>' +
       '</div>' +
       '<div id="_vi-sub-name-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
         '<input id="_vi-sub-name-input" type="text" placeholder="Subcategory name" autocomplete="off" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;">' +
