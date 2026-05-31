@@ -2115,7 +2115,7 @@ document.getElementById('help-close-btn').addEventListener('click',closeHelp);
 // ── Voice Input Bridge ──────────────────────────────────────────────────
 window._incVoiceBridge = {
   getRows, getCols, currentMK, snapshot, setCell, updateAll, render,
-  addRow, forkCurrentMonth,
+  addRow, forkCurrentMonth, deleteRow,
   getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
   isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
   isForecastMonth: function() { return isForecastMonth(); },
