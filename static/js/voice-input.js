@@ -581,7 +581,7 @@ window.VoiceInput = (function () {
       msg = 'Please confirm: ' + _verb + ' ' +
         (p.amount !== null ? p.amount.toFixed(0) + ' ' + _currencyLabel(p) : 'unknown amount') +
         (p.rowLabel ? ' ' + _prep + ' ' + p.rowLabel : '') +
-        ' ' + (p.colLabel || '');
+        (_bridge().getCols().length > 1 && p.colLabel ? ' ' + p.colLabel : '');
     }
     _speak(msg);
     var ttsEl = document.getElementById('_vi-tts-text');
