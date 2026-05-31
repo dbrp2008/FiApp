@@ -76,8 +76,12 @@ window.VoiceInput = (function () {
   }
 
   function _extractSubLabel(lower) {
-    var m = lower.match(/\b(?:sub(?:category)?)\s+(.+?)(?:\s+(?:to|under|for|in)\b|$)/);
-    return m ? _titleCase(m[1].trim()) : null;
+    // Handles: "subcategory NAME", "sub NAME", "sub category NAME"
+    var m = lower.match(/\bsub(?:\s*category)?\s+(.+?)(?:\s+(?:to|under|for|in)\b|$)/);
+    if (!m) return null;
+    // Strip a leading "category" word if the two-word form "sub category NAME" was used
+    var label = m[1].replace(/^category\s*/i, '').trim();
+    return label.length >= 2 ? _titleCase(label) : null;
   }
 
   function _titleCase(str) {
@@ -122,16 +126,22 @@ window.VoiceInput = (function () {
 
     // 1. Adaptive learned dictionary (checked first)
     var learned = _loadLearned();
+    var learnedDirty = false;
     var words = lower.split(/\s+/);
     words.forEach(function(w) {
       if (w.length < 3) return;
       var entry = learned[w];
       if (!entry) return;
+      // Stale guard: row no longer exists — purge and skip
+      if (!rows.some(function(r) { return r.id === entry.rowId; })) {
+        delete learned[w]; learnedDirty = true; return;
+      }
       var conf = entry.count >= 2 ? 0.95 : 0.85;
       if (conf > best.confidence) {
         best = { rowId: entry.rowId, rowLabel: entry.rowLabel, confidence: conf };
       }
     });
+    if (learnedDirty) try { localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch(e) {}
     if (best.confidence >= 0.95) return best;
 
     // 2. Exact label match
