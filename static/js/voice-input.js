@@ -100,7 +100,9 @@ window.VoiceInput = (function () {
 
   function _currencyLabel(p) {
     var code = p && p.currency && p.currency.code;
-    return code ? (CURRENCY_NAMES[code] || code) : 'dollars';
+    if (code) return CURRENCY_NAMES[code] || code;
+    var first = p && p.currency && p.currency.candidates && p.currency.candidates[0];
+    return first ? (CURRENCY_NAMES[first] || first) : 'dollars';
   }
 
   var COMMON_CURRENCIES = ['USD','EUR','GBP','JPY','CNY','AUD','CAD','SGD',
@@ -225,8 +227,9 @@ window.VoiceInput = (function () {
     // 1. Merge split decimals: "1.0 1" → "1.01" (speech recognition artefact)
     var s = lower.replace(/(\d+[.,]\d+)\s+(\d+)/g, function(_, a, b) { return a + b; });
 
-    // 2. "X dollars and Y cents" / "X dollar Y cents"
-    var dcM = s.match(/(\d+(?:[.,]\d+)?)\s+dollars?\s+(?:and\s+)?(\d+)\s+cents?\b/);
+    // 2. "$X and Y cents"  OR  "X dollars and Y cents"
+    var dcM = s.match(/\$\s*(\d+(?:[.,]\d+)?)\s+(?:and\s+)?(\d+)\s+cents?\b/)
+           || s.match(/(\d+(?:[.,]\d+)?)\s+dollars?\s+(?:and\s+)?(\d+)\s+cents?\b/);
     if (dcM) return parseFloat(dcM[1].replace(',', '.')) + parseInt(dcM[2]) / 100;
 
     // 3. "X cents" → 0.0X
@@ -471,10 +474,17 @@ window.VoiceInput = (function () {
     br.snapshot();
     var existing = parseFloat(br.getCell(effectiveRowId, colId) || '0') || 0;
     var isRemove = p.action === 'remove';
-    var newVal = isRemove ? Math.max(0, existing - p.amount) : existing + p.amount;
+    // If currency is changing, don't add to the old value — they're in different currencies
+    var newCurrency = p.currency && p.currency.code;
+    var existingCurrency = (newCurrency && typeof br.rowCurrency === 'function')
+      ? br.rowCurrency(effectiveRowId) : null;
+    var currencyChanging = newCurrency && existingCurrency && newCurrency !== existingCurrency;
+    var newVal = isRemove
+      ? Math.max(0, existing - p.amount)
+      : (currencyChanging ? p.amount : existing + p.amount);
     br.setCell(effectiveRowId, colId, newVal.toFixed(2));
-    if (typeof br.setRowCurrency === 'function' && p.currency && p.currency.code) {
-      br.setRowCurrency(effectiveRowId, p.currency.code);
+    if (typeof br.setRowCurrency === 'function' && newCurrency) {
+      br.setRowCurrency(effectiveRowId, newCurrency);
     }
     br.updateAll(effectiveRowId);
     br.render();
@@ -728,17 +738,33 @@ window.VoiceInput = (function () {
       _refreshSheet();
     }
 
-    // Currency chip — cycles through candidates (for ambiguous) or does nothing (unambiguous)
+    // Currency chip — opens dropdown select
     document.getElementById('_vi-c-cur').addEventListener('click', function () {
       var p = _pendingResult;
       if (!p || !p.currency) return;
-      var list = p.currency.candidates;
-      if (!list || !list.length) return;
-      var cur = p.currency.code;
-      var idx = cur ? (list.indexOf(cur) + 1) % list.length : 0;
-      p.currency.code = list[idx];
-      _refreshSheet();
+      var list = p.currency.candidates || COMMON_CURRENCIES;
+      var sel = document.getElementById('_vi-cur-select');
+      sel.innerHTML = '';
+      list.forEach(function(code) {
+        var opt = document.createElement('option');
+        opt.value = code;
+        opt.textContent = code + (CURRENCY_NAMES[code] ? '  —  ' + CURRENCY_NAMES[code] : '');
+        if (code === p.currency.code) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      document.getElementById('_vi-cur-row').style.display = 'flex';
+      document.querySelector('.voice-chips').style.display = 'none';
     });
+
+    function _commitCurrency() {
+      var sel = document.getElementById('_vi-cur-select');
+      if (_pendingResult && sel.value) _pendingResult.currency.code = sel.value;
+      document.getElementById('_vi-cur-row').style.display = 'none';
+      document.querySelector('.voice-chips').style.display = 'flex';
+      _refreshSheet();
+    }
+
+    document.getElementById('_vi-cur-ok').addEventListener('click', _commitCurrency);
 
     // Sub-name chip
     document.getElementById('_vi-c-sub').addEventListener('click', function () {
@@ -852,6 +878,10 @@ window.VoiceInput = (function () {
         '<button id="_vi-c-amt" class="voice-chip">Amount ?</button>' +
         '<button id="_vi-c-wk"  class="voice-chip">Week ?</button>' +
         '<button id="_vi-c-cur" class="voice-chip" style="display:none">Currency</button>' +
+      '</div>' +
+      '<div id="_vi-cur-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
+        '<select id="_vi-cur-select" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;"></select>' +
+        '<button id="_vi-cur-ok" class="voice-btn-confirm" style="flex:none;padding:.55rem .9rem;">OK</button>' +
       '</div>' +
       '<div id="_vi-sub-name-row" style="display:none;align-items:center;gap:.5rem;margin:.25rem 0 .6rem;">' +
         '<input id="_vi-sub-name-input" type="text" placeholder="Subcategory name" autocomplete="off" style="flex:1;padding:.55rem .75rem;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--panel-bg);color:var(--fg);font-family:inherit;">' +
