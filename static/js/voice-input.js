@@ -68,7 +68,8 @@ window.VoiceInput = (function () {
   }
 
   function _detectAction(lower) {
-    if (/\b(delete|remove)\s+(category|row|the category|the row)\b/.test(lower)) return 'delete-row';
+    var hasAmount = /\$?\s*\d/.test(lower);
+    if (/\b(delete|remove)\b/.test(lower) && !hasAmount) return 'delete-row';
     if (/\b(delete|remove|subtract|minus|take off|deduct|reduce|cancel)\b/.test(lower)) return 'remove';
     return 'add';
   }
