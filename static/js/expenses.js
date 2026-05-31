@@ -1112,9 +1112,17 @@ function _showLabelSuggest(spanEl){
   if(!dd){
     dd=document.createElement('div');dd.id='_label-suggest-dd';
     dd.style.cssText='position:fixed;z-index:9999;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;max-height:180px;overflow-y:auto;';
+    // Keep the contenteditable span focused until the click resolves.
+    dd.addEventListener('mousedown',function(e){e.preventDefault();});
+    dd.addEventListener('touchstart',function(e){e.preventDefault();},{passive:false});
+    // Delegated click — reads the safely-stored label from data-lbl (no inline JS).
+    dd.addEventListener('click',function(e){
+      var item=e.target.closest('[data-lbl]');
+      if(item) _pickLabel(item,item.dataset.lbl);
+    });
     document.body.appendChild(dd);
   }
-  dd.innerHTML=matches.slice(0,8).map(l=>'<div data-lbl="'+escapeHtml(l)+'" style="padding:6px 10px;cursor:pointer;font-size:.85rem;color:var(--fg);" onmousedown="event.preventDefault()" ontouchstart="event.preventDefault()" onclick="_pickLabel(this,\''+escapeHtml(l)+'\')">'+escapeHtml(l)+'</div>').join('');
+  dd.innerHTML=matches.slice(0,8).map(l=>'<div data-lbl="'+escapeHtml(l)+'" style="padding:6px 10px;cursor:pointer;font-size:.85rem;color:var(--fg);">'+escapeHtml(l)+'</div>').join('');
   const rect=spanEl.getBoundingClientRect();
   dd.style.left=rect.left+'px';dd.style.top=(rect.bottom+3)+'px';dd.style.display='block';
   dd._targetSpan=spanEl;
@@ -1182,8 +1190,10 @@ function renderTemplatePrompt(){
       +'<tbody>'+rows+'</tbody>'
       +'</table></div>'
       +'<div style="margin-top:.6rem;">'
-      +'<button class="btn btn-sm" style="font-size:.82rem" onclick="applyTemplate(\''+name+'\')">Apply '+escapeHtml(name)+' →</button>'
+      +'<button class="btn btn-sm _apply-tpl" data-tpl="'+escapeHtml(name)+'" style="font-size:.82rem">Apply '+escapeHtml(name)+' →</button>'
       +'</div>';
+    var _ab=previewArea.querySelector('._apply-tpl');
+    if(_ab) _ab.addEventListener('click',function(){ applyTemplate(_ab.dataset.tpl); });
   }
 
   names.forEach(name=>{
