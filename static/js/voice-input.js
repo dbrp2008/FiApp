@@ -87,19 +87,19 @@ window.VoiceInput = (function () {
   };
 
   var CURRENCY_NAMES = {
-    'USD':'dollars','AUD':'Australian dollars','CAD':'Canadian dollars',
+    'USD':'US dollars','AUD':'Australian dollars','CAD':'Canadian dollars',
     'SGD':'Singapore dollars','HKD':'Hong Kong dollars','NZD':'New Zealand dollars',
     'TWD':'Taiwan dollars','BND':'Brunei dollars','FJD':'Fiji dollars',
     'TTD':'Trinidad dollars','BBD':'Barbados dollars','XCD':'East Caribbean dollars',
     'BZD':'Belize dollars','JMD':'Jamaican dollars','NAD':'Namibian dollars',
     'SBD':'Solomon Islands dollars','GYD':'Guyanese dollars',
     'BMD':'Bermuda dollars','KYD':'Cayman dollars',
-    'EUR':'euros','GBP':'pounds','JPY':'yen','CNY':'yuan','KRW':'won',
+    'EUR':'euros','GBP':'British pounds','JPY':'Japanese yen','CNY':'Chinese yuan','KRW':'South Korean won',
     'INR':'Indian rupees','PKR':'Pakistani rupees','NPR':'Nepali rupees','LKR':'Sri Lankan rupees',
-    'MYR':'ringgit','THB':'baht','VND':'dong','RUB':'rubles','AED':'dirhams',
-    'PLN':'zloty','CHF':'Swiss francs','XOF':'West African francs','XAF':'Central African francs',
+    'MYR':'Malaysian ringgit','THB':'Thai baht','VND':'Vietnamese dong','RUB':'Russian rubles','AED':'UAE dirhams',
+    'PLN':'Polish zloty','CHF':'Swiss francs','XOF':'West African francs','XAF':'Central African francs',
     'MXN':'Mexican pesos','PHP':'Philippine pesos','COP':'Colombian pesos','ARS':'Argentine pesos',
-    'SAR':'Saudi riyals','QAR':'Qatari riyals','TRY':'lira','LBP':'Lebanese pounds',
+    'SAR':'Saudi riyals','QAR':'Qatari riyals','TRY':'Turkish lira','LBP':'Lebanese pounds',
     'DKK':'Danish krone','NOK':'Norwegian krone',
   };
 
@@ -111,7 +111,7 @@ window.VoiceInput = (function () {
   }
 
   var COMMON_CURRENCIES = ['USD','EUR','GBP','JPY','CNY','AUD','CAD','SGD',
-    'INR','KRW','MYR','THB','HKD','NZD','AED','CHF'];
+    'INR','PKR','KRW','MYR','THB','HKD','NZD','AED','CHF'];
 
   function _extractCurrency(lower) {
     if (/\bswiss\s+francs?\b/.test(lower)) return { code: 'CHF', candidates: null };
@@ -672,7 +672,16 @@ window.VoiceInput = (function () {
           ? br.rowCurrency(p.rowId) : 'USD';
         p.currency = { code: existingCode, candidates: COMMON_CURRENCIES };
       }
-      // If detected but no default code set yet (truly ambiguous like rupees), leave blocked
+      // If ambiguous (e.g. "rupees" → candidates ['INR','PKR','NPR','LKR']) and the row's
+      // own currency is in that candidate list, auto-resolve to it so confirm isn't blocked.
+      // Crucially, keep candidates intact so the picker shows only the word-specific variants
+      // (INR, PKR, NPR, LKR) rather than the full COMMON_CURRENCIES list.
+      if (p.currency.candidates && !p.currency.code && p.rowId && typeof br.rowCurrency === 'function') {
+        var rowCode = br.rowCurrency(p.rowId);
+        if (rowCode && p.currency.candidates.indexOf(rowCode) !== -1) {
+          p.currency.code = rowCode;
+        }
+      }
       var isAmbiguous = !!(p.currency.candidates && !p.currency.code);
       curChip.textContent = p.currency.code || (p.currency.candidates[0] + '?');
       curChip.classList.toggle('voice-chip-unset', isAmbiguous);
