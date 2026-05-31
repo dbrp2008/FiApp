@@ -2121,6 +2121,8 @@ window._incVoiceBridge = {
     if (parentRow) addSubRow(parentRow, subLabel);
   },
   getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
+  setRowCurrency: function(rowId, cur) { setRowCurrency(currentMK(), rowId, cur); },
+  rowCurrency:    function(rowId)      { return rowCurrency(currentMK(), rowId); },
   isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
   isForecastMonth: function() { return isForecastMonth(); },
 };
