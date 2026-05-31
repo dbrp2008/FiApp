@@ -65,6 +65,10 @@ function freshState(){
 }
 function loadState(){
   try{
+    const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');
+    if(_wt&&_wt.active) return freshState();
+  }catch(_){}
+  try{
     const r=localStorage.getItem(STORAGE_KEY);
     if(r){
       const s=JSON.parse(r);
