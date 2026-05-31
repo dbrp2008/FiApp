@@ -514,10 +514,10 @@ window.VoiceInput = (function () {
       _hideConfirmSheet();
       var verb = isRemove ? 'Removed' : 'Added';
       var prep  = isRemove ? 'from'    : 'to';
-      var weekPart = p.colLabel ? ', ' + p.colLabel : '';
-      var spokenAmt = p.amount.toFixed(0) + ' ' + (CURRENCY_NAMES[newCurrency] || newCurrency || 'dollars');
+      var weekPart = (br.getCols().length > 1 && p.colLabel) ? ', ' + p.colLabel : '';
+      var spokenAmt = p.amount.toFixed(0) + ' ' + _currencyLabel(p);
       _speak(verb + ' ' + spokenAmt + ' ' + prep + ' ' + p.rowLabel + weekPart);
-      var toastAmt = (newCurrency || 'USD') + ' ' + p.amount.toFixed(2);
+      var toastAmt = (newCurrency || '') + (newCurrency ? ' ' : '$') + p.amount.toFixed(2);
       _toast(verb + ' ' + toastAmt + (convertedNote ? ' ' + convertedNote : '') + ' ' + prep + ' ' + p.rowLabel + weekPart);
     }
 
@@ -613,16 +613,6 @@ window.VoiceInput = (function () {
     if (subs.length > 0) {
       subChips.innerHTML = '';
       p._subRowId = null;
-      var gen = document.createElement('button');
-      gen.className = 'voice-sub-chip';
-      gen.textContent = p.rowLabel + ' (general)';
-      gen.addEventListener('click', function () {
-        p._subRowId = p.rowId;
-        subChips.querySelectorAll('.voice-sub-chip').forEach(function(b){ b.classList.remove('selected'); });
-        gen.classList.add('selected');
-        _updateConfirmBtn();
-      });
-      subChips.appendChild(gen);
       subs.forEach(function (sub) {
         var btn = document.createElement('button');
         btn.className = 'voice-sub-chip'; btn.textContent = sub.label;
