@@ -228,6 +228,10 @@ def serve_css():
     return resp
 
 
+@app.route('/ping')
+def ping():
+    return '', 204
+
 @app.route('/')
 def home():
     return render_template('index.html', **_ctx())
