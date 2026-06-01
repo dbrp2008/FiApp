@@ -110,17 +110,31 @@ def init_pool():
     )
 
 def get_db():
-    try:
-        conn = _db_pool.getconn()
-    except _pgpool.PoolError:
-        abort(503, "Database connection pool exhausted")
-    if conn.closed:
+    for _ in range(2):
         try:
-            _db_pool.putconn(conn, close=True)
-        except Exception:
-            pass
-        conn = _db_pool.getconn()
-    return conn
+            conn = _db_pool.getconn()
+        except _pgpool.PoolError:
+            abort(503, "Database connection pool exhausted")
+        if conn.closed:
+            try:
+                _db_pool.putconn(conn, close=True)
+            except Exception:
+                pass
+            continue
+        try:
+            # Probe the connection to detect stale SSL sessions before the caller uses it.
+            # conn.closed only catches explicitly-closed connections; a server-side SSL drop
+            # won't be detected until the first execute() otherwise.
+            conn.cursor().execute('SELECT 1')
+            conn.rollback()  # clean up the implicit transaction started by the probe
+        except psycopg2.OperationalError:
+            try:
+                _db_pool.putconn(conn, close=True)
+            except Exception:
+                pass
+            continue
+        return conn
+    abort(503, "Database connection unavailable")
 
 def release_db(conn):
     if conn and _db_pool:
