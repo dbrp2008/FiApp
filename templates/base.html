@@ -647,8 +647,12 @@
           if(nxt2.page==='/analytics') _seedHistoryForAnalytics();
           window.location.href=nxt2.page;
         } else {
-          state.seen=[];state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r1=_restore();
-          _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r1?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.',_r1);
+          // Fallback: position lookup failed (stale state or resumeMode filtered current step).
+          // Find the first unseen step on action.navigate's page rather than ending the tour.
+          var _wctF=state.wantsCurrencyTour;
+          var _navFb=WT_STEPS.filter(function(s){return s.page===action.navigate&&(s.wantsCurrencyTour==null||s.wantsCurrencyTour===_wctF);}).find(function(s){return (state.seen||[]).indexOf(s.id)<0;});
+          if(_navFb){state.stepId=_navFb.id;_sv(state);if(action.navigate==='/analytics')_seedHistoryForAnalytics();window.location.href=action.navigate;}
+          else{state.seen=[];state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r1=_restore();_showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r1?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.',_r1);}
         }
         return;
       }
@@ -656,6 +660,13 @@
         var vs3=_vis(state),idx3=vs3.findIndex(function(s){return s.id===state.stepId;});
         if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
         var next3=idx3>=0&&idx3<vs3.length-1?vs3[idx3+1]:null;
+        // Fallback: if current step wasn't in _vis (filtered by resumeMode or wantsCurrencyTour mismatch),
+        // search the full wantsCurrencyTour-filtered list so we don't prematurely end the tour.
+        if(!next3&&idx3<0){
+          var _allF=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
+          var _allFi=_allF.findIndex(function(s){return s.id===state.stepId;});
+          if(_allFi>=0&&_allFi<_allF.length-1) next3=_allF[_allFi+1];
+        }
         if(!next3){
           var _va2=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
           if(_va2.every(function(s){return state.seen.indexOf(s.id)>=0;})) state.seen=[];
@@ -664,8 +675,9 @@
           return;
         }
         state.stepId=next3.id;_sv(state);
+        var _vs3len=vs3.length||WT_STEPS.length,_next3di=vs3.findIndex(function(s){return s.id===next3.id;});
         if(next3.page!==_page){window.location.href=next3.page;}
-        else{_showStep(next3,vs3.length,vs3.findIndex(function(s){return s.id===next3.id;}));}
+        else{_showStep(next3,_vs3len,_next3di>=0?_next3di:0);}
       }
     }
 
@@ -935,6 +947,15 @@
 
       var vs=_vis(state);
       var step=vs.find(function(s){return s.id===state.stepId&&s.page===_page;});
+      // Self-heal: step not in filtered list — check if a wantsCurrencyTour mismatch is the cause
+      // (e.g. state.wantsCurrencyTour got reset to null after navigating to a tour-specific page)
+      if(!step){
+        var _hs=WT_STEPS.find(function(s){return s.id===state.stepId&&s.page===_page;});
+        if(_hs&&_hs.wantsCurrencyTour!=null&&state.wantsCurrencyTour!==_hs.wantsCurrencyTour){
+          state.wantsCurrencyTour=_hs.wantsCurrencyTour;_sv(state);
+          vs=_vis(state);step=vs.find(function(s){return s.id===state.stepId&&s.page===_page;});
+        }
+      }
       if(step){
         var dotIdx=vs.findIndex(function(s){return s.id===step.id;});
         _startGuard(null);
