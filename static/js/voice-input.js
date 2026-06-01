@@ -424,6 +424,7 @@ window.VoiceInput = (function () {
 
   function start() {
     if (_isListening) { stop(); return; }
+    try { var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null'); if(_wt&&_wt.active){_toast('🧭 Voice input unavailable during the walkthrough.');return;} } catch(_) {}
     _recognition = _buildRecognition(); if (!_recognition) return;
     if (!sessionStorage.getItem('_vi_ringer_hint')) {
       sessionStorage.setItem('_vi_ringer_hint', '1');
@@ -970,6 +971,7 @@ window.VoiceInput = (function () {
 
     fab.addEventListener('pointerdown', function(e) {
       if (fab.classList.contains('listening')) return;
+      try { var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null'); if(_wt&&_wt.active) return; } catch(_) {}
       _fabDidDrag = false; _fabDragActive = false; _fabDragReady = false;
       _fabStartX = e.clientX; _fabStartY = e.clientY;
       _fabPtrId = e.pointerId;
@@ -1025,6 +1027,9 @@ window.VoiceInput = (function () {
 
     document.body.appendChild(fab);
     _fabRestorePos();
+    function _syncFabWt(){try{var wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');fab.classList.toggle('wt-disabled',!!(wt&&wt.active));}catch(_){}}
+    _syncFabWt();
+    window.addEventListener('storage',_syncFabWt);
 
     // Listening overlay
     var ov = document.createElement('div');
