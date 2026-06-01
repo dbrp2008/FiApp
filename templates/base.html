@@ -604,9 +604,18 @@
       if(curIdx<=0) return;
       var prev=allVis[curIdx-1];
       state.stepId=prev.id;
+      // Remove prev from seen so _vis() includes it — critical for resumeMode where seen steps
+      // are filtered out, which would cause the page-load init code to find no matching step
+      if(state.seen){var _si=state.seen.indexOf(prev.id);if(_si>=0)state.seen.splice(_si,1);}
       _sv(state);
-      if(prev.page!==_page){window.location.href=prev.page;}
-      else{_showStep(prev,allVis.length,curIdx-1);}
+      if(prev.page!==_page){
+        window.location.href=prev.page;
+      } else {
+        // Recalculate vs after modifying seen so dotIdx is correct
+        var vs=_vis(state);
+        var prevDotIdx=vs.findIndex(function(s){return s.id===prev.id;});
+        _showStep(prev,vs.length,prevDotIdx>=0?prevDotIdx:curIdx-1);
+      }
     }
 
     function _handleAction(action,state){
@@ -667,9 +676,11 @@
         var h=function(){if([].slice.call(document.querySelectorAll('.sheet td input,.cell input,.mc-ei')).some(function(i){var v=parseFloat(i.value||'0');return !isNaN(v)&&v!==0;})){_clearWait();_startGuard(null,null);if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();setTimeout(cb,80);}};
         document.addEventListener('input',h);_waitOff.push(function(){document.removeEventListener('input',h);});
       } else if(cond==='income_saved'){
-        // Pre-check: user navigated back and income data already exists — advance after brief pause
+        // Pre-check ONLY when navigating back (step was already seen/completed once)
+        var _incSt=_ld()||_def();
+        var _incAlreadySeen=(_incSt.seen||[]).indexOf('inc-enter')>=0;
         var _incPreCheck=function(){try{var _inc=JSON.parse(localStorage.getItem('fiapp_income_v1')||'{}');return Object.values(_inc.cells||{}).some(function(v){return !!(parseFloat(v)||0);});}catch(_){return false;}};
-        if(_incPreCheck()){setTimeout(cb,450);return;}
+        if(_incAlreadySeen&&_incPreCheck()){setTimeout(cb,450);return;}
         var _ish=function(){_clearWait();setTimeout(cb,80);};
         document.addEventListener('fiapp-income-saved',_ish,{once:true});
         _waitOff.push(function(){document.removeEventListener('fiapp-income-saved',_ish);});
