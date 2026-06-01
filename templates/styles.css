@@ -539,6 +539,7 @@ h1, h2, h3, h4 { color: var(--fg); }
   box-shadow: 0 8px 28px rgba(0,0,0,.45);
 }
 .voice-fab.dragging { will-change: transform; }
+.voice-fab.wt-disabled { opacity: 0.4; cursor: not-allowed; }
 
 .voice-listening-overlay {
   display: none; position: fixed; inset: 0;
