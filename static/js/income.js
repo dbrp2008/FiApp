@@ -361,6 +361,7 @@ function save(){
   saveLocal();
   try{ localStorage.setItem(PUSH_KEY, JSON.stringify({mk:currentMK(),total:grandTotal(),ts:Date.now()})); }catch{}
   syncToServer();
+  document.dispatchEvent(new CustomEvent('fiapp-income-saved'));
 }
 function showSaveQuotaWarning(){
   if(document.getElementById('quota-warn')) return;
