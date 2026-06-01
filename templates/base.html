@@ -287,7 +287,7 @@
       {id:'exp-enter',     page:'/expenses',      type:'tooltip', target:'.sheet-wrap', mobileTarget:'#exp-mobile-cards', allowInteract:true, text:'Fill in some expenses across a few categories - rent, groceries, transport, whatever fits your life. Take your time, then hit <strong>I\'m done</strong> when ready!', mobileText:'Tap any card below to expand it and fill in your weekly spending. Take your time, then hit <strong>I\'m done</strong> when ready!', actions:[{label:"I'm done →",primary:true,next:true,validate:'hasExpenseData'}], beforeShow:function(){if(window.innerWidth<640&&typeof window._wtShowCards==='function')window._wtShowCards();}},
       {id:'exp-subs',      page:'/expenses',      type:'tooltip', target:'[data-wt="subs-link"]', mobileTarget:'.mc-subs-badge', text:'Subscriptions deserve their own tracker! Let\'s head there - they auto-sync back here so no double entry.',                                             actions:[{label:'Go to Subscriptions →',primary:true,navigate:'/subscriptions',next:true},{label:'Skip',gotoId:'ana-intro'}]},
       {id:'subs-intro',    page:'/subscriptions', type:'modal',   text:'The <strong>Subscription Tracker</strong> 🔄 keeps all recurring payments in one place - and they sync to the Expense Tracker automatically.',                                         actions:[{label:'Show me →',primary:true,next:true}]},
-      {id:'subs-add',      page:'/subscriptions', type:'tooltip', target:'[data-wt="subs-add"]', allowInteract:true, text:'Pick a service from the dropdown (or type a custom name) and hit <strong>Add</strong>. It defaults to monthly billing - you can change any detail after adding.',  actions:[{label:"Added one →",primary:true,next:true,validate:'hasSubData'}]},
+      {id:'subs-add',      page:'/subscriptions', type:'tooltip', target:'[data-wt="subs-add"]', allowInteract:true, text:'Pick a service from the dropdown (or type a custom name) and hit <strong>Add</strong>. It defaults to monthly billing - you can change any detail after adding.',  actions:[{label:"Added one →",primary:true,next:true,validate:'hasSubData'}], beforeShow:function(){try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');window._wtSubsBase=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;}catch(_){window._wtSubsBase=0;}}},
       {id:'subs-months',   page:'/subscriptions', type:'modal',   text:'The <strong>month columns</strong> mark when each sub is active. Leave a month blank = always active. Great for seasonal or annual subs.',                                              actions:[{label:function(st,vs){return vs.some(function(s){return s.id==='ana-intro';})?'Next: Analytics →':'Next →';},primary:true,navigate:'/analytics',next:true}]},
       {id:'ana-intro',     page:'/analytics',     type:'modal',   text:'The <strong>Analytics</strong> page 📉 pulls from all your trackers automatically - spending trends, income vs expenses, category breakdowns, and more.<br><br><span style="font-size:.8rem;color:var(--muted)">📊 Prior months shown here use randomised sample values so the charts aren\'t empty. Your real history builds as you use the app.</span>',               actions:[{label:"Let's look →",primary:true,next:true}]},
       {id:'ana-period',    page:'/analytics',     type:'tooltip', target:'[data-wt="analytics-period"]', text:'Use the <strong>Period selector</strong> to filter all charts to a specific month or range.',                                                    actions:[{label:'Got it →',primary:true,next:true}]},
@@ -480,7 +480,7 @@
         return false;
       }
       if(key==='hasSubData'){
-        try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');return (s.rows||[]).length>0;}catch(e){return false;}
+        try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');var nonSeeded=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;return nonSeeded>(window._wtSubsBase!==undefined?window._wtSubsBase:0);}catch(e){return false;}
       }
       return true;
     }
@@ -946,9 +946,11 @@
             var _hasData=_hasTrackerData();
             if(!_hasData&&_loggedIn){
               try{
-                var _sr=await fetch('/api/load/expenses');
-                if(_sr.ok){var _sj=await _sr.json();var _sd=_sj&&_sj.data;
-                  _hasData=!!(_sd&&_sd.cells&&Object.keys(_sd.cells).length>0);}
+                var [_er,_subr]=await Promise.all([fetch('/api/load/expenses'),fetch('/api/load/subscriptions')]);
+                if(_er.ok){var _ej=await _er.json();var _ed=_ej&&_ej.data;
+                  _hasData=!!(_ed&&_ed.cells&&Object.keys(_ed.cells).length>0);}
+                if(!_hasData&&_subr.ok){var _sj=await _subr.json();var _sd=_sj&&_sj.data;
+                  _hasData=!!(Array.isArray(_sd&&_sd.rows)&&_sd.rows.length>0);}
               }catch(_){}
             }
             if(_hasData){
@@ -1000,9 +1002,11 @@
         var _hd=_hasTrackerData();
         if(!_hd&&_loggedIn){
           try{
-            var _sr=await fetch('/api/load/expenses');
-            if(_sr.ok){var _sj=await _sr.json();var _sd=_sj&&_sj.data;
-              _hd=!!(_sd&&_sd.cells&&Object.keys(_sd.cells).length>0);}
+            var [_er2,_subr2]=await Promise.all([fetch('/api/load/expenses'),fetch('/api/load/subscriptions')]);
+            if(_er2.ok){var _ej2=await _er2.json();var _ed2=_ej2&&_ej2.data;
+              _hd=!!(_ed2&&_ed2.cells&&Object.keys(_ed2.cells).length>0);}
+            if(!_hd&&_subr2.ok){var _sj2=await _subr2.json();var _sd2=_sj2&&_sj2.data;
+              _hd=!!(Array.isArray(_sd2&&_sd2.rows)&&_sd2.rows.length>0);}
           }catch(_){}
         }
         if(_hd) _showDisclaimer(function(){_go();});
