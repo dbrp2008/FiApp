@@ -39,6 +39,7 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' and not app.debug
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # 1 hour — caches /static/ files per session
 EXCHANGE_API_KEY = os.environ.get("EXCHANGE_API_KEY")
 
 # Currency codes are ISO-4217 three-letter uppercase. Validating before building
@@ -113,10 +114,7 @@ def get_db():
         conn = _db_pool.getconn()
     except _pgpool.PoolError:
         abort(503, "Database connection pool exhausted")
-    try:
-        conn.cursor().execute("SELECT 1")
-        conn.rollback()
-    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+    if conn.closed:
         try:
             _db_pool.putconn(conn, close=True)
         except Exception:
@@ -224,7 +222,10 @@ def _within_limits(data):
 
 @app.route('/styles.css')
 def serve_css():
-    return send_from_directory('templates', 'styles.css', mimetype='text/css')
+    resp = send_from_directory('templates', 'styles.css', mimetype='text/css')
+    resp.cache_control.max_age = 3600
+    resp.cache_control.public = True
+    return resp
 
 
 @app.route('/')
