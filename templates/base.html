@@ -287,7 +287,7 @@
       {id:'exp-enter',     page:'/expenses',      type:'tooltip', target:'.sheet-wrap', mobileTarget:'#exp-mobile-cards', allowInteract:true, text:'Fill in some expenses across a few categories - rent, groceries, transport, whatever fits your life. Take your time, then hit <strong>I\'m done</strong> when ready!', mobileText:'Tap any card below to expand it and fill in your weekly spending. Take your time, then hit <strong>I\'m done</strong> when ready!', actions:[{label:"I'm done →",primary:true,next:true,validate:'hasExpenseData'}], beforeShow:function(){if(window.innerWidth<640&&typeof window._wtShowCards==='function')window._wtShowCards();}},
       {id:'exp-subs',      page:'/expenses',      type:'tooltip', target:'[data-wt="subs-link"]', mobileTarget:'.mc-subs-badge', text:'Subscriptions deserve their own tracker! Let\'s head there - they auto-sync back here so no double entry.',                                             actions:[{label:'Go to Subscriptions →',primary:true,navigate:'/subscriptions',next:true},{label:'Skip',gotoId:'ana-intro'}]},
       {id:'subs-intro',    page:'/subscriptions', type:'modal',   text:'The <strong>Subscription Tracker</strong> 🔄 keeps all recurring payments in one place - and they sync to the Expense Tracker automatically.',                                         actions:[{label:'Show me →',primary:true,next:true}]},
-      {id:'subs-add',      page:'/subscriptions', type:'tooltip', target:'[data-wt="subs-add"]', allowInteract:true, text:'Pick a service from the dropdown (or type a custom name) and hit <strong>Add</strong>. It defaults to monthly billing - you can change any detail after adding.',  actions:[{label:"Added one →",primary:true,next:true,validate:'hasSubData'}], beforeShow:function(){try{var _wt2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt2&&_wt2.active){window._wtSubsBase=0;return;}var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');window._wtSubsBase=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;}catch(_){window._wtSubsBase=0;}}},
+      {id:'subs-add',      page:'/subscriptions', type:'tooltip', target:'[data-wt="subs-add"]', allowInteract:true, text:'Pick a service from the dropdown (or type a custom name) and hit <strong>Add</strong>. It defaults to monthly billing - you can change any detail after adding.',  actions:[{label:"Added one →",primary:true,next:true,validate:'hasSubData'}], beforeShow:function(){try{var _wt2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt2&&_wt2.active){window._wtSubsBase=0;window._wtSubsHasNewRow=false;return;}var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');window._wtSubsBase=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;}catch(_){window._wtSubsBase=0;}}},
       {id:'subs-months',   page:'/subscriptions', type:'modal',   text:'The <strong>month columns</strong> mark when each sub is active. Leave a month blank = always active. Great for seasonal or annual subs.',                                              actions:[{label:function(st,vs){return vs.some(function(s){return s.id==='ana-intro';})?'Next: Analytics →':'Next →';},primary:true,navigate:'/analytics',next:true}]},
       {id:'ana-intro',     page:'/analytics',     type:'modal',   text:'The <strong>Analytics</strong> page 📉 pulls from all your trackers automatically - spending trends, income vs expenses, category breakdowns, and more.<br><br><span style="font-size:.8rem;color:var(--muted)">📊 Prior months shown here use randomised sample values so the charts aren\'t empty. Your real history builds as you use the app.</span>',               actions:[{label:"Let's look →",primary:true,next:true}]},
       {id:'ana-period',    page:'/analytics',     type:'tooltip', target:'[data-wt="analytics-period"]', text:'Use the <strong>Period selector</strong> to filter all charts to a specific month or range.',                                                    actions:[{label:'Got it →',primary:true,next:true}]},
@@ -368,6 +368,7 @@
         // Then restore pre-tour data if a backup exists
         if(bk){WT_TRACKER_KEYS.forEach(function(k){if(bk[k])localStorage.setItem(k,bk[k]);});}
         localStorage.removeItem(WT_BK_KEY);
+        localStorage.removeItem('fiapp_wt_analytics_v1');
         return !!hadData;
       }catch(_){return false;}
     }
@@ -477,14 +478,19 @@
 
     function _wtValidate(key){
       if(key==='hasExpenseData'){
-        // Desktop: check live inputs in the table
-        var domHas=[].slice.call(document.querySelectorAll('.sheet td input')).some(function(i){return !!(parseFloat(i.value)||0);});
+        // DOM check covers both desktop (.sheet td input) and mobile cards (.mc-ei)
+        var domHas=[].slice.call(document.querySelectorAll('.sheet td input,.cell input,.mc-ei')).some(function(i){return !!(parseFloat(i.value)||0);});
         if(domHas) return true;
-        // Mobile (card view): table not rendered — check localStorage cells directly
+        // During walkthrough only check DOM — localStorage may contain stale cells from a prior session
+        try{var _wtV=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtV&&_wtV.active)return false;}catch(_){}
+        // Non-walkthrough fallback: localStorage (mobile cards may not be in the DOM yet)
         try{var _es=JSON.parse(localStorage.getItem('fiapp_expenses_v4')||'{}');var _c=_es.cells||{};return Object.keys(_c).some(function(k){return !!(parseFloat(_c[k])||0);});}catch(e){}
         return false;
       }
       if(key==='hasSubData'){
+        // During walkthrough use a per-step flag set by subscriptions.js when a row is added.
+        // This avoids stale rows from a previous walkthrough pass triggering an immediate pass.
+        try{var _wtV2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtV2&&_wtV2.active)return !!window._wtSubsHasNewRow;}catch(_){}
         try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');var nonSeeded=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;return nonSeeded>(window._wtSubsBase!==undefined?window._wtSubsBase:0);}catch(e){return false;}
       }
       return true;
@@ -507,8 +513,33 @@
       return b;
     }
 
-    function _seedHistoryForAnalytics(){
+    function _seedAnalyticsWalkthrough(){
+      // Build standalone demo exp+inc data for analytics during walkthrough.
+      // Written to a temp key so real localStorage is never touched.
+      var now=new Date();
+      function pm(n){var d=new Date(now.getFullYear(),now.getMonth()-n,1);return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);}
+      var months=[pm(0),pm(1),pm(2)];
+      var er=[
+        {id:'wt-a-r1',label:'Rent',      color:'#fde68a',textColor:'#1f2937',height:36,parentId:null},
+        {id:'wt-a-r2',label:'Groceries', color:'#bbf7d0',textColor:'#1f2937',height:36,parentId:null},
+        {id:'wt-a-r3',label:'Transport', color:'#fed7aa',textColor:'#1f2937',height:36,parentId:null},
+        {id:'wt-a-r4',label:'Dining',    color:'#fecdd3',textColor:'#1f2937',height:36,parentId:null},
+        {id:'wt-a-r5',label:'Savings',   color:'#e9d5ff',textColor:'#1f2937',height:36,parentId:null},
+      ];
+      var ec=[{id:'wt-a-c1',label:'Amount',ctype:'number'}];
+      var eb=[[1200,1150,1200],[320,290,340],[180,210,170],[240,195,280],[400,380,420]];
+      var exp={rows:er,cols:ec,cells:{}};
+      months.forEach(function(m,mi){er.forEach(function(r,ri){exp.cells[m+'|'+r.id+'|'+ec[0].id]=String(Math.round(eb[ri][mi]*(0.88+Math.random()*0.24)*100)/100);});});
+      var ir=[{id:'wt-a-ir1',label:'Salary',color:'#a7f3d0',textColor:'#1f2937',height:36}];
+      var ic=[{id:'wt-a-ic1',label:'Amount',ctype:'number'}];
+      var inc={rows:ir,cols:ic,cells:{}};
+      months.forEach(function(m){inc.cells[m+'|wt-a-ir1|wt-a-ic1']=String(Math.round((3800+Math.random()*400)*100)/100);});
+      try{localStorage.setItem('fiapp_wt_analytics_v1',JSON.stringify({exp:exp,inc:inc}));}catch(_){}
+    }
 
+    function _seedHistoryForAnalytics(){
+      // During walkthrough: write standalone demo data to a temp key — never touch real keys.
+      try{var _wtChk=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtChk&&_wtChk.active){_seedAnalyticsWalkthrough();return;}}catch(_){}
 
       var now=new Date();
       function mkStr(d){return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);}
@@ -601,7 +632,13 @@
       _setHL(null);_posBubble(null);
     }
 
+    var _goingBack=false;
     function _goBack(state){
+      // Guard against rapid repeated clicks — each call does a page navigation so concurrent
+      // calls would corrupt seen[] (last localStorage write wins, others' removals are lost).
+      if(_goingBack) return;
+      _goingBack=true;
+      setTimeout(function(){_goingBack=false;},600);
       state=state||_ld()||_def();
       // Use full step list (ignore resumeMode filter) so back always reaches prior steps
       var allVis=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
