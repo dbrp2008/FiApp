@@ -788,7 +788,12 @@
           };
           _btns.appendChild(btn);
         });
-        if(dotIdx>0){var backBtn=document.createElement('button');backBtn.className='wt-btn-ghost';backBtn.textContent='← Back';backBtn.style.cssText='font-size:.78rem;opacity:.7;';backBtn.onclick=function(){_goBack(state);};_btns.insertBefore(backBtn,_btns.firstChild);}
+        // Use the step's position in the full (non-resumeMode-filtered) list so the
+        // Back button appears consistently regardless of how many steps are in seen[].
+        // dotIdx from _vis() can be 0 even mid-walkthrough when earlier steps are filtered out.
+        var _backAllVis=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
+        var _backFullIdx=_backAllVis.findIndex(function(s){return s.id===step.id;});
+        if(_backFullIdx>0){var backBtn=document.createElement('button');backBtn.className='wt-btn-ghost';backBtn.textContent='← Back';backBtn.style.cssText='font-size:.78rem;opacity:.7;';backBtn.onclick=function(){_goBack(state);};_btns.insertBefore(backBtn,_btns.firstChild);}
         _btns.appendChild(_skipBtn());
         _dots(dotIdx,total);
       });
