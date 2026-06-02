@@ -602,7 +602,16 @@
       var allVis=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
       var curIdx=allVis.findIndex(function(s){return s.id===state.stepId;});
       if(curIdx<=0) return;
-      var prev=allVis[curIdx-1];
+      var prevIdx=curIdx-1;
+      var prev=allVis[prevIdx];
+      // Skip already-completed wait steps — they have no button to advance past and
+      // auto-advance immediately via pre-check, so Back should hop over them to the
+      // nearest prior interactive step instead of landing in a buttonless limbo.
+      while(prev&&prev.type==='wait'&&(state.seen||[]).indexOf(prev.id)>=0){
+        prevIdx--;
+        if(prevIdx<0) return;
+        prev=allVis[prevIdx];
+      }
       state.stepId=prev.id;
       // Remove prev from seen so _vis() includes it — critical for resumeMode where seen steps
       // are filtered out, which would cause the page-load init code to find no matching step
@@ -614,7 +623,7 @@
         // Recalculate vs after modifying seen so dotIdx is correct
         var vs=_vis(state);
         var prevDotIdx=vs.findIndex(function(s){return s.id===prev.id;});
-        _showStep(prev,vs.length,prevDotIdx>=0?prevDotIdx:curIdx-1);
+        _showStep(prev,vs.length,prevDotIdx>=0?prevDotIdx:prevIdx);
       }
     }
 
