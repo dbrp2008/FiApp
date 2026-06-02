@@ -70,7 +70,7 @@ function loadState(){
       const fs=freshState();
       fs.rows=[
         {id:uid(),label:'Groceries',    color:'#bbf7d0',textColor:'#1f2937',height:36,parentId:null},
-        {id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null},
+        {id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null,linked:'subscriptions'},
         {id:uid(),label:'Travel',       color:'#fed7aa',textColor:'#1f2937',height:36,parentId:null},
         {id:uid(),label:'Savings',      color:'#e9d5ff',textColor:'#1f2937',height:36,parentId:null},
       ];
@@ -1537,7 +1537,7 @@ function attachRowResize(handle,row,tr){
 }
 
 
-function loadSubsState(){ try{ return JSON.parse(localStorage.getItem(SUBS_KEY))||null; }catch{ return null; } }
+function loadSubsState(){ try{ var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null'); if(_wt&&_wt.active) return null; return JSON.parse(localStorage.getItem(SUBS_KEY))||null; }catch{ return null; } }
 
 function calcSubMonthCostInExp(r, subs, yr, mo){
   const costCol=subs.cols.find(c=>c.ctype==='number');
