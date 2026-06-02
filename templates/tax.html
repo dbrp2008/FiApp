@@ -621,6 +621,7 @@ function _saveTaxUI(){
 }
 
 function _loadTaxUI(){
+  try{ const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null'); if(_wt&&_wt.active) return; }catch(_){}
   try{
     const s=JSON.parse(localStorage.getItem(_TAX_UI_KEY)||'{}');
     if(['US','IN','HK'].includes(s.country))             _country=s.country;
