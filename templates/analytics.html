@@ -213,17 +213,24 @@ function refreshChartsTheme(){
 }
 
 
+function _anaIsWT(){try{var w=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');return !!(w&&w.active);}catch(_){return false;}}
 function loadExp(){
-  try{ const s=localStorage.getItem(EXP_KEY); return s?JSON.parse(s):null; }
-  catch(e){ console.warn('Analytics: expense data error',e.message); return null; }
+  try{
+    if(_anaIsWT()){var d=JSON.parse(localStorage.getItem('fiapp_wt_analytics_v1')||'null');return d?d.exp:null;}
+    const s=localStorage.getItem(EXP_KEY); return s?JSON.parse(s):null;
+  }catch(e){ console.warn('Analytics: expense data error',e.message); return null; }
 }
 function loadSubs(){
-  try{ const s=localStorage.getItem(SUBS_KEY); return s?JSON.parse(s):null; }
-  catch(e){ console.warn('Analytics: subs data error',e.message); return null; }
+  try{
+    if(_anaIsWT()) return null; // no subs during walkthrough — demo exp/inc data is enough
+    const s=localStorage.getItem(SUBS_KEY); return s?JSON.parse(s):null;
+  }catch(e){ console.warn('Analytics: subs data error',e.message); return null; }
 }
 function loadInc(){
-  try{ const s=localStorage.getItem(INC_KEY); return s?JSON.parse(s):null; }
-  catch(e){ console.warn('Analytics: income data error',e.message); return null; }
+  try{
+    if(_anaIsWT()){var d=JSON.parse(localStorage.getItem('fiapp_wt_analytics_v1')||'null');return d?d.inc:null;}
+    const s=localStorage.getItem(INC_KEY); return s?JSON.parse(s):null;
+  }catch(e){ console.warn('Analytics: income data error',e.message); return null; }
 }
 
 
