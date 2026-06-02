@@ -429,6 +429,10 @@
         window.visualViewport.addEventListener('resize',h);
         window.visualViewport.addEventListener('scroll',h);
       }
+      // ResizeObserver catches row-height changes (and any other DOM resizes inside
+      // the target) that don't fire scroll/resize on the window.
+      var _ro=null;
+      if(window.ResizeObserver){_ro=new ResizeObserver(h);_ro.observe(el);}
       _hlTrackOff=function(){
         window.removeEventListener('scroll',h);
         window.removeEventListener('resize',h);
@@ -436,6 +440,7 @@
           window.visualViewport.removeEventListener('resize',h);
           window.visualViewport.removeEventListener('scroll',h);
         }
+        if(_ro){_ro.disconnect();_ro=null;}
       };
     }
     function _dots(idx,total){
