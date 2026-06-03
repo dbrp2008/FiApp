@@ -681,6 +681,9 @@
       if(state.seen){var _si=state.seen.indexOf(prev.id);if(_si>=0)state.seen.splice(_si,1);}
       _sv(state);
       if(prev.page!==_page){
+        // Leaving the income page via Back — clear the session flag so the next visit starts clean.
+        // This handles "went back all the way to home and restarted" without leaking session income.
+        if(_page==='/income'){try{localStorage.removeItem('fiapp_income_wt_session');localStorage.removeItem('fiapp_income_v1');}catch(_){}}
         window.location.href=prev.page;
       } else {
         // Recalculate vs after modifying seen so dotIdx is correct
