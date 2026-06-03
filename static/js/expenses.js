@@ -1671,7 +1671,7 @@ function renderTableHeader(table){
   const thead=document.createElement('thead'),htr=document.createElement('tr');
   const corner=document.createElement('th');
   const ci=document.createElement('div');ci.className='th-inner';
-  const cl=document.createElement('span');cl.style.cssText='font-weight:600;color:#6b7280;font-size:.83rem;';cl.textContent='Category';ci.appendChild(cl);
+  const cl=document.createElement('span');cl.style.cssText='font-weight:600;color:var(--muted);font-size:.83rem;';cl.textContent='Category';ci.appendChild(cl);
   corner.appendChild(ci);
   const chr=document.createElement('div');chr.className='col-resize';attachHdrResize(chr);corner.appendChild(chr);
   htr.appendChild(corner);
@@ -1717,7 +1717,7 @@ function renderTableHeader(table){
   });
   const tth=document.createElement('th');tth.className='th-total';
   const thi=document.createElement('div');thi.className='th-inner';
-  const thl=document.createElement('span');thl.style.cssText='font-weight:700;color:#166534;font-size:.85rem;';
+  const thl=document.createElement('span');thl.style.cssText='font-weight:700;color:var(--total-fg);font-size:.85rem;';
   thl.textContent='Total';thi.appendChild(thl);tth.appendChild(thi);htr.appendChild(tth);
   const act=document.createElement('th');act.style.cssText='background:#f9fafb;border:1px dashed #d1d5db;';
   const acb=document.createElement('button');acb.className='btn-add-col';acb.textContent='+';acb.title='Add column';acb.addEventListener('click',addCol);act.appendChild(acb);htr.appendChild(act);
