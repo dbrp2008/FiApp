@@ -173,9 +173,18 @@ function freshState(){
   };
 }
 function loadState(){
-  // No walkthrough guard here — _backup() erases real income at tour start so whatever
-  // is in localStorage during the walkthrough is what the user entered this session.
-  // Guarding would wipe their just-entered income every time they navigate back to this page.
+  try{
+    const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');
+    if(_wt&&_wt.active){
+      // If the user already saved income this walkthrough session, show it so that
+      // navigating Back doesn't wipe their entry. Session flag set by save(), cleared by _restore().
+      if(localStorage.getItem('fiapp_income_wt_session')==='1'){
+        const r=localStorage.getItem(STORAGE_KEY);
+        if(r){try{const s=JSON.parse(r);if(s&&Array.isArray(s.rows))return s;}catch(_){}}
+      }
+      return freshState();
+    }
+  }catch(_){}
   try{
     const r=localStorage.getItem(STORAGE_KEY);
     if(r){
@@ -358,6 +367,8 @@ var setSyncStatus=_sync.setSyncStatus;
 var saveLocal=_sync.saveLocal;
 function save(){
   saveLocal();
+  // Mark that income was saved this walkthrough session so loadState() can restore it on Back.
+  try{const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)localStorage.setItem('fiapp_income_wt_session','1');}catch(_){}
   try{ localStorage.setItem(PUSH_KEY, JSON.stringify({mk:currentMK(),total:grandTotal(),ts:Date.now()})); }catch{}
   syncToServer();
   document.dispatchEvent(new CustomEvent('fiapp-income-saved'));
