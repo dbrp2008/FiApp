@@ -675,6 +675,16 @@
         if(prevIdx<0) return;
         prev=allVis[prevIdx];
       }
+      // Skip back over pages that were entirely bypassed via a gotoId skip (e.g. user
+      // clicked "Skip" on exp-subs to jump to analytics — the subscription steps are
+      // never in seen[], so Back from analytics must hop over them to expenses).
+      while(prev&&prev.page!==_page){
+        var _pageHasSeen=allVis.some(function(s){return s.page===prev.page&&(state.seen||[]).indexOf(s.id)>=0;});
+        if(_pageHasSeen) break;
+        prevIdx--;
+        if(prevIdx<0) return;
+        prev=allVis[prevIdx];
+      }
       state.stepId=prev.id;
       // Remove prev from seen so _vis() includes it — critical for resumeMode where seen steps
       // are filtered out, which would cause the page-load init code to find no matching step
