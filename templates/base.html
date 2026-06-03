@@ -267,7 +267,7 @@
          'fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
          'fiapp_income_undo_v1','fiapp_income_redo_v1',
          'fiapp_subs_undo_v4','fiapp_subs_redo_v4',
-         'fiapp_wt_backup_v1'].forEach(function(k){localStorage.removeItem(k);});
+         'fiapp_wt_backup_v1','fiapp_template_dismissed'].forEach(function(k){localStorage.removeItem(k);});
         localStorage.setItem(_LAST_USER_KEY,_wtUser);
       }
     })();
@@ -778,8 +778,10 @@
         var _incAlreadySeen=(_incSt.seen||[]).indexOf('inc-enter')>=0;
         var _incPreCheck=function(){try{var _inc=JSON.parse(localStorage.getItem('fiapp_income_v1')||'{}');return Object.values(_inc.cells||{}).some(function(v){return !!(parseFloat(v)||0);});}catch(_){return false;}};
         if(_incAlreadySeen&&_incPreCheck()){setTimeout(cb,450);return;}
-        var _ish=function(){_clearWait();setTimeout(cb,80);};
-        document.addEventListener('fiapp-income-saved',_ish,{once:true});
+        // Use a persistent listener (not {once}) so currency-only saves don't advance the step.
+        // Only advance when at least one cell has a non-zero value.
+        var _ish=function(){if(!_incPreCheck())return;_clearWait();setTimeout(cb,80);};
+        document.addEventListener('fiapp-income-saved',_ish);
         _waitOff.push(function(){document.removeEventListener('fiapp-income-saved',_ish);});
       } else if(cond==='scroll_near_bottom'){
         var sh=function(){var sc=window.scrollY||document.documentElement.scrollTop;var tot=document.documentElement.scrollHeight-window.innerHeight;if(tot<=0||sc/tot>0.88){_clearWait();cb();}};
