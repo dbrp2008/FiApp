@@ -631,7 +631,7 @@ function _renderGoalBar(rId, totTd){
   const goal=state.goals?.[_goalKey(rId)];
   if(!goal||isNaN(goal)){
     if(valSpan) valSpan.style.color='';
-    if(gBtn)    { gBtn.style.color=''; gBtn.textContent='🎯'; }
+    if(gBtn)    { gBtn.style.color=''; gBtn.textContent='🎯'; gBtn.style.fontSize=''; }
     if(srSpan)  srSpan.remove();
     return;
   }
@@ -641,7 +641,7 @@ function _renderGoalBar(rId, totTd){
   const icon=pct>=100?'🚨':pct>=75?'⚠️':'🎯';
   const label=pct>=100?'(over budget)':pct>=75?'(near limit)':'(under budget)';
   if(valSpan) valSpan.style.color=color;
-  if(gBtn)    { gBtn.style.color=color; gBtn.textContent=icon; }
+  if(gBtn)    { gBtn.style.color=color; gBtn.textContent=icon; gBtn.style.fontSize=pct>=75&&pct<100?'.6rem':'.72rem'; }
   if(!srSpan){srSpan=document.createElement('span');srSpan.className='sr-only goal-sr';totTd.appendChild(srSpan);}
   srSpan.textContent=label;
 }
