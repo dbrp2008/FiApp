@@ -287,7 +287,7 @@
       {id:'exp-enter',     page:'/expenses',      type:'tooltip', target:'.sheet-wrap', mobileTarget:'#exp-mobile-cards', allowInteract:true, text:'Fill in some expenses across a few categories - rent, groceries, transport, whatever fits your life. Take your time, then hit <strong>I\'m done</strong> when ready!', mobileText:'Tap any card below to expand it and fill in your weekly spending. Take your time, then hit <strong>I\'m done</strong> when ready!', actions:[{label:"I'm done →",primary:true,next:true,validate:'hasExpenseData'}], beforeShow:function(){if(window.innerWidth<640&&typeof window._wtShowCards==='function')window._wtShowCards();}},
       {id:'exp-subs',      page:'/expenses',      type:'tooltip', target:'[data-wt="subs-link"]', mobileTarget:'.mc-subs-badge', text:'Subscriptions deserve their own tracker! Let\'s head there - they auto-sync back here so no double entry.',                                             actions:[{label:'Go to Subscriptions →',primary:true,navigate:'/subscriptions',next:true},{label:'Skip',gotoId:'ana-intro'}]},
       {id:'subs-intro',    page:'/subscriptions', type:'modal',   text:'The <strong>Subscription Tracker</strong> 🔄 keeps all recurring payments in one place - and they sync to the Expense Tracker automatically.',                                         actions:[{label:'Show me →',primary:true,next:true}]},
-      {id:'subs-add',      page:'/subscriptions', type:'tooltip', target:'[data-wt="subs-add"]', allowInteract:true, text:'Pick a service from the dropdown (or type a custom name) and hit <strong>Add</strong>. It defaults to monthly billing - you can change any detail after adding.',  actions:[{label:"Added one →",primary:true,next:true,validate:'hasSubData'}], beforeShow:function(){try{var _wt2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt2&&_wt2.active){window._wtSubsBase=0;window._wtSubsHasNewRow=false;return;}var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');window._wtSubsBase=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;}catch(_){window._wtSubsBase=0;}}},
+      {id:'subs-add',      page:'/subscriptions', type:'tooltip', target:'[data-wt="subs-add"]', allowInteract:true, text:'Pick a service from the dropdown (or type a custom name) and hit <strong>Add</strong>. It defaults to monthly billing - you can change any detail after adding.',  actions:[{label:"Added one →",primary:true,next:true,validate:'hasSubData'}], beforeShow:function(){try{var _wt2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt2&&_wt2.active){window._wtSubsBase=0;return;}var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');window._wtSubsBase=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;}catch(_){window._wtSubsBase=0;}}},
       {id:'subs-months',   page:'/subscriptions', type:'modal',   text:'The <strong>month columns</strong> mark when each sub is active. Leave a month blank = always active. Great for seasonal or annual subs.',                                              actions:[{label:function(st,vs){return vs.some(function(s){return s.id==='ana-intro';})?'Next: Analytics →':'Next →';},primary:true,navigate:'/analytics',next:true}]},
       {id:'ana-intro',     page:'/analytics',     type:'modal',   text:'The <strong>Analytics</strong> page 📉 pulls from all your trackers automatically - spending trends, income vs expenses, category breakdowns, and more.<br><br><span style="font-size:.8rem;color:var(--muted)">📊 Prior months shown here use randomised sample values so the charts aren\'t empty. Your real history builds as you use the app.</span>',               actions:[{label:"Let's look →",primary:true,next:true}]},
       {id:'ana-period',    page:'/analytics',     type:'tooltip', target:'[data-wt="analytics-period"]', text:'Use the <strong>Period selector</strong> to filter all charts to a specific month or range.',                                                    actions:[{label:'Got it →',primary:true,next:true}]},
@@ -488,9 +488,9 @@
         return false;
       }
       if(key==='hasSubData'){
-        // During walkthrough use a per-step flag set by subscriptions.js when a row is added.
-        // This avoids stale rows from a previous walkthrough pass triggering an immediate pass.
-        try{var _wtV2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtV2&&_wtV2.active)return !!window._wtSubsHasNewRow;}catch(_){}
+        // During walkthrough check the DOM — loadState() returns freshState so any visible
+        // tr[data-row-id] was added this session, including after a Back navigation.
+        try{var _wtV2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtV2&&_wtV2.active)return document.querySelectorAll('tr[data-row-id]').length>0;}catch(_){}
         try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');var nonSeeded=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;return nonSeeded>(window._wtSubsBase!==undefined?window._wtSubsBase:0);}catch(e){return false;}
       }
       return true;
@@ -534,7 +534,27 @@
       var ic=[{id:'wt-a-ic1',label:'Amount',ctype:'number'}];
       var inc={rows:ir,cols:ic,cells:{}};
       months.forEach(function(m){inc.cells[m+'|wt-a-ir1|wt-a-ic1']=String(Math.round((3800+Math.random()*400)*100)/100);});
-      try{localStorage.setItem('fiapp_wt_analytics_v1',JSON.stringify({exp:exp,inc:inc}));}catch(_){}
+      // Demo subs (cols match subscriptions freshState ctypes so calcSubCostForMonth works)
+      var sc=[
+        {id:'wt-a-sc1',label:'Service',    width:155,ctype:'text'},
+        {id:'wt-a-sc2',label:'Cost',       width:130,ctype:'number'},
+        {id:'wt-a-sc3',label:'Billing',    width:120,ctype:'billing'},
+        {id:'wt-a-sc4',label:'Start Date', width:135,ctype:'date'},
+        {id:'wt-a-sc5',label:'Cancel Date',width:135,ctype:'canceldate'},
+        {id:'wt-a-sc6',label:'Trial',      width:145,ctype:'trial'},
+        {id:'wt-a-sc7',label:'Status',     width:105,ctype:'status'},
+      ];
+      var sr=[{id:'wt-a-s1',height:36},{id:'wt-a-s2',height:36},{id:'wt-a-s3',height:36}];
+      var subs={rows:sr,cols:sc,cells:{},rowCurrencies:{'wt-a-s1':'USD','wt-a-s2':'USD','wt-a-s3':'USD'}};
+      var startDate='2024-01-01';
+      [['wt-a-s1','Netflix','15.99'],['wt-a-s2','Spotify','9.99'],['wt-a-s3','Adobe CC','54.99']].forEach(function(d){
+        subs.cells[d[0]+'|wt-a-sc1']=d[1];
+        subs.cells[d[0]+'|wt-a-sc2']=d[2];
+        subs.cells[d[0]+'|wt-a-sc3']='Monthly';
+        subs.cells[d[0]+'|wt-a-sc4']=startDate;
+        subs.cells[d[0]+'|wt-a-sc7']='Active';
+      });
+      try{localStorage.setItem('fiapp_wt_analytics_v1',JSON.stringify({exp:exp,inc:inc,subs:subs}));}catch(_){}
     }
 
     function _seedHistoryForAnalytics(){
