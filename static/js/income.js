@@ -1243,8 +1243,9 @@ function renderTableBody(table){
       tr.appendChild(td);
     });
     const totTd=document.createElement('td');totTd.className='th-total';
+    const totInner=document.createElement('div');totInner.style.cssText='display:flex;align-items:center;justify-content:flex-end;';
     const totSpan=document.createElement('span');totSpan.className='total-val';totSpan.id='rt-'+row.id;
-    totSpan.textContent=fmt(rowTotal(row.id));totTd.appendChild(totSpan);tr.appendChild(totTd);
+    totSpan.textContent=fmt(rowTotal(row.id));totInner.appendChild(totSpan);totTd.appendChild(totInner);tr.appendChild(totTd);
     const delTd=document.createElement('td');delTd.className='del-td';
     const delBtn=document.createElement('button');delBtn.className='row-del';delBtn.title='Delete row';delBtn.setAttribute('aria-label','Delete row');delBtn.textContent='🗑';
     delBtn.addEventListener('click',()=>deleteRow(row.id));delTd.appendChild(delBtn);tr.appendChild(delTd);
