@@ -482,9 +482,10 @@
         // DOM check covers both desktop (.sheet td input) and mobile cards (.mc-ei)
         var domHas=[].slice.call(document.querySelectorAll('.sheet td input,.cell input,.mc-ei')).some(function(i){return !!(parseFloat(i.value)||0);});
         if(domHas) return true;
-        // During walkthrough only check DOM — localStorage may contain stale cells from a prior session
-        try{var _wtV=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtV&&_wtV.active)return false;}catch(_){}
-        // Non-walkthrough fallback: localStorage (mobile cards may not be in the DOM yet)
+        // Always fall through to localStorage — on mobile, card inputs are removed from the DOM
+        // when the card is collapsed, so the DOM check above misses data the user already entered.
+        // Stale pre-walkthrough data is not a concern here because _backup() removes
+        // fiapp_expenses_v4 before the tour starts, so anything in that key is genuine session data.
         try{var _es=JSON.parse(localStorage.getItem('fiapp_expenses_v4')||'{}');var _c=_es.cells||{};return Object.keys(_c).some(function(k){return !!(parseFloat(_c[k])||0);});}catch(e){}
         return false;
       }
