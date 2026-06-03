@@ -369,6 +369,7 @@
         if(bk){WT_TRACKER_KEYS.forEach(function(k){if(bk[k])localStorage.setItem(k,bk[k]);});}
         localStorage.removeItem(WT_BK_KEY);
         localStorage.removeItem('fiapp_wt_analytics_v1');
+        localStorage.removeItem('fiapp_income_wt_session');
         return !!hadData;
       }catch(_){return false;}
     }
