@@ -173,10 +173,9 @@ function freshState(){
   };
 }
 function loadState(){
-  try{
-    const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');
-    if(_wt&&_wt.active) return freshState();
-  }catch(_){}
+  // No walkthrough guard here — _backup() erases real income at tour start so whatever
+  // is in localStorage during the walkthrough is what the user entered this session.
+  // Guarding would wipe their just-entered income every time they navigate back to this page.
   try{
     const r=localStorage.getItem(STORAGE_KEY);
     if(r){
