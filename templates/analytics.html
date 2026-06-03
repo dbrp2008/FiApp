@@ -222,7 +222,7 @@ function loadExp(){
 }
 function loadSubs(){
   try{
-    if(_anaIsWT()) return null; // no subs during walkthrough — demo exp/inc data is enough
+    if(_anaIsWT()){var d=JSON.parse(localStorage.getItem('fiapp_wt_analytics_v1')||'null');return d?d.subs:null;}
     const s=localStorage.getItem(SUBS_KEY); return s?JSON.parse(s):null;
   }catch(e){ console.warn('Analytics: subs data error',e.message); return null; }
 }
