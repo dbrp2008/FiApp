@@ -40,7 +40,12 @@ const CAT_KEYS = Object.keys(CATEGORIES);
 const CAT_COLORS = {
   'Groceries':'#bbf7d0','Entertainment':'#bfdbfe','Travel':'#fed7aa','Savings':'#e9d5ff',
   'Housing':'#fde68a','Transport':'#fecaca','Healthcare':'#d1fae5','Dining Out':'#fde8c8',
-  'Utilities':'#e5e7eb','Shopping':'#fce7f3','Education':'#ede9fe',
+  'Utilities':'#d1fae5','Shopping':'#fce7f3','Education':'#ede9fe',
+  'Rent':'#fde68a','Rent / Mortgage':'#fde68a',
+  'Food':'#fde8c8','Subscriptions':'#a5f3fc','Misc':'#f1f5f9',
+  'Equipment':'#dbeafe','Software':'#e0e7ff','Marketing':'#fbcfe8',
+  'Tax Set-Aside':'#fee2e2','Childcare':'#fef9c3','Insurance':'#ccfbf1',
+  'Books & Supplies':'#ddd6fe',
 };
 function uid(){ return '_'+Math.random().toString(36).slice(2,9); }
 
@@ -1139,6 +1144,7 @@ function _pickLabel(itemEl, label){
 
 // ── Phase 4g: First-use row templates ──
 var _TEMPLATES={
+  Default:    ['Groceries','Subscriptions','Travel','Savings'],
   Student:    ['Rent','Food','Transport','Books & Supplies','Entertainment','Subscriptions','Misc'],
   Freelancer: ['Rent / Mortgage','Equipment','Software','Marketing','Food','Transport','Subscriptions','Tax Set-Aside'],
   Family:     ['Rent / Mortgage','Groceries','Childcare','Transport','Utilities','Insurance','Subscriptions','Entertainment'],
