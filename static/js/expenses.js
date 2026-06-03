@@ -899,6 +899,9 @@ async function _incomeMonthTotalUSD(incomeState, mk2){
 }
 async function syncFromIncomeTracker(mk2){
   const badge=document.getElementById('income-sync-badge'); if(!badge) return;
+  // During walkthrough, fiapp_income_v1 may still hold real pre-tour data (user hasn't
+  // saved income yet this session). Skip auto-fill so budget stays clean.
+  try{const _wtS=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtS&&_wtS.active){badge.innerHTML='';return;}}catch(_){}
   try{
     const incomeState=JSON.parse(localStorage.getItem(INCOME_KEY));
     if(!incomeState||!incomeState.rows){badge.innerHTML='';return;}
