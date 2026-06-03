@@ -631,7 +631,7 @@ function _renderGoalBar(rId, totTd){
   const goal=state.goals?.[_goalKey(rId)];
   if(!goal||isNaN(goal)){
     if(valSpan) valSpan.style.color='';
-    if(gBtn)    { gBtn.style.color=''; gBtn.textContent='🎯'; gBtn.style.fontSize=''; }
+    if(gBtn)    { gBtn.style.color=''; gBtn.textContent='🎯'; gBtn.style.transform=''; }
     if(srSpan)  srSpan.remove();
     return;
   }
@@ -641,7 +641,7 @@ function _renderGoalBar(rId, totTd){
   const icon=pct>=100?'🚨':pct>=75?'⚠️':'🎯';
   const label=pct>=100?'(over budget)':pct>=75?'(near limit)':'(under budget)';
   if(valSpan) valSpan.style.color=color;
-  if(gBtn)    { gBtn.style.color=color; gBtn.textContent=icon; gBtn.style.fontSize=pct>=75&&pct<100?'.6rem':'.72rem'; }
+  if(gBtn)    { gBtn.style.color=color; gBtn.textContent=icon; gBtn.style.transform=pct>=75&&pct<100?'translateY(-1px)':''; }
   if(!srSpan){srSpan=document.createElement('span');srSpan.className='sr-only goal-sr';totTd.appendChild(srSpan);}
   srSpan.textContent=label;
 }
@@ -1900,7 +1900,9 @@ function renderTableBody(table){
             vtr.appendChild(vtd);
           });
           const vtotTd=document.createElement('td'); vtotTd.className='th-total';
-          const vtotSpan=document.createElement('span'); vtotSpan.className='total-val'; vtotSpan.textContent=fmt(vc.cost); vtotTd.appendChild(vtotSpan); vtr.appendChild(vtotTd);
+          const vtotInner=document.createElement('div'); vtotInner.style.cssText='display:flex;align-items:center;justify-content:flex-end;';
+          const vtotSpan=document.createElement('span'); vtotSpan.className='total-val'; vtotSpan.textContent=fmt(vc.cost);
+          vtotInner.appendChild(vtotSpan); vtotTd.appendChild(vtotInner); vtr.appendChild(vtotTd);
           vtr.appendChild(document.createElement('td'));
           tbody.appendChild(vtr);
         });
