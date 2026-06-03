@@ -613,6 +613,8 @@ function addSubscription(){
   }
   snapshot();
   const rowId=uid(); state.rows.push({id:rowId,height:36});
+  // Notify walkthrough validator that a new row was added this session
+  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)window._wtSubsHasNewRow=true;}catch(_){}
   state.rowCurrencies[rowId]='USD';
   const svc=colByType('text'),status=colByType('status'),bill=colByType('billing');
   if(svc)    setCell(rowId,svc.id,name);
