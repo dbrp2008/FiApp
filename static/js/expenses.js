@@ -637,7 +637,7 @@ function _renderGoalBar(rId, totTd){
   }
   const spent=rowTotal(rId);
   const pct=Math.min(999,Math.round(spent/goal*100));
-  const color=pct>=100?'#ef4444':pct>=75?'#f59e0b':'#22c55e';
+  const color=pct>=100?'#ef4444':pct>=75?'#ea580c':'#22c55e';
   const label=pct>=100?'(over budget)':pct>=75?'(near limit)':'(under budget)';
   if(valSpan) valSpan.style.color=color;
   if(gBtn)    gBtn.style.color=color;
@@ -650,7 +650,7 @@ function _openGoalPopup(rId, gBtn){
   const goal=state.goals?.[_goalKey(rId)];
   const spent=rowTotal(rId);
   const pct=goal?Math.min(999,Math.round(spent/goal*100)):0;
-  const color=pct>=100?'#ef4444':pct>=75?'#f59e0b':'#22c55e';
+  const color=pct>=100?'#ef4444':pct>=75?'#ea580c':'#22c55e';
 
   const pop=document.createElement('div'); pop.className='goal-popover';
   const head=document.createElement('div');
@@ -2092,7 +2092,7 @@ function renderMobileCards(){
     const _goal=state.goals?.[_goalKey(row.id)];
     if(_goal&&!isNaN(_goal)&&_goal>0){
       const _pct=Math.round(_spent/_goal*100);
-      totalEl.style.background=_pct>=100?'#ef4444':_pct>=75?'#f59e0b':'#22c55e';
+      totalEl.style.background=_pct>=100?'#ef4444':_pct>=75?'#ea580c':'#22c55e';
       totalEl.style.color='#fff';
     }
     hdr.appendChild(totalEl);
