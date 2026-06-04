@@ -850,6 +850,7 @@ function _fmtMkLabel(mk2){
 }
 function loadTaxCarryover(){
   try{
+    const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active) return;
     const t=JSON.parse(localStorage.getItem(TAX_KEY)); if(!t) return;
     const isFresh = t.consumed===false || (t.ts && t.ts>(state.lastTaxTs||0));
     if(!isFresh) return;
