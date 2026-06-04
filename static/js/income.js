@@ -123,8 +123,8 @@ function showCellCurrencyOther(wrap, sel, row){
   form.appendChild(inp); form.appendChild(ok); form.appendChild(cancel);
   wrap.appendChild(form);
   setTimeout(()=>inp.focus(),20);
-  function showErr(msg){ const old=form.querySelector('.curr-other-err'); if(old) old.remove(); const e=document.createElement('span'); e.className='curr-other-err'; e.textContent=msg; form.style.position='relative'; form.appendChild(e); }
-  function close(){ form.remove(); sel.style.display=''; sel.value=rowCurrency(currentMK(), row.id); }
+  function showErr(msg){ const old=document.querySelector('.curr-other-err'); if(old) old.remove(); const e=document.createElement('span'); e.className='curr-other-err'; e.textContent=msg; const r=inp.getBoundingClientRect(); e.style.top=(r.bottom+4)+'px'; e.style.left=r.left+'px'; document.body.appendChild(e); }
+  function close(){ form.remove(); const old=document.querySelector('.curr-other-err'); if(old) old.remove(); sel.style.display=''; sel.value=rowCurrency(currentMK(), row.id); }
   async function apply(){
     const code=inp.value.trim().toUpperCase();
     if(!code){showErr('Enter a code.');return;}
