@@ -348,7 +348,7 @@
     }
     function _stopGuard(){if(_guardOff){_guardOff();_guardOff=null;}}
     function _clearWait(){_waitOff.forEach(function(f){f();});_waitOff=[];_stopGuard();}
-    var WT_TRACKER_KEYS=['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4'];
+    var WT_TRACKER_KEYS=['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4','fiapp_tax_result'];
     var WT_BK_KEY='fiapp_wt_backup_v1';
     function _hasTrackerData(){return WT_TRACKER_KEYS.some(function(k){return !!localStorage.getItem(k);});}
     function _backup(){
