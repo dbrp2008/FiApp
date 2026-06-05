@@ -1350,7 +1350,24 @@ function _openCardEdit(row){
   const startInp=dateCol?inp('date',getCell(row.id,dateCol.id)):null;
   if(startInp) field('Start date',startInp);
   const cancelInp=cancelCol?inp('date',getCell(row.id,cancelCol.id)):null;
-  if(cancelInp) field('Cancel date (optional)',cancelInp);
+  // Cancel date field: only visible/relevant when status is Cancelled (mirrors table behaviour)
+  let cancelFieldWrap=null;
+  if(cancelInp&&cancelCol){
+    cancelFieldWrap=document.createElement('div');cancelFieldWrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
+    const clbl=document.createElement('label');clbl.textContent='Cancel date (optional)';clbl.style.cssText='font-size:.78rem;font-weight:600;color:var(--muted);';
+    cancelFieldWrap.appendChild(clbl);cancelFieldWrap.appendChild(cancelInp);modal.appendChild(cancelFieldWrap);
+    const _isCancelled=()=>(statusSel?statusSel.value:'Active')==='Cancelled';
+    cancelFieldWrap.style.display=_isCancelled()?'flex':'none';
+    if(statusSel) statusSel.addEventListener('change',()=>{
+      if(_isCancelled()){
+        cancelFieldWrap.style.display='flex';
+        if(!cancelInp.value) cancelInp.value=new Date().toISOString().slice(0,10);
+      } else {
+        cancelInp.value='';
+        cancelFieldWrap.style.display='none';
+      }
+    });
+  }
   const notesInp=notesCol?inp('text',getCell(row.id,notesCol.id)):null;
   if(notesInp) field('Notes',notesInp);
 
@@ -1363,13 +1380,22 @@ function _openCardEdit(row){
   actions.appendChild(cancelBtn);actions.appendChild(saveBtn);modal.appendChild(actions);
 
   saveBtn.addEventListener('click',()=>{
+    if(cancelInp&&cancelInp.value&&startInp&&startInp.value&&cancelInp.value<startInp.value){
+      showToast('Cancel date can\'t be before the start date ('+startInp.value+').');return;
+    }
     snapshot();
     if(nameInp&&serviceCol) setCell(row.id,serviceCol.id,nameInp.value.trim());
     if(costInp&&costCol) setCell(row.id,costCol.id,costInp.value);
     if(billSel&&billingCol) setCell(row.id,billingCol.id,billSel.value);
     if(statusSel&&statusCol) setCell(row.id,statusCol.id,statusSel.value);
     if(startInp&&dateCol) setCell(row.id,dateCol.id,startInp.value);
-    if(cancelInp&&cancelCol) setCell(row.id,cancelCol.id,cancelInp.value);
+    if(cancelCol){
+      if(statusSel&&statusSel.value!=='Cancelled'){
+        if(state.cells) delete state.cells[row.id+'|'+cancelCol.id];
+      } else if(cancelInp){
+        setCell(row.id,cancelCol.id,cancelInp.value);
+      }
+    }
     if(notesInp&&notesCol) setCell(row.id,notesCol.id,notesInp.value.trim());
     save();render();recalcTotals();renderChart();
     overlay.remove();
