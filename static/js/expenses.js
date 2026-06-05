@@ -1261,7 +1261,6 @@ function applyTemplate(name){
     if(label==='Subscriptions') rowObj.linked='subscriptions';
     state.rows.push(rowObj);
   });
-  localStorage.setItem('fiapp_template_dismissed','1');
   save(); render();
 }
 function dismissTemplatePrompt(){
