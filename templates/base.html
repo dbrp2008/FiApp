@@ -640,7 +640,14 @@
       var el=document.getElementById('wt-restart-link');
       var lbl=document.getElementById('wt-restart-lbl');
       if(!el||!lbl) return;
-      if(wt&&wt.mainCompleted){el.style.display='block';lbl.textContent=(wt.seen&&wt.seen.length>0)?'↺ Continue walkthrough':'↺ Restart walkthrough';}
+      if(wt&&wt.mainCompleted){
+        el.style.display='block';
+        var _uns=WT_STEPS.filter(function(s){
+          if(s.wantsCurrencyTour!=null&&s.wantsCurrencyTour!==wt.wantsCurrencyTour) return false;
+          return (wt.seen||[]).indexOf(s.id)<0;
+        });
+        lbl.textContent=_uns.length>0?'↺ Continue walkthrough':'↺ Restart walkthrough';
+      }
     }
 
     function _showDoneCard(text,reloadOnDismiss){
