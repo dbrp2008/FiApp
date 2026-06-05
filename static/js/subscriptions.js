@@ -1419,7 +1419,11 @@ function renderMobileCards(){
       nameEl.textContent=serviceCol?(getCell(row.id,serviceCol.id)||'(unnamed)'):'(unnamed)';
       const badge=document.createElement('span');badge.className='sub-card-status';
       badge.textContent=status;badge.style.background=clr;
-      nameRow.appendChild(nameEl);nameRow.appendChild(badge);card.appendChild(nameRow);
+      // Delete button lives in nameRow so it never overlaps the badge
+      const delBtn=document.createElement('button');delBtn.className='sub-card-del';
+      delBtn.textContent='🗑';delBtn.setAttribute('aria-label','Delete subscription');
+      delBtn.addEventListener('click',e=>{e.stopPropagation();deleteRow(row.id);});
+      nameRow.appendChild(nameEl);nameRow.appendChild(badge);nameRow.appendChild(delBtn);card.appendChild(nameRow);
 
       // Cost + billing
       if(costCol){
@@ -1439,12 +1443,6 @@ function renderMobileCards(){
 
       // Tap card to edit (exclude delete button)
       card.addEventListener('click',e=>{ if(!e.target.closest('.sub-card-del')) _openCardEdit(row); });
-
-      // Delete button
-      const delBtn=document.createElement('button');delBtn.className='sub-card-del';
-      delBtn.textContent='🗑';delBtn.setAttribute('aria-label','Delete subscription');
-      delBtn.addEventListener('click',()=>deleteRow(row.id));
-      card.appendChild(delBtn);
       cardsEl.appendChild(card);
     });
     const addBtn=document.createElement('button');addBtn.className='btn-add-row';
