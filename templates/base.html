@@ -642,11 +642,18 @@
       if(!el||!lbl) return;
       if(wt&&wt.mainCompleted){
         el.style.display='block';
-        var _uns=WT_STEPS.filter(function(s){
-          if(s.wantsCurrencyTour!=null&&s.wantsCurrencyTour!==wt.wantsCurrencyTour) return false;
-          return (wt.seen||[]).indexOf(s.id)<0;
-        });
-        lbl.textContent=_uns.length>0?'↺ Continue walkthrough':'↺ Restart walkthrough';
+        var _hasUnseen=false;
+        if(wt.seen&&wt.seen.length>0){
+          // seen is non-empty: check if any steps are genuinely still unvisited
+          // (handles swipe edge case where seen wasn't cleared despite full completion)
+          var _uns=WT_STEPS.filter(function(s){
+            if(s.wantsCurrencyTour!=null&&s.wantsCurrencyTour!==wt.wantsCurrencyTour) return false;
+            return wt.seen.indexOf(s.id)<0;
+          });
+          _hasUnseen=_uns.length>0;
+        }
+        // seen=[] means fully completed (cleared) — always Restart
+        lbl.textContent=_hasUnseen?'↺ Continue walkthrough':'↺ Restart walkthrough';
       }
     }
 
@@ -976,12 +983,15 @@
 
       // Swipe left/right on the walkthrough bubble to navigate steps
       (function(){
-        var _swX=null;
+        var _swX=null, _lastSwipeTs=0;
         _bubble.addEventListener('touchstart',function(e){_swX=e.touches[0].clientX;},{passive:true});
         _bubble.addEventListener('touchend',function(e){
           if(_swX===null) return;
           var dx=e.changedTouches[0].clientX-_swX; _swX=null;
           if(Math.abs(dx)<60) return;
+          // Debounce: ignore swipes within 400ms of the last one to prevent
+          // fast-swipe chaining that skips steps or fires action.end prematurely
+          var now=Date.now(); if(now-_lastSwipeTs<400) return; _lastSwipeTs=now;
           var st=_ld()||_def();
           if(dx>0){
             _goBack(st);
@@ -989,6 +999,10 @@
             var vs=_vis(st);
             var idx=vs.findIndex(function(s){return s.id===st.stepId;});
             var step=vs[idx]; if(!step) return;
+            // Page guard: only act if this step belongs to the current page.
+            // Prevents fast-swipe chaining where stepId has already advanced to a
+            // future page's step before the current page has finished navigating.
+            if(step.page!==_page) return;
             var primary=(step.actions||[]).find(function(a){return a.primary;});
             if(!primary) return; // wait-type step with no actions — can't swipe past
             if(primary.validate&&!_wtValidate(primary.validate)) return; // guard intact
