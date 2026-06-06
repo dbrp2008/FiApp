@@ -1211,8 +1211,10 @@ function renderTemplatePrompt(){
     btn.dataset.tpl=name;
     btn.style.cssText='font-size:.82rem;';
     btn.textContent=name;
-    btn.addEventListener('mouseenter',()=>_renderPreview(name));
-    btn.addEventListener('mouseleave',()=>_renderPreview(selectedName));
+    if(window.matchMedia('(pointer:fine)').matches){
+      btn.addEventListener('mouseenter',()=>_renderPreview(name));
+      btn.addEventListener('mouseleave',()=>_renderPreview(selectedName));
+    }
     btn.addEventListener('click',()=>{ _setSelected(name); _renderPreview(name); });
     btnRow.appendChild(btn);
   });
