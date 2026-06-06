@@ -644,15 +644,18 @@
         el.style.display='block';
         var _hasUnseen=false;
         if(wt.seen&&wt.seen.length>0){
-          // seen is non-empty: check if any steps are genuinely still unvisited
-          // (handles swipe edge case where seen wasn't cleared despite full completion)
-          var _uns=WT_STEPS.filter(function(s){
-            if(s.wantsCurrencyTour!=null&&s.wantsCurrencyTour!==wt.wantsCurrencyTour) return false;
-            return wt.seen.indexOf(s.id)<0;
-          });
-          _hasUnseen=_uns.length>0;
+          var _allVis=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===wt.wantsCurrencyTour;});
+          // If the very last step is already in seen[], the user reached the end of the
+          // tour — fast swipes may have skipped earlier steps without recording them, but
+          // the tour IS complete. Show Restart rather than Continue.
+          var _lastSt=_allVis[_allVis.length-1];
+          if(_lastSt&&wt.seen.indexOf(_lastSt.id)>=0){
+            _hasUnseen=false;
+          } else {
+            _hasUnseen=_allVis.filter(function(s){return wt.seen.indexOf(s.id)<0;}).length>0;
+          }
         }
-        // seen=[] means fully completed (cleared) — always Restart
+        // seen=[] (cleared on completion) → always Restart
         lbl.textContent=_hasUnseen?'↺ Continue walkthrough':'↺ Restart walkthrough';
       }
     }
@@ -723,9 +726,9 @@
       if(!state.seen) state.seen=[];
       if(action.setWantsTour){state.wantsCurrencyTour=true;_sv(state);}
       if(action.end){
-        if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
-        var _visAll=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
-        if(_visAll.every(function(s){return state.seen.indexOf(s.id)>=0;})) state.seen=[];
+        // Always clear seen — user explicitly triggered the end action so the tour is done
+        // regardless of which steps were fast-swiped past without being recorded.
+        state.seen=[];
         state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r0=_restore();
         var completionText=action.end==='soft'
           ?'🎉 <strong>All set!</strong><br>Jump in and explore FiApp on your own.'+(_r0?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>You can redo this tour from <strong>Account → Walkthrough</strong> anytime.'
@@ -768,8 +771,7 @@
           if(_allFi>=0&&_allFi<_allF.length-1) next3=_allF[_allFi+1];
         }
         if(!next3){
-          var _va2=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
-          if(_va2.every(function(s){return state.seen.indexOf(s.id)>=0;})) state.seen=[];
+          state.seen=[]; // reached the end — always clear
           state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r2=_restore();
           _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r2?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.',_r2);
           return;
@@ -993,6 +995,7 @@
           // fast-swipe chaining that skips steps or fires action.end prematurely
           var now=Date.now(); if(now-_lastSwipeTs<400) return; _lastSwipeTs=now;
           var st=_ld()||_def();
+          if(!st.active) return; // tour already ended — don't re-fire the done card
           if(dx>0){
             _goBack(st);
           } else {
@@ -1057,7 +1060,7 @@
         setTimeout(_showLoggedOutWelcome,300);return;
       }
 
-      if(!state.active) return;
+      if(!state.active){if(state.mainCompleted) _updateWtHomeLink(); return;}
 
       var vs=_vis(state);
       var step=vs.find(function(s){return s.id===state.stepId&&s.page===_page;});
