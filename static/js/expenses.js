@@ -1176,6 +1176,9 @@ function renderTemplatePrompt(){
 
   const previewArea=document.createElement('div');
   previewArea.style.cssText='margin-top:.6rem;';
+  previewArea.addEventListener('click',function(e){
+    var ab=e.target.closest('._apply-tpl'); if(ab) applyTemplate(ab.dataset.tpl);
+  });
 
   function _setSelected(name){
     selectedName=name;
@@ -1200,8 +1203,6 @@ function renderTemplatePrompt(){
       +'<div style="margin-top:.6rem;">'
       +'<button class="btn btn-sm _apply-tpl" data-tpl="'+escapeHtml(name)+'" style="font-size:.82rem">Apply '+escapeHtml(name)+' →</button>'
       +'</div>';
-    var _ab=previewArea.querySelector('._apply-tpl');
-    if(_ab) _ab.addEventListener('click',function(){ applyTemplate(_ab.dataset.tpl); });
   }
 
   names.forEach(name=>{
