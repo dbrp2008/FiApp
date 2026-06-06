@@ -904,18 +904,31 @@
 })();
 
 
-(function(){
+// Runs after DOMContentLoaded so WT_STEPS (defined in base.html's walkthrough script) is available
+document.addEventListener('DOMContentLoaded', function(){
   var curUser = {{ current_user|default(none)|tojson }};
   if(!curUser) return;
   var wt = null;
   try{ wt = JSON.parse(localStorage.getItem('fiapp_wt_u_'+curUser)||'null'); }catch{}
-  if(wt && (wt.mainCompleted || (wt.seen && wt.seen.length > 0))){
-    var el = document.getElementById('wt-restart-link');
-    if(el) el.style.display = 'block';
-    var lbl = document.getElementById('wt-restart-lbl');
-    if(lbl) lbl.textContent = (wt.seen && wt.seen.length > 0) ? '↺ Continue walkthrough' : '↺ Restart walkthrough';
+  if(!wt || (!wt.mainCompleted && !(wt.seen && wt.seen.length > 0))) return;
+  var el = document.getElementById('wt-restart-link');
+  if(el) el.style.display = 'block';
+  var lbl = document.getElementById('wt-restart-lbl');
+  if(!lbl) return;
+  var _hasUnseen = false;
+  if(wt.seen && wt.seen.length > 0 && typeof WT_STEPS !== 'undefined'){
+    var _allVis = WT_STEPS.filter(function(s){ return s.wantsCurrencyTour==null||s.wantsCurrencyTour===wt.wantsCurrencyTour; });
+    var _lastSt = _allVis[_allVis.length-1];
+    // If the final step is in seen[], the user reached the end even if fast-swipes
+    // skipped recording some intermediate steps. Treat as complete → Restart.
+    if(_lastSt && wt.seen.indexOf(_lastSt.id) >= 0){
+      _hasUnseen = false;
+    } else {
+      _hasUnseen = _allVis.filter(function(s){ return wt.seen.indexOf(s.id) < 0; }).length > 0;
+    }
   }
-})();
+  lbl.textContent = _hasUnseen ? '↺ Continue walkthrough' : '↺ Restart walkthrough';
+});
 
 function snapConfirmDone(cmk){
   var ov=document.createElement('div');
