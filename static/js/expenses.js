@@ -1253,6 +1253,8 @@ function renderTemplatePrompt(){
 function applyTemplate(name){
   const labels=_TEMPLATES[name]; if(!labels) return;
   snapshot();
+  const _mk=currentMK();
+  if(state.rowsByMonth) delete state.rowsByMonth[_mk];
   state.rows=[];
   labels.forEach(label=>{
     if(state.rows.filter(r=>!r.parentId).length>=MAX_ROWS) return;
