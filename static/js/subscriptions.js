@@ -151,7 +151,7 @@ function upcomingRenewals(withinDays){
     }
     if(nextDate<=horizon){
       var daysUntil=Math.round((nextDate-today)/86400000);
-      results.push({name:name,cost:rawCost,daysUntil:daysUntil,date:nextDate,billing:billing});
+      results.push({name:name,cost:rawCost,currency:rowCurrency(row.id),daysUntil:daysUntil,date:nextDate,billing:billing});
     }
   });
   return results.sort(function(a,b){return a.daysUntil-b.daysUntil;});
@@ -166,7 +166,7 @@ function renderRenewalAlert(){
   }
   var lines=renewals.map(function(r){
     var when=r.daysUntil===0?'today':r.daysUntil===1?'tomorrow':'in '+r.daysUntil+' days';
-    return '⚠ '+escapeHtml(r.name)+' renews '+when+(r.cost>0?' ($'+r.cost.toFixed(2)+')':'');
+    return '⚠ '+escapeHtml(r.name)+' renews '+when+(r.cost>0?' ('+r.cost.toFixed(2)+' '+r.currency+')':'');
   });
   placeholder.innerHTML='<div style="background:#fef3c7;border:1px solid #f59e0b44;border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;font-size:.85rem;color:#92400e;">'+lines.join('<br>')+'</div>';
 }
