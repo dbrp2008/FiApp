@@ -548,7 +548,7 @@
       ];
       var sr=[{id:'wt-a-s1',height:36},{id:'wt-a-s2',height:36},{id:'wt-a-s3',height:36}];
       var subs={rows:sr,cols:sc,cells:{},rowCurrencies:{'wt-a-s1':'USD','wt-a-s2':'USD','wt-a-s3':'USD'}};
-      var startDate='2024-01-01';
+      var startDate=pm(2)+'-01';
       [['wt-a-s1','Netflix','15.99'],['wt-a-s2','Spotify','9.99'],['wt-a-s3','Adobe CC','54.99']].forEach(function(d){
         subs.cells[d[0]+'|wt-a-sc1']=d[1];
         subs.cells[d[0]+'|wt-a-sc2']=d[2];
