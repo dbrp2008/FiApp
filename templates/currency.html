@@ -200,7 +200,7 @@ document.getElementById('currency-form').addEventListener('submit', async functi
     clearMsg();
     document.getElementById('result-text').innerHTML=
       '<strong>'+amount+' '+fromRaw+'</strong> = <strong>'+amount.toFixed(2)+' '+toRaw+'</strong>'
-      +'<br><small style="color:#6b7280">Rate: 1 '+fromRaw+' = 1.0000 '+toRaw+' (same currency - no conversion needed)</small>';
+      +'<br><small style="color:#6b7280">Rate: 1 '+fromRaw+' = 1 '+toRaw+' (same currency - no conversion needed)</small>';
     document.getElementById('result-box').style.display='block';
     return;
   }
