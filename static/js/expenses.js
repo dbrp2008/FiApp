@@ -483,7 +483,7 @@ function openCloseModal(){
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
   // Build modal content
   let details='<strong>'+label+'</strong><br>Spent: $'+spent.toFixed(2);
-  if(gross>0){ const saved=gross-spent; details+=' &nbsp;·&nbsp; Income: $'+gross.toFixed(2)+(saved>=0?' &nbsp;·&nbsp; Saved: $'+saved.toFixed(2):''); }
+  if(gross>0){ const leftover=gross-spent; details+=' &nbsp;·&nbsp; Income: $'+gross.toFixed(2)+(leftover>=0?' &nbsp;·&nbsp; Left over: $'+leftover.toFixed(2):''); }
   if(delta!==null){ details+='<br><span style="color:var(--muted);font-size:.85rem">'+(delta>=0?'↑ $'+delta.toFixed(2)+' vs prev month':'↓ $'+Math.abs(delta).toFixed(2)+' vs prev month')+'</span>'; }
   // Find top category
   let topCat='', topVal=0;
