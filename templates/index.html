@@ -686,7 +686,7 @@
           catSorted.forEach(function(cat){
             var catPct = Math.min(100, Math.round(cat.value / spent * 100));
             html += '<div style="display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--muted);">' +
-              '<span style="width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(cat.name) + '</span>' +
+              '<span title="' + escapeHtml(cat.name) + '" style="width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(cat.name) + '</span>' +
               '<div style="flex:1;height:4px;background:var(--panel-border);border-radius:2px;overflow:hidden">' +
                 '<div style="height:100%;width:' + catPct + '%;background:var(--accent);border-radius:2px;"></div>' +
               '</div>' +
