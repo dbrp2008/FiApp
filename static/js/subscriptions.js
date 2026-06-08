@@ -70,7 +70,7 @@ function freshState(){
       {id:c7,label:'Status',     width:105,ctype:'status'},
       {id:c8,label:'Notes',      width:185,ctype:'text'},
     ],
-    cells:{}, rowCurrencies:{},
+    cells:{}, cellTimes:{}, rowCurrencies:{},
     currentYear:now.getFullYear(), currentMonth:now.getMonth(),
     displayCurrency:'USD',
   };
@@ -84,6 +84,7 @@ function loadState(){
       if(!Array.isArray(s.rows)) s.rows=[];
       if(!Array.isArray(s.cols)) s.cols=freshState().cols;
       if(!s.cells)           s.cells={};
+      if(!s.cellTimes)       s.cellTimes={};
       if(!s.displayCurrency) s.displayCurrency='USD';
       if(!s.rowCurrencies)   s.rowCurrencies={};
       return s;
@@ -96,6 +97,7 @@ let state=loadState();
 var _sync=createSyncManager(STORAGE_KEY,'/api/save/subs','/api/load/subs',{
   getState:function(){return state;},
   onReload:function(){state=loadState();render();recalcTotals();},
+  onMerge:showToast,
   showQuotaWarning:showSaveQuotaWarning,
   contentGuard:function(d){return Array.isArray(d.rows)||Array.isArray(d.cols)||d.cells;}
 });
@@ -103,7 +105,25 @@ var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
 var setSyncStatus=_sync.setSyncStatus;
 var saveLocal=_sync.saveLocal;
+// Stamps state.cellTimes[key]=now for any cell whose value changed since the last
+// save, by diffing against the snapshot still sitting in localStorage (saveLocal()
+// is about to overwrite it). One diff on every save() uniformly catches every way
+// `cells` can change — typing, paste, bulk delete, import, undo/redo — without
+// scattering Date.now() stamps across mutation sites. A key that just vanished
+// (delete) gets stamped too: that's what marks it as a tombstone for the merge.
+function _stampCellTimes(){
+  if(!state.cellTimes) state.cellTimes={};
+  let prevCells={};
+  try{
+    const prev=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    if(prev&&prev.cells) prevCells=prev.cells;
+  }catch(_){}
+  const now=Date.now();
+  const keys=new Set([...Object.keys(prevCells),...Object.keys(state.cells)]);
+  keys.forEach(k=>{ if(prevCells[k]!==state.cells[k]) state.cellTimes[k]=now; });
+}
 function save(){
+  _stampCellTimes();
   saveLocal();
   syncToServer();
 }
@@ -174,6 +194,8 @@ function renderRenewalAlert(){
 function showSaveQuotaWarning(){
   if(document.getElementById('quota-warn')) return;
   const el=document.createElement('div'); el.id='quota-warn'; el.className='error';
+  el.setAttribute('aria-live','polite');
+  el.setAttribute('aria-atomic','true');
   el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:420px;text-align:center;padding:.6rem 1rem;';
   el.textContent='⚠ Storage full - latest changes could not be saved. Export your data and clear some rows.';
   document.body.appendChild(el); setTimeout(()=>el.remove(),8000);
@@ -181,6 +203,8 @@ function showSaveQuotaWarning(){
 function showToast(msg, isError=false, duration=4000, undoCb=null){
   const el=document.createElement('div');
   el.setAttribute('data-wt-toast','1');
+  el.setAttribute('aria-live','polite');
+  el.setAttribute('aria-atomic','true');
   el.className=isError?'error':'success';
   el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
   const txt=document.createElement('span'); txt.textContent=msg; el.appendChild(txt);
@@ -686,8 +710,8 @@ function showCellCurrencyOther(wrap, sel, row){
   sel.style.display='none';
   const form=document.createElement('span'); form.className='curr-other-cell';
   const inp=document.createElement('input'); inp.type='text'; inp.maxLength=5; inp.placeholder='VND';
-  const ok=document.createElement('button'); ok.textContent='✓'; ok.title='Apply';
-  const cancel=document.createElement('button'); cancel.textContent='✕'; cancel.title='Cancel'; cancel.className='x';
+  const ok=document.createElement('button'); ok.textContent='✓'; ok.title='Apply'; ok.setAttribute('aria-label','Apply');
+  const cancel=document.createElement('button'); cancel.textContent='✕'; cancel.title='Cancel'; cancel.className='x'; cancel.setAttribute('aria-label','Cancel');
   form.appendChild(inp); form.appendChild(ok); form.appendChild(cancel);
   wrap.appendChild(form);
   setTimeout(()=>inp.focus(),20);
