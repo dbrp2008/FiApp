@@ -161,6 +161,53 @@
     }
     return '';
   }
+  // Looks for an existing *linked-subscription* row (parentId set — these are the
+  // subcategory rows created when a subscription is linked into the expense tracker)
+  // whose label appears in the transaction description. Used to warn the user that
+  // an imported group may duplicate something already tracked via subscriptions,
+  // since guessCategory() deliberately ignores these rows when matching categories.
+  function findLinkedSubscriptionMatch(sample){
+    const hay=(sample||'').toLowerCase();
+    if(!hay) return null;
+    const rows=getRows(currentMK());
+    for(const r of rows){ if(r.parentId&&r.label&&hay.includes(r.label.toLowerCase())) return r.label; }
+    return null;
+  }
+  // When the chosen mapping settings produce zero matching transactions, inspect
+  // the sample rows that ARE there and suggest the specific setting that's likely
+  // wrong — rather than a generic "double-check your choices" dead end.
+  function diagnoseMismatch(rows,skip,dateCol,amtCol,fmt,sign,creditCol){
+    const tips=[];
+    const sample=rows.slice(skip,skip+30).filter(function(r){ return r&&r.some(function(c){ return String(c||'').trim(); }); });
+    if(!sample.length) return tips;
+
+    const fmtNames={MDY:'MM/DD/YYYY (US)',DMY:'DD/MM/YYYY',YMD:'YYYY-MM-DD'};
+    const counts={MDY:0,DMY:0,YMD:0};
+    sample.forEach(function(r){
+      Object.keys(counts).forEach(function(f){ if(parseDateWithFormat(r[dateCol],f)) counts[f]++; });
+    });
+    if(counts[fmt]<sample.length*0.5){
+      const better=Object.keys(counts).filter(function(f){ return f!==fmt; })
+        .sort(function(a,b){ return counts[b]-counts[a]; })[0];
+      if(better&&counts[better]>counts[fmt]){
+        tips.push('The dates in column '+(dateCol+1)+" don't look like "+fmtNames[fmt]+' — try "'+fmtNames[better]+'" instead.');
+      }
+    }
+
+    if(creditCol<0){
+      let pos=0,neg=0;
+      sample.forEach(function(r){
+        const v=parseFloat(String(r[amtCol]||'').replace(/[^0-9.\-]/g,''));
+        if(!isNaN(v)){ if(v<0) neg++; else if(v>0) pos++; }
+      });
+      if(pos&&!neg&&sign==='neg-spend'){
+        tips.push('Every amount in column '+(amtCol+1)+' looks positive — try "Positive amounts are spending" instead.');
+      } else if(neg&&!pos&&sign==='pos-spend'){
+        tips.push('Every amount in column '+(amtCol+1)+' looks negative — try "Negative amounts are spending" instead.');
+      }
+    }
+    return tips;
+  }
 
   // ── Wizard state machine ─────────────────────────────────────────────────
   let _wiz=null;
@@ -273,7 +320,7 @@
       return -1;
     }
     const dateSel=colSelect(), amtSel=colSelect(), descSel=colSelect();
-    const gDate=guess(['date']), gAmt=guess(['amount','amt','value','debit']), gDesc=guess(['description','desc','memo','payee','merchant','narrative','name']);
+    const gDate=guess(['date']), gAmt=guess(['amount','amt','value','debit','money out','withdrawal']), gDesc=guess(['description','desc','memo','payee','merchant','narrative','name']);
     dateSel.value=String(gDate>=0?gDate:0);
     amtSel.value=String(gAmt>=0?gAmt:Math.min(ncols-1,2));
     descSel.value=String(gDesc>=0?gDesc:Math.min(ncols-1,1));
@@ -287,37 +334,84 @@
       const o=document.createElement('option'); o.value=p[0]; o.textContent=p[1]; signSel.appendChild(o);
     });
 
+    // Optional second amount column for files that split spending/income into
+    // separate "Money Out"/"Money In" (or Debit/Credit) columns instead of one
+    // signed column. When set, the sign-convention picker is hidden — it doesn't
+    // apply once the columns themselves tell us which side a transaction is on.
+    const creditSel=colSelect();
+    const noCreditOpt=document.createElement('option'); noCreditOpt.value=''; noCreditOpt.textContent='— not used (single signed amount column) —';
+    creditSel.insertBefore(noCreditOpt,creditSel.firstChild);
+    creditSel.value='';
+    const gCredit=guess(['money in','credit','deposit','paid in']);
+    if(gCredit>=0&&gCredit!==(+amtSel.value)) creditSel.value=String(gCredit);
+
+    const signLbl=lbl('Sign convention');
+    const creditHint=document.createElement('span');
+    creditHint.style.cssText='font-size:.74rem;color:var(--muted);grid-column:2;';
+    creditHint.textContent='Pick this only if your file has separate spending/income columns (e.g. "Money Out" and "Money In") rather than one column with +/- amounts.';
+    function updateAmountModeUI(){
+      const twoCol=creditSel.value!=='';
+      signLbl.style.display=twoCol?'none':'';
+      signSel.style.display=twoCol?'none':'';
+    }
+    creditSel.addEventListener('change',updateAmountModeUI);
+
     const hasHeader=document.createElement('input'); hasHeader.type='checkbox'; hasHeader.checked=true;
     const hdrLabel=document.createElement('label'); hdrLabel.style.cssText='display:flex;align-items:center;gap:.4rem;';
     hdrLabel.appendChild(hasHeader); hdrLabel.appendChild(document.createTextNode('First row is a header (skip it)'));
 
     grid.appendChild(lbl('Date column'));        grid.appendChild(dateSel);
-    grid.appendChild(lbl('Amount column'));      grid.appendChild(amtSel);
+    grid.appendChild(lbl('Amount / spending column')); grid.appendChild(amtSel);
     grid.appendChild(lbl('Description column')); grid.appendChild(descSel);
+    grid.appendChild(lbl('Separate income column')); grid.appendChild(creditSel);
+    grid.appendChild(document.createElement('span')); grid.appendChild(creditHint);
     grid.appendChild(lbl('Date format'));        grid.appendChild(fmtSel);
-    grid.appendChild(lbl('Sign convention'));    grid.appendChild(signSel);
+    grid.appendChild(signLbl);    grid.appendChild(signSel);
     grid.appendChild(document.createElement('span')); grid.appendChild(hdrLabel);
+    updateAmountModeUI();
 
     const status=document.createElement('div'); status.className='paste-status'; status.style.display='none';
     const actions=document.createElement('div'); actions.className='share-actions';
     actions.appendChild(mkBtn('Back','btn btn-sm btn-ghost',function(){ _wiz.step='pick'; renderWizStep(); }));
     actions.appendChild(mkBtn('Preview →','btn btn-sm',function(){
       const dateCol=+dateSel.value, amtCol=+amtSel.value, descCol=+descSel.value;
+      const creditCol=creditSel.value===''?-1:+creditSel.value;
       const fmt=fmtSel.value, sign=signSel.value, skip=hasHeader.checked?1:0;
       const txns=[]; let badRows=0;
       for(let i=skip;i<rows.length;i++){
         const r=rows[i];
         if(!r||r.every(function(c){ return !String(c||'').trim(); })) continue;
         const iso=parseDateWithFormat(r[dateCol],fmt);
-        const rawAmt=parseFloat(String(r[amtCol]||'').replace(/[^0-9.\-]/g,''));
-        if(!iso||isNaN(rawAmt)){ badRows++; continue; }
-        const sg=applySignConvention(rawAmt,sign);
-        if(sg.sign!=='debit') continue; // only spending lands in the expense tracker
+        if(!iso){ badRows++; continue; }
         const description=String(r[descCol]!==undefined?r[descCol]:'').trim()||'(no description)';
-        txns.push({ date:iso, amount:sg.amount, sign:sg.sign, description:description });
+        if(creditCol>=0){
+          // Two-column mode: a "Money Out"/debit column and a separate
+          // "Money In"/credit column. Whichever one has a parseable nonzero
+          // value tells us which side of the ledger the row belongs to.
+          const outAmt=parseFloat(String(r[amtCol]||'').replace(/[^0-9.\-]/g,''));
+          const inAmt=parseFloat(String(r[creditCol]||'').replace(/[^0-9.\-]/g,''));
+          if(!isNaN(outAmt)&&outAmt!==0){
+            txns.push({ date:iso, amount:Math.abs(outAmt), sign:'debit', description:description });
+          } else if(!isNaN(inAmt)&&inAmt!==0){
+            // Recognized income — correctly skipped from the expense import,
+            // not counted as a bad/unreadable row.
+            continue;
+          } else {
+            badRows++;
+          }
+        } else {
+          const rawAmt=parseFloat(String(r[amtCol]||'').replace(/[^0-9.\-]/g,''));
+          if(isNaN(rawAmt)){ badRows++; continue; }
+          const sg=applySignConvention(rawAmt,sign);
+          if(sg.sign!=='debit') continue; // only spending lands in the expense tracker
+          txns.push({ date:iso, amount:sg.amount, sign:sg.sign, description:description });
+        }
       }
       if(!txns.length){
-        status.textContent='⚠ No spending transactions matched those settings — double-check the column and sign choices.';
+        const tips=diagnoseMismatch(rows,skip,dateCol,amtCol,fmt,sign,creditCol);
+        status.textContent=tips.length
+          ? '⚠ No spending transactions matched those settings. '+tips.join(' ')
+          : '⚠ No spending transactions matched those settings — double-check the column and sign choices.';
         status.className='paste-status bad'; status.style.display='block';
         return;
       }
@@ -350,7 +444,10 @@
       groups[kw].total+=t.amount;
     });
     const list=Object.keys(groups).map(function(k){ return groups[k]; }).sort(function(a,b){ return b.total-a.total; });
-    list.forEach(function(g){ g.category=guessCategory(g.keyword,g.sample,_wiz.catMap); });
+    list.forEach(function(g){
+      g.category=guessCategory(g.keyword,g.sample,_wiz.catMap);
+      g.subsConflict=findLinkedSubscriptionMatch(g.sample);
+    });
 
     _wiz.txns=fresh; _wiz.groups=list;
     _wiz.step='review'; renderWizStep();
@@ -381,6 +478,7 @@
     const list=document.createElement('div');
     list.style.cssText='display:flex;flex-direction:column;gap:.4rem;max-height:38vh;overflow-y:auto;border:1px solid var(--panel-border);border-radius:6px;padding:.5rem;';
     _wiz.groups.forEach(function(g){
+      const card=document.createElement('div'); card.style.cssText='display:flex;flex-direction:column;gap:.35rem;';
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.83rem;flex-wrap:wrap;';
       const info=document.createElement('span'); info.style.cssText='flex:1;min-width:160px;';
       info.innerHTML='<strong>'+escapeHtml(g.keyword)+'</strong> <span style="color:var(--muted)">— '+escapeHtml(g.sample.slice(0,40))+' · '+g.txns.length+' txn'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2)+'</span>';
@@ -390,15 +488,33 @@
       sel.value=g.category||'';
       sel.addEventListener('change',function(){ g.category=sel.value; });
       row.appendChild(info); row.appendChild(sel);
-      list.appendChild(row);
+      card.appendChild(row);
+
+      // Warn when this group looks like a subscription already tracked
+      // elsewhere — importing it here would double-count it.
+      if(g.subsConflict){
+        const warnRow=document.createElement('label');
+        warnRow.style.cssText='display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--muted);background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:5px;padding:.35rem .5rem;';
+        const cb=document.createElement('input'); cb.type='checkbox';
+        cb.addEventListener('change',function(){
+          g.skip=cb.checked;
+          sel.disabled=cb.checked;
+        });
+        warnRow.appendChild(cb);
+        const txt=document.createElement('span');
+        txt.textContent='⚠ This looks like "'+g.subsConflict+'", which you already track as a subscription. Check this box to skip importing it here and avoid double-counting.';
+        warnRow.appendChild(txt);
+        card.appendChild(warnRow);
+      }
+      list.appendChild(card);
     });
 
     const status=document.createElement('div'); status.className='paste-status'; status.style.display='none';
     const actions=document.createElement('div'); actions.className='share-actions';
     actions.appendChild(mkBtn('Back','btn btn-sm btn-ghost',function(){ _wiz.step=(_wiz.format==='csv'?'map':'pick'); renderWizStep(); }));
     actions.appendChild(mkBtn('Import →','btn btn-sm',function(){
-      if(_wiz.groups.some(function(g){ return !g.category; })){
-        status.textContent='⚠ Choose a category for every group before importing.';
+      if(_wiz.groups.some(function(g){ return !g.skip&&!g.category; })){
+        status.textContent='⚠ Choose a category for every group before importing (or check the skip box for subscriptions you already track).';
         status.className='paste-status bad'; status.style.display='block';
         return;
       }
@@ -412,11 +528,12 @@
   // Step 4 — aggregate per (month, category), write into state, persist memory.
   function doApply(){
     const map=_wiz.catMap;
-    _wiz.groups.forEach(function(g){ map[g.keyword]=g.category; });
+    _wiz.groups.forEach(function(g){ if(!g.skip) map[g.keyword]=g.category; });
     saveCatMap(map);
 
     const buckets={}; // monthKey -> category -> { sum, fps:[] }
     _wiz.groups.forEach(function(g){
+      if(g.skip) return;
       g.txns.forEach(function(t){
         const tmk=t.date.slice(0,7);
         if(!buckets[tmk]) buckets[tmk]={};
