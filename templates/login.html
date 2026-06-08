@@ -101,10 +101,22 @@
       margin: -.5rem 0 1rem;
     }
 
+    .pw-checklist {
+      list-style: none;
+      margin: .35rem 0 1rem;
+      padding: 0;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    .pw-checklist li { margin: .1rem 0; }
+    .pw-checklist li::before { content: '○ '; }
+    .pw-checklist li.met { color: var(--success-fg, #16a34a); }
+    .pw-checklist li.met::before { content: '✓ '; }
+
     .login-btn {
       width: 100%;
       padding: .65rem;
-      background: var(--accent);
+      background: var(--accent-strong);
       color: #fff;
       border: none;
       border-radius: 8px;
@@ -205,6 +217,11 @@
       <label for="reg-password">Password</label>
       <input type="password" id="reg-password" autocomplete="new-password"
              placeholder="Min 8 chars, 1 uppercase, 1 number" minlength="8" />
+      <ul id="reg-pw-checklist" class="pw-checklist">
+        <li data-rule="len">8–128 characters</li>
+        <li data-rule="upper">One uppercase letter</li>
+        <li data-rule="num">One number</li>
+      </ul>
     </div>
     <div class="form-group">
       <label for="reg-password-confirm">Confirm password</label>
@@ -283,6 +300,29 @@ async function submitLogin(){
   }
 }
 
+function pwIssues(pw){
+  const out=[];
+  if(pw.length<8||pw.length>128) out.push('8–128 characters');
+  if(!/[A-Z]/.test(pw)) out.push('one uppercase letter');
+  if(!/[0-9]/.test(pw)) out.push('one number');
+  return out; // [] === valid
+}
+
+function updatePwChecklist(listEl, pw){
+  if(!listEl) return;
+  const issues=pwIssues(pw);
+  const ruleMet={
+    len: pw.length>=8 && pw.length<=128,
+    upper: /[A-Z]/.test(pw),
+    num: /[0-9]/.test(pw)
+  };
+  listEl.querySelectorAll('li').forEach(function(li){
+    const rule=li.getAttribute('data-rule');
+    li.classList.toggle('met', !!ruleMet[rule]);
+  });
+  return issues;
+}
+
 async function submitRegister(){
   clearError('register-error');
   const username=document.getElementById('reg-username').value.trim();
@@ -290,7 +330,8 @@ async function submitRegister(){
   const confirm=document.getElementById('reg-password-confirm').value;
   if(!username||!password||!confirm){ showError('register-error','Please fill in all fields.'); return; }
   if(username.length<3){ showError('register-error','Username must be at least 3 characters.'); return; }
-  if(password.length<8){ showError('register-error','Password must be at least 8 characters, include 1 uppercase letter and 1 number.'); return; }
+  const issues=pwIssues(password);
+  if(issues.length){ showError('register-error','Password needs: '+issues.join(', ')+'.'); return; }
   if(password!==confirm){ showError('register-error','Passwords do not match.'); return; }
 
   const btn=document.getElementById('register-btn');
@@ -325,6 +366,11 @@ document.getElementById('tab-login').addEventListener('click',function(){switchT
 document.getElementById('tab-register').addEventListener('click',function(){switchTab('register');});
 document.getElementById('login-btn').addEventListener('click',submitLogin);
 document.getElementById('register-btn').addEventListener('click',submitRegister);
+var _regPwInput=document.getElementById('reg-password');
+var _regPwChecklist=document.getElementById('reg-pw-checklist');
+if(_regPwInput && _regPwChecklist){
+  _regPwInput.addEventListener('keyup',function(){ updatePwChecklist(_regPwChecklist, _regPwInput.value); });
+}
 var _themeBtn=document.getElementById('theme-btn');
 if(_themeBtn) _themeBtn.addEventListener('click',function(e){toggleThemeMenu(e.currentTarget);});
 document.querySelectorAll('.theme-opt').forEach(function(btn){
