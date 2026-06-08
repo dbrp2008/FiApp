@@ -280,6 +280,16 @@
       try{ text=await f.text(); }
       catch(e){ status.textContent='⚠ Could not read that file.'; status.className='paste-status bad'; return; }
 
+      // Reject binary files (e.g. .xlsx, .png) early: decoding non-text bytes as
+      // UTF-8 produces U+FFFD replacement characters, which a genuine .csv/.ofx/
+      // .qfx/.qif export will never contain. Catching it here avoids showing the
+      // user a garbled column preview for a format we can't parse anyway.
+      if(/�/.test(text)){
+        status.textContent='⚠ That file doesn’t look like a text export — FiApp can only import .csv, .ofx, .qfx or .qif files. If this is a spreadsheet, export/save it as CSV first.';
+        status.className='paste-status bad';
+        return;
+      }
+
       const fmt=detectFormat(f.name,text);
       _wiz.format=fmt;
       if(fmt==='csv'){
