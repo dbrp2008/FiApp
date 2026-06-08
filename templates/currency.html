@@ -317,7 +317,7 @@ function _buildRatesPanel(){
       html+='<div class="rates-info-row"><span class="rates-info-label">Base: '+b.base+'</span>'
         +'<span style="display:flex;align-items:center;gap:.5rem;">'
         +'<span>'+fetched.toLocaleDateString()+' '+fetched.toLocaleTimeString()+'</span>'
-        +'<button type="button" class="btn-ghost btn-sm" style="padding:.1rem .4rem;font-size:.75rem;" onclick="_refreshBase(\''+b.base+'\')">↻</button>'
+        +'<button type="button" class="btn-ghost btn-sm" style="padding:.1rem .4rem;font-size:.75rem;" onclick="_refreshBase(\''+b.base+'\')" aria-label="Refresh rates for '+b.base+'">↻</button>'
         +'</span></div>'
         +'<div style="font-size:.77rem;padding-bottom:.38rem;color:var(--muted);">'
         +'Next refresh: <span class="rates-countdown" id="rcd-ref-'+b.base+'">'+(msRefresh<=0?'<span style="color:var(--accent)">overdue</span>':_fmtCountdown(msRefresh))+'</span>'
