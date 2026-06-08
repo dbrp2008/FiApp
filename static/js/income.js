@@ -118,8 +118,8 @@ function showCellCurrencyOther(wrap, sel, row){
   sel.style.display='none';
   const form=document.createElement('span'); form.className='curr-other-cell';
   const inp=document.createElement('input'); inp.type='text'; inp.maxLength=5; inp.placeholder='VND';
-  const ok=document.createElement('button'); ok.textContent='✓'; ok.title='Apply';
-  const cancel=document.createElement('button'); cancel.textContent='✕'; cancel.title='Cancel'; cancel.className='x';
+  const ok=document.createElement('button'); ok.textContent='✓'; ok.title='Apply'; ok.setAttribute('aria-label','Apply');
+  const cancel=document.createElement('button'); cancel.textContent='✕'; cancel.title='Cancel'; cancel.className='x'; cancel.setAttribute('aria-label','Cancel');
   form.appendChild(inp); form.appendChild(ok); form.appendChild(cancel);
   wrap.appendChild(form);
   setTimeout(()=>inp.focus(),20);
@@ -166,7 +166,7 @@ function freshState(){
       {id:uid(),label:'Amount',width:160},
     ],
     headerColWidth:185, totalColWidth:110,
-    cells:{}, collapsed:{}, monthRowCurrencies:{},
+    cells:{}, cellTimes:{}, collapsed:{}, monthRowCurrencies:{},
     displayCurrency:'USD',
     currentYear:y, currentMonth:m,
     rowsByMonth:{}, colsByMonth:{},
@@ -190,6 +190,7 @@ function loadState(){
     if(r){
       const s=JSON.parse(r);
       if(!s.cells)          s.cells={};
+      if(!s.cellTimes)      s.cellTimes={};
       if(!s.collapsed)      s.collapsed={};
       if(!s.monthRowCurrencies)  s.monthRowCurrencies={};
       if(!s.displayCurrency) s.displayCurrency='USD';
@@ -359,13 +360,32 @@ function showMonthCopyPicker(){
 var _sync=createSyncManager(STORAGE_KEY,'/api/save/income','/api/load/income',{
   getState:function(){return state;},
   onReload:function(){state=loadState();render();},
+  onMerge:showToast,
   showQuotaWarning:showSaveQuotaWarning
 });
 var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
 var setSyncStatus=_sync.setSyncStatus;
 var saveLocal=_sync.saveLocal;
+// Stamps state.cellTimes[key]=now for any cell whose value changed since the last
+// save, by diffing against the snapshot still sitting in localStorage (saveLocal()
+// is about to overwrite it). One diff on every save() uniformly catches every way
+// `cells` can change — typing, paste, bulk delete, import, undo/redo — without
+// scattering Date.now() stamps across mutation sites. A key that just vanished
+// (delete) gets stamped too: that's what marks it as a tombstone for the merge.
+function _stampCellTimes(){
+  if(!state.cellTimes) state.cellTimes={};
+  let prevCells={};
+  try{
+    const prev=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    if(prev&&prev.cells) prevCells=prev.cells;
+  }catch(_){}
+  const now=Date.now();
+  const keys=new Set([...Object.keys(prevCells),...Object.keys(state.cells)]);
+  keys.forEach(k=>{ if(prevCells[k]!==state.cells[k]) state.cellTimes[k]=now; });
+}
 function save(){
+  _stampCellTimes();
   saveLocal();
   // Mark that income was saved this walkthrough session so loadState() can restore it on Back.
   try{const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)localStorage.setItem('fiapp_income_wt_session','1');}catch(_){}
@@ -376,6 +396,8 @@ function save(){
 function showSaveQuotaWarning(){
   if(document.getElementById('quota-warn')) return;
   const el=document.createElement('div'); el.id='quota-warn'; el.className='error';
+  el.setAttribute('aria-live','polite');
+  el.setAttribute('aria-atomic','true');
   el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:420px;text-align:center;padding:.6rem 1rem;';
   el.textContent='⚠ Storage full - latest changes could not be saved. Export your data and clear some rows.';
   document.body.appendChild(el); setTimeout(()=>el.remove(),8000);
@@ -383,6 +405,8 @@ function showSaveQuotaWarning(){
 function showToast(msg, isError=false, duration=4000, undoCb=null){
   const el=document.createElement('div');
   el.setAttribute('data-wt-toast','1');
+  el.setAttribute('aria-live','polite');
+  el.setAttribute('aria-atomic','true');
   el.className=isError?'error':'success';
   el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
   const txt=document.createElement('span'); txt.textContent=msg; el.appendChild(txt);
@@ -467,6 +491,21 @@ function updateMonthNav(){
   populateMonthJump();
   updateForecastUI();
   updateCloseBar();
+  updateMonthContextNote();
+}
+// W2: explain the per-month "fork" inline — rows, columns, and per-row
+// currencies are each month's own copy (see forkCurrentMonth()), which
+// surprises people editing a past/future month expecting it to affect "now".
+// Plain orientation text, kept deliberately distinct from the close-bar's
+// "closed/locked" vocabulary (that's about edit permission, not data scoping).
+function updateMonthContextNote(){
+  const note=document.getElementById('month-context-note');
+  if(!note) return;
+  const now=new Date();
+  if(currentMK()===mk(now.getFullYear(),now.getMonth())){ note.style.display='none'; return; }
+  const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
+  note.textContent='📅 Viewing '+label+' — sources, columns, and currencies here belong to '+label+' only; other months keep their own.';
+  note.style.display='block';
 }
 
 // ── Monthly Close Flow ────────────────────────────────────────────────────
@@ -512,20 +551,53 @@ function openCloseModal(){
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
   document.getElementById('close-modal-body').innerHTML='<strong>'+label+'</strong><br>Income logged: $'+total.toFixed(2);
   const overlay=document.getElementById('close-modal-overlay');
-  if(overlay) overlay.style.display='flex';
+  if(!overlay) return;
+  overlay.style.display='flex';
+  _trapModalFocus(overlay);
 }
 function confirmClose(){
   const mk2=currentMK();
   if(!state.closedMonths) state.closedMonths={};
   state.closedMonths[mk2]=Date.now();
   saveLocal(); save();
-  document.getElementById('close-modal-overlay').style.display='none';
+  _closeModalOverlay();
   updateCloseBar();
   populateMonthJump();
 }
 function cancelClose(){
+  _closeModalOverlay();
+}
+// W8c: focus trap + Esc-close + focus restore for the close-month dialog —
+// extends the pattern the small popups already use (Esc removes, focus the
+// first control) to a full dialog with multiple controls and a real backdrop.
+let _closeModalOpener=null;
+function _modalFocusables(overlay){
+  return Array.from(overlay.querySelectorAll('button:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+}
+function _modalKeydown(e){
+  const overlay=document.getElementById('close-modal-overlay');
+  if(!overlay||overlay.style.display==='none') return;
+  if(e.key==='Escape'){ e.preventDefault(); cancelClose(); return; }
+  if(e.key==='Tab'){
+    const f=_modalFocusables(overlay);
+    if(!f.length) return;
+    const first=f[0], last=f[f.length-1];
+    if(e.shiftKey){ if(document.activeElement===first){ e.preventDefault(); last.focus(); } }
+    else { if(document.activeElement===last){ e.preventDefault(); first.focus(); } }
+  }
+}
+function _trapModalFocus(overlay){
+  _closeModalOpener=document.activeElement;
+  document.addEventListener('keydown',_modalKeydown);
+  const f=_modalFocusables(overlay);
+  if(f.length) f[0].focus();
+}
+function _closeModalOverlay(){
   const overlay=document.getElementById('close-modal-overlay');
   if(overlay) overlay.style.display='none';
+  document.removeEventListener('keydown',_modalKeydown);
+  if(_closeModalOpener&&typeof _closeModalOpener.focus==='function') _closeModalOpener.focus();
+  _closeModalOpener=null;
 }
 
 function isForecastMonth(){
@@ -584,7 +656,7 @@ function useAverages(){
 }
 function showForecastToast(msg){
   let t=document.getElementById('forecast-toast');
-  if(!t){t=document.createElement('div');t.id='forecast-toast';t.className='forecast-toast';document.body.appendChild(t);}
+  if(!t){t=document.createElement('div');t.id='forecast-toast';t.className='forecast-toast';t.setAttribute('aria-live','polite');t.setAttribute('aria-atomic','true');document.body.appendChild(t);}
   t.textContent=msg; t.classList.add('show');
   clearTimeout(window._fcToastT);
   window._fcToastT=setTimeout(()=>t.classList.remove('show'),3500);
@@ -659,6 +731,23 @@ function updateGrandTotal(){
 function updateAll(rId){ updateRowTotal(rId); updateGrandTotal(); if(chartVisible) renderChart(); }
 
 
+// W2: empty-state teaching for the per-row currency selector — explains it
+// the first time there's a row to show it on. Hidden permanently once
+// dismissed, or once the user has actually used it (set a non-default currency).
+function updateCurrencyHint(){
+  const el=document.getElementById('currency-hint');
+  if(!el) return;
+  if(localStorage.getItem('fiapp_currency_hint_dismissed')==='1' || getRows().filter(r=>!r.parentId).length===0 || Object.keys(state.monthRowCurrencies||{}).length>0){
+    el.style.display='none';
+    return;
+  }
+  el.style.display='flex';
+  const dismissBtn=document.getElementById('currency-hint-dismiss');
+  if(dismissBtn) dismissBtn.onclick=function(){
+    localStorage.setItem('fiapp_currency_hint_dismissed','1');
+    el.style.display='none';
+  };
+}
 function updateSummaryBar(){
   const totalUSD=grandTotal(); 
   const el=document.getElementById('disp-total');
@@ -972,6 +1061,13 @@ function renderChart(){
     topLabel='Top Income - '+MONTHS_SHORT[state.currentMonth]+' '+state.currentYear;
   }
   if(chartInstance){chartInstance.destroy();chartInstance=null;}
+  const _chartCanvas=document.getElementById('inc-chart');
+  if(_chartCanvas){
+    _chartCanvas.setAttribute('role','img');
+    _chartCanvas.setAttribute('aria-label', data.length
+      ? topLabel+'. Top: '+data.slice(0,3).map(d=>d.label+' $'+parseFloat(d.value.toFixed(2))).join(', ')+(data.length>3?', and '+(data.length-3)+' more':'')+'.'
+      : topLabel+'. No data to display.');
+  }
   if(!data.length){renderTop3([],topLabel);return;}
   const colors=data.map(d=>d.color||'#bbf7d0');
   const vals=data.map(d=>parseFloat(d.value.toFixed(2)));
@@ -1363,6 +1459,7 @@ function render(){
     renderFooter(table);
   }
   updateSummaryBar();
+  updateCurrencyHint();
   if(chartVisible) renderChart();
   adjustBodyWidth();
   updateForecastUI();
