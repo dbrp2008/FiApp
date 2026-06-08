@@ -27,6 +27,10 @@
     .month-nav button{background:var(--secondary-bg);color:var(--fg);border:none;border-radius:6px;cursor:pointer;padding:.3rem .8rem;font-size:.9rem;}
     .month-nav button:hover{background:var(--secondary-hover);}
     .month-nav button:disabled{opacity:.35;cursor:not-allowed;}
+    /* W2: quiet one-line context note explaining the per-month "fork" —
+       deliberately plain text, not a banner, so it doesn't compete with
+       forecast-bar/close-bar (which need attention; this is just orientation). */
+    .month-context-note{display:none;font-size:.78rem;color:var(--muted);margin:-.25rem 0 .65rem;}
 
     
     .summary-bar{background:var(--total-soft);border:1px solid var(--success-border);border-radius:8px;padding:.9rem 1.1rem;margin-bottom:.75rem;}
@@ -316,6 +320,7 @@
     <select id="month-jump" class="month-jump" onchange="jumpToMonth(this.value)"></select>
     <button id="next-btn">Next ▶</button>
   </div>
+  <p class="month-context-note" id="month-context-note"></p>
   <div style="margin-bottom:.5rem;">
     <button class="btn-ghost btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
     <button class="btn-ghost btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
@@ -328,9 +333,9 @@
     <button onclick="openCloseModal()" class="btn btn-sm" style="flex-shrink:0">Review &amp; close ✓</button>
   </div>
   <!-- Monthly Close Modal -->
-  <div id="close-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
+  <div id="close-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="close-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
     <div style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:14px;padding:1.5rem;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.25);">
-      <h2 style="font-size:1rem;font-weight:700;margin:0 0 .75rem">Close this month?</h2>
+      <h2 id="close-modal-title" style="font-size:1rem;font-weight:700;margin:0 0 .75rem">Close this month?</h2>
       <div id="close-modal-body" style="font-size:.9rem;color:var(--fg);line-height:1.6;margin-bottom:1rem;"></div>
       <div style="display:flex;gap:.5rem;justify-content:flex-end">
         <button onclick="cancelClose()" class="btn-ghost btn-sm">Cancel</button>
@@ -428,6 +433,13 @@
     <div class="top3" id="top3"></div>
   </div>
 
+  <!-- W2: empty-state teaching for the per-row currency selector — explains
+       it the first time there's a row to show it on; dismissible, never
+       reappears once dismissed or once the user has changed a row's currency. -->
+  <div id="currency-hint" style="display:none;margin-bottom:.6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;">
+    <span>💱 <strong>Tip:</strong> the dropdown next to each amount sets that row's currency — paid in a different currency some months? Switch it there and FiApp converts everything automatically.</span>
+    <button id="currency-hint-dismiss" aria-label="Dismiss tip about per-row currency" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0">✕</button>
+  </div>
   <div class="sheet-wrap" id="inc-sheet-wrap"><table class="sheet" id="sheet"></table></div>
   <div id="inc-mobile-cards" style="display:none;padding:0 0 1rem;"></div>
 <div id="help-modal" style="display:none" class="share-overlay">
@@ -438,6 +450,7 @@
         <li>Add income sources as rows; add sub-sources with <strong>+Sub</strong> on any row.</li>
         <li>Each cell can use its own currency - select it from the dropdown next to the amount.</li>
         <li>Per-month currencies are independent: changing one month's currency doesn't affect others.</li>
+        <li><strong>Each month also has its own sources and columns</strong> — adding, renaming, or removing a row in one month doesn't change any other month. Use <strong>📋 Copy rows/cols from previous month</strong> to bring a setup forward instead of rebuilding it.</li>
         <li>In <strong>Forecast mode</strong>, "Use 3-month avg" converts all historical values to USD before averaging, so mixed currencies average correctly.</li>
         <li>Totals auto-link to the <strong>Expense Tracker</strong> income panel and the <strong>Tax Calculator</strong>.</li>
         <li><strong>Undo/Redo</strong> via Ctrl+Z / Ctrl+Y or the ↩↪ toolbar buttons.</li>
