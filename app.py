@@ -7,6 +7,7 @@ import secrets
 from datetime import datetime, timezone
 import psycopg2
 import psycopg2.extras
+from psycopg2 import sql as _sql
 from psycopg2 import pool as _pgpool
 from flask import (Flask, render_template, request, flash,
     session, jsonify, redirect, url_for, send_from_directory, abort)
@@ -30,6 +31,17 @@ RATES_TTL_DB = 7 * 24 * 3600
 MAX_SUBS = 100
 MAX_ROWS = 20
 MAX_COLS = 12
+
+# Sync conflict detection (W3): how many revisions to retain per (user, tracker).
+_REVISION_KEEP = 20
+
+# Maps each tracker's API name to its JSONB blob column and version-counter column.
+# Used by _save_tracker_versioned/_load_tracker_versioned to build identifier-safe SQL.
+_TRACKER_COLUMNS = {
+    'expenses': ('expenses_data', 'expenses_version'),
+    'subs':     ('subs_data',     'subs_version'),
+    'income':   ('income_data',   'income_version'),
+}
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = os.environ.get("SECRET_KEY")
@@ -169,6 +181,25 @@ def init_db():
                         rates JSONB NOT NULL,
                         fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
+                    -- Optimistic-concurrency version counters: bumped on every successful save;
+                    -- a save whose base_version no longer matches is rejected with 409 (see W3).
+                    ALTER TABLE user_data ADD COLUMN IF NOT EXISTS expenses_version INTEGER NOT NULL DEFAULT 0;
+                    ALTER TABLE user_data ADD COLUMN IF NOT EXISTS subs_version INTEGER NOT NULL DEFAULT 0;
+                    ALTER TABLE user_data ADD COLUMN IF NOT EXISTS income_version INTEGER NOT NULL DEFAULT 0;
+                    -- Revision history: one row per successful save, pruned to the most recent
+                    -- _REVISION_KEEP per (user, tracker). Powers the account-page "restore a
+                    -- previous version" safety net. No ON DELETE CASCADE — delete_account()
+                    -- removes these rows explicitly, mirroring how it handles user_data.
+                    CREATE TABLE IF NOT EXISTS data_revisions (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        tracker TEXT NOT NULL,
+                        version INTEGER NOT NULL,
+                        blob JSONB NOT NULL,
+                        saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_data_revisions_lookup
+                        ON data_revisions(user_id, tracker, version DESC);
                 """)
     finally:
         release_db(conn)
@@ -520,6 +551,7 @@ def delete_account():
             return jsonify({"error": "Incorrect password"}), 403
         with conn:
             with conn.cursor() as cur:
+                cur.execute("DELETE FROM data_revisions WHERE user_id=%s", (user_id,))
                 cur.execute("DELETE FROM user_data WHERE user_id=%s", (user_id,))
                 cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
         session.clear()
@@ -598,122 +630,198 @@ def change_password():
         release_db(conn)
 
 
-@app.route('/api/save/expenses', methods=['POST'])
-@login_required
-@csrf_required
-def save_expenses():
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "Invalid data format"}), 400
-    if 'rows' not in data:
-        return jsonify({"error": "Missing required field: rows"}), 400
-    if not _within_limits(data):
-        return jsonify({"error": "Row/column limit exceeded"}), 400
+def _load_tracker_versioned(tracker):
+    """Shared GET /api/load/<tracker> body: returns (data, version) for the current user."""
+    data_col, ver_col = _TRACKER_COLUMNS[tracker]
+    query = _sql.SQL("SELECT {data}, {ver} FROM user_data WHERE user_id=%s").format(
+        data=_sql.Identifier(data_col), ver=_sql.Identifier(ver_col))
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, (session['user_id'],))
+            row = cur.fetchone()
+        data = row[0] if row and row[0] else None
+        version = row[1] if row and row[1] is not None else 0
+        return data, version
+    finally:
+        release_db(conn)
+
+
+def _save_tracker_versioned(tracker, data, base_version, force=False):
+    """
+    Shared optimistic-concurrency POST /api/save/<tracker> body.
+
+    Locks the user's row, then either:
+      - base_version matches the stored version (or force=True): writes the
+        new blob, bumps the version, records a data_revisions row, and prunes
+        old revisions beyond _REVISION_KEEP; or
+      - base_version is stale: returns 409 with the server's current data and
+        version so the client can merge and retry.
+
+    Returns (status_code, response_dict).
+    """
+    data_col, ver_col = _TRACKER_COLUMNS[tracker]
+    select_q = _sql.SQL("SELECT {data}, {ver} FROM user_data WHERE user_id=%s FOR UPDATE").format(
+        data=_sql.Identifier(data_col), ver=_sql.Identifier(ver_col))
+    upsert_q = _sql.SQL("""
+        INSERT INTO user_data (user_id, {data}, {ver}, updated_at)
+        VALUES (%s, %s, %s, NOW())
+        ON CONFLICT (user_id) DO UPDATE
+        SET {data} = EXCLUDED.{data}, {ver} = EXCLUDED.{ver}, updated_at = NOW()
+    """).format(data=_sql.Identifier(data_col), ver=_sql.Identifier(ver_col))
+
     conn = get_db()
     try:
         with conn:
             with conn.cursor() as cur:
+                cur.execute(select_q, (session['user_id'],))
+                row = cur.fetchone()
+                current_data = row[0] if row else None
+                current_version = row[1] if row and row[1] is not None else 0
+
+                if not force and base_version != current_version:
+                    return 409, {
+                        "error": "conflict",
+                        "server_data": current_data,
+                        "server_version": current_version,
+                    }
+
+                new_version = current_version + 1
+                cur.execute(upsert_q, (session['user_id'], json.dumps(data), new_version))
+                cur.execute(
+                    "INSERT INTO data_revisions (user_id, tracker, version, blob) VALUES (%s, %s, %s, %s)",
+                    (session['user_id'], tracker, new_version, json.dumps(data))
+                )
                 cur.execute("""
-                    INSERT INTO user_data (user_id, expenses_data, updated_at)
-                    VALUES (%s, %s, NOW())
-                    ON CONFLICT (user_id) DO UPDATE
-                    SET expenses_data = EXCLUDED.expenses_data, updated_at = NOW()
-                """, (session['user_id'], json.dumps(data)))
-        return jsonify({"ok": True})
+                    DELETE FROM data_revisions WHERE user_id=%s AND tracker=%s AND id NOT IN (
+                        SELECT id FROM data_revisions WHERE user_id=%s AND tracker=%s
+                        ORDER BY version DESC LIMIT %s
+                    )
+                """, (session['user_id'], tracker, session['user_id'], tracker, _REVISION_KEEP))
+        return 200, {"ok": True, "version": new_version}
     finally:
         release_db(conn)
+
+
+def _parse_save_body(body):
+    """Pulls (data, base_version, force) out of a {data, base_version, force} POST body."""
+    data = body.get('data')
+    base_version = body.get('base_version')
+    if not isinstance(base_version, int):
+        base_version = 0
+    return data, base_version, bool(body.get('force'))
+
+
+@app.route('/api/save/expenses', methods=['POST'])
+@login_required
+@csrf_required
+def save_expenses():
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Invalid data format"}), 400
+    data, base_version, force = _parse_save_body(body)
+    if not isinstance(data, dict) or 'rows' not in data:
+        return jsonify({"error": "Missing required field: rows"}), 400
+    if not _within_limits(data):
+        return jsonify({"error": "Row/column limit exceeded"}), 400
+    status, resp = _save_tracker_versioned('expenses', data, base_version, force=force)
+    return jsonify(resp), status
 
 @app.route('/api/load/expenses')
 @login_required
 def load_expenses():
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT expenses_data FROM user_data WHERE user_id=%s",
-                (session['user_id'],))
-            row = cur.fetchone()
-        data = row[0] if row and row[0] else None
-        return jsonify({"ok": True, "data": data})
-    finally:
-        release_db(conn)
+    data, version = _load_tracker_versioned('expenses')
+    return jsonify({"ok": True, "data": data, "version": version})
 
 @app.route('/api/save/subs', methods=['POST'])
 @login_required
 @csrf_required
 def save_subs():
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
         return jsonify({"error": "Invalid data format"}), 400
-    if 'rows' not in data:
+    data, base_version, force = _parse_save_body(body)
+    if not isinstance(data, dict) or 'rows' not in data:
         return jsonify({"error": "Missing required field: rows"}), 400
     if len(data.get('rows', [])) > MAX_SUBS:
         return jsonify({"error": f"Subscription limit ({MAX_SUBS}) exceeded"}), 400
-    conn = get_db()
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO user_data (user_id, subs_data, updated_at)
-                    VALUES (%s, %s, NOW())
-                    ON CONFLICT (user_id) DO UPDATE
-                    SET subs_data = EXCLUDED.subs_data, updated_at = NOW()
-                """, (session['user_id'], json.dumps(data)))
-        return jsonify({"ok": True})
-    finally:
-        release_db(conn)
+    status, resp = _save_tracker_versioned('subs', data, base_version, force=force)
+    return jsonify(resp), status
 
 @app.route('/api/load/subs')
 @login_required
 def load_subs():
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT subs_data FROM user_data WHERE user_id=%s",
-                (session['user_id'],))
-            row = cur.fetchone()
-        data = row[0] if row and row[0] else None
-        return jsonify({"ok": True, "data": data})
-    finally:
-        release_db(conn)
+    data, version = _load_tracker_versioned('subs')
+    return jsonify({"ok": True, "data": data, "version": version})
 
 @app.route('/api/save/income', methods=['POST'])
 @login_required
 @csrf_required
 def save_income():
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
         return jsonify({"error": "Invalid data format"}), 400
-    if 'rows' not in data:
+    data, base_version, force = _parse_save_body(body)
+    if not isinstance(data, dict) or 'rows' not in data:
         return jsonify({"error": "Missing required field: rows"}), 400
     if not _within_limits(data):
         return jsonify({"error": "Row/column limit exceeded"}), 400
-    conn = get_db()
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO user_data (user_id, income_data, updated_at)
-                    VALUES (%s, %s, NOW())
-                    ON CONFLICT (user_id) DO UPDATE
-                    SET income_data = EXCLUDED.income_data, updated_at = NOW()
-                """, (session['user_id'], json.dumps(data)))
-        return jsonify({"ok": True})
-    finally:
-        release_db(conn)
+    status, resp = _save_tracker_versioned('income', data, base_version, force=force)
+    return jsonify(resp), status
 
 @app.route('/api/load/income')
 @login_required
 def load_income():
+    data, version = _load_tracker_versioned('income')
+    return jsonify({"ok": True, "data": data, "version": version})
+
+@app.route('/api/revisions/<tracker>')
+@login_required
+def list_revisions(tracker):
+    """List recent revisions for one of the user's trackers (metadata only, no blobs)."""
+    if tracker not in _TRACKER_COLUMNS:
+        return jsonify({"error": "Unknown tracker"}), 404
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT income_data FROM user_data WHERE user_id=%s",
-                (session['user_id'],))
-            row = cur.fetchone()
-        data = row[0] if row and row[0] else None
-        return jsonify({"ok": True, "data": data})
+            cur.execute("""
+                SELECT version, saved_at FROM data_revisions
+                WHERE user_id=%s AND tracker=%s
+                ORDER BY version DESC LIMIT %s
+            """, (session['user_id'], tracker, _REVISION_KEEP))
+            rows = cur.fetchall()
+        revisions = [
+            {"version": r[0], "saved_at": r[1].strftime('%Y-%m-%dT%H:%M:%SZ')}
+            for r in rows
+        ]
+        return jsonify({"ok": True, "revisions": revisions})
     finally:
         release_db(conn)
+
+@app.route('/api/revisions/<tracker>/restore', methods=['POST'])
+@login_required
+@csrf_required
+def restore_revision(tracker):
+    """Restore one of the user's trackers to a prior revision (force-saved as a new version)."""
+    if tracker not in _TRACKER_COLUMNS:
+        return jsonify({"error": "Unknown tracker"}), 404
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or not isinstance(body.get('version'), int):
+        return jsonify({"error": "Missing required field: version"}), 400
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT blob FROM data_revisions WHERE user_id=%s AND tracker=%s AND version=%s",
+                (session['user_id'], tracker, body['version'])
+            )
+            row = cur.fetchone()
+    finally:
+        release_db(conn)
+    if not row:
+        return jsonify({"error": "Revision not found"}), 404
+    status, resp = _save_tracker_versioned(tracker, row[0], base_version=0, force=True)
+    return jsonify(resp), status
 
 
 @app.route('/api/exchange')
