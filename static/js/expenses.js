@@ -61,7 +61,7 @@ function freshState(){
       {id:uid(),label:'Week 4',width:110},
     ],
     headerColWidth:185, totalColWidth:110,
-    cells:{}, income:{}, collapsed:{},
+    cells:{}, cellTimes:{}, income:{}, collapsed:{},
     currentYear:y, currentMonth:m,
     lastTaxTs:0,
     rowsByMonth:{}, colsByMonth:{},
@@ -86,6 +86,7 @@ function loadState(){
     const r=localStorage.getItem(STORAGE_KEY);
     if(r){
       const s=JSON.parse(r);
+      if(!s.cellTimes) s.cellTimes={};
       if(!s.income)    s.income={};
       if(!s.collapsed) s.collapsed={};
       if(!s.lastTaxTs) s.lastTaxTs=0;
@@ -173,6 +174,7 @@ function showMonthCopyPicker(){
 var _sync=createSyncManager(STORAGE_KEY,'/api/save/expenses','/api/load/expenses',{
   getState:function(){return state;},
   onReload:function(){state=loadState();render();syncIncomeInputs();},
+  onMerge:showToast,
   showQuotaWarning:showSaveQuotaWarning
 });
 var syncToServer=_sync.syncToServer;
@@ -194,7 +196,25 @@ async function loadSubsFromServer(){
     }
   }catch(e){}
 }
+// Stamps state.cellTimes[key]=now for any cell whose value changed since the last
+// save, by diffing against the snapshot still sitting in localStorage (saveLocal()
+// is about to overwrite it). One diff on every save() uniformly catches every way
+// `cells` can change — typing, paste, bulk delete, import, undo/redo — without
+// scattering Date.now() stamps across ~20 mutation sites. A key that just vanished
+// (delete) gets stamped too: that's what marks it as a tombstone for the merge.
+function _stampCellTimes(){
+  if(!state.cellTimes) state.cellTimes={};
+  let prevCells={};
+  try{
+    const prev=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    if(prev&&prev.cells) prevCells=prev.cells;
+  }catch(_){}
+  const now=Date.now();
+  const keys=new Set([...Object.keys(prevCells),...Object.keys(state.cells)]);
+  keys.forEach(k=>{ if(prevCells[k]!==state.cells[k]) state.cellTimes[k]=now; });
+}
 function save(){
+  _stampCellTimes();
   saveLocal();
   syncToServer();
   checkSpendTrend();
@@ -329,6 +349,8 @@ function _showRecurringToast(rowId,label){
 function showSaveQuotaWarning(){
   if(document.getElementById('quota-warn')) return;
   const el=document.createElement('div'); el.id='quota-warn'; el.className='error';
+  el.setAttribute('aria-live','polite');
+  el.setAttribute('aria-atomic','true');
   el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:420px;text-align:center;padding:.6rem 1rem;';
   el.textContent='⚠ Storage full - latest changes could not be saved. Export your data and clear some rows.';
   document.body.appendChild(el); setTimeout(()=>el.remove(),8000);
@@ -336,6 +358,8 @@ function showSaveQuotaWarning(){
 function showToast(msg, isError=false, duration=4000, undoCb=null){
   const el=document.createElement('div');
   el.setAttribute('data-wt-toast','1');
+  el.setAttribute('aria-live','polite');
+  el.setAttribute('aria-atomic','true');
   el.className=isError?'error':'success';
   el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
   const txt=document.createElement('span'); txt.textContent=msg; el.appendChild(txt);
@@ -425,6 +449,21 @@ function updateMonthNav(){
   populateMonthJump();
   updateForecastUI();
   updateCloseBar();
+  updateMonthContextNote();
+}
+// W2: explain the per-month "fork" inline — rows, columns, and goals are each
+// month's own copy (see forkCurrentMonth()), which surprises people editing a
+// past/future month expecting it to affect "now". Plain orientation text, kept
+// deliberately distinct from the close-bar's "closed/locked" vocabulary (that's
+// about edit permission, not data scoping).
+function updateMonthContextNote(){
+  const note=document.getElementById('month-context-note');
+  if(!note) return;
+  const now=new Date();
+  if(currentMK()===mk(now.getFullYear(),now.getMonth())){ note.style.display='none'; return; }
+  const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
+  note.textContent='📅 Viewing '+label+' — categories, columns, and goals here belong to '+label+' only; other months keep their own.';
+  note.style.display='block';
 }
 
 // ── Monthly Close Flow ────────────────────────────────────────────────────
@@ -496,20 +535,52 @@ function openCloseModal(){
   if(!overlay) return;
   document.getElementById('close-modal-body').innerHTML=details;
   overlay.style.display='flex';
+  _trapModalFocus(overlay);
 }
 function confirmClose(){
   const mk2=currentMK();
   if(!state.closedMonths) state.closedMonths={};
   state.closedMonths[mk2]=Date.now();
   saveLocal(); save();
-  document.getElementById('close-modal-overlay').style.display='none';
+  _closeModalOverlay();
   updateCloseBar();
   // Update month nav dropdown to show lock badge
   populateMonthJump();
 }
 function cancelClose(){
+  _closeModalOverlay();
+}
+// W8c: focus trap + Esc-close + focus restore for the close-month dialog —
+// extends the pattern the small popups already use (Esc removes, focus the
+// first control) to a full dialog with multiple controls and a real backdrop.
+let _closeModalOpener=null;
+function _modalFocusables(overlay){
+  return Array.from(overlay.querySelectorAll('button:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+}
+function _modalKeydown(e){
+  const overlay=document.getElementById('close-modal-overlay');
+  if(!overlay||overlay.style.display==='none') return;
+  if(e.key==='Escape'){ e.preventDefault(); cancelClose(); return; }
+  if(e.key==='Tab'){
+    const f=_modalFocusables(overlay);
+    if(!f.length) return;
+    const first=f[0], last=f[f.length-1];
+    if(e.shiftKey){ if(document.activeElement===first){ e.preventDefault(); last.focus(); } }
+    else { if(document.activeElement===last){ e.preventDefault(); first.focus(); } }
+  }
+}
+function _trapModalFocus(overlay){
+  _closeModalOpener=document.activeElement;
+  document.addEventListener('keydown',_modalKeydown);
+  const f=_modalFocusables(overlay);
+  if(f.length) f[0].focus();
+}
+function _closeModalOverlay(){
   const overlay=document.getElementById('close-modal-overlay');
   if(overlay) overlay.style.display='none';
+  document.removeEventListener('keydown',_modalKeydown);
+  if(_closeModalOpener&&typeof _closeModalOpener.focus==='function') _closeModalOpener.focus();
+  _closeModalOpener=null;
 }
 
 
@@ -579,7 +650,7 @@ function useAverages(){
 }
 function showForecastToast(msg){
   let t=document.getElementById('forecast-toast');
-  if(!t){t=document.createElement('div');t.id='forecast-toast';t.className='forecast-toast';document.body.appendChild(t);}
+  if(!t){t=document.createElement('div');t.id='forecast-toast';t.className='forecast-toast';t.setAttribute('aria-live','polite');t.setAttribute('aria-atomic','true');document.body.appendChild(t);}
   t.textContent=msg; t.classList.add('show');
   clearTimeout(window._fcToastT);
   window._fcToastT=setTimeout(()=>t.classList.remove('show'),3500);
@@ -841,6 +912,75 @@ function updateIncomeSummary(){
       projEl.style.display='none';
     }
   }
+}
+
+// Phase: overspend nudge — pace-vs-calendar projection for the live current
+// month. Fires only when spend is *materially* ahead of the calendar (not
+// just slightly), and the linear projection actually crosses the goal/income.
+// Picks at most one nudge (worst category, else overall) — a single firm
+// signal rather than a wall of pastel pills. Per-category/month dismissible.
+function _nudgeDismissKey(scopeKey){ return 'fiapp_nudge_dismissed_'+currentMK()+'_'+scopeKey; }
+function computeOverspendNudge(){
+  const now=new Date();
+  const isCurrent=state.currentYear===now.getFullYear()&&state.currentMonth===now.getMonth();
+  if(!isCurrent) return null;
+  const daysPassed=now.getDate();
+  if(daysPassed<7) return null; // too early in the month for a pace signal to be meaningful
+  const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const timeFraction=daysPassed/daysInMonth;
+  const MATERIAL_GAP=0.15; // spend-fraction must be >15 percentage points ahead of calendar pace
+
+  let worst=null;
+  getRows().filter(r=>!r.parentId).forEach(row=>{
+    const goal=state.goals?.[_goalKey(row.id)];
+    if(!goal||isNaN(goal)||goal<=0) return;
+    const spent=rowTotal(row.id);
+    if(spent<=0) return;
+    const projected=(spent/daysPassed)*daysInMonth;
+    const overBy=projected-goal;
+    if(overBy<=0) return;
+    if((spent/goal)-timeFraction<=MATERIAL_GAP) return;
+    if(!worst||overBy>worst.overBy) worst={scope:'cat',scopeKey:row.id,name:row.label,projected,overBy,limit:goal};
+  });
+  if(worst) return worst;
+
+  const gross=parseFloat(document.getElementById('inp-gross')?.value)||0;
+  if(gross>0){
+    const spentTotal=grandTotal();
+    if(spentTotal>0){
+      const projected=(spentTotal/daysPassed)*daysInMonth;
+      const overBy=projected-gross;
+      if(overBy>0 && (spentTotal/gross)-timeFraction>MATERIAL_GAP){
+        return {scope:'overall',scopeKey:'overall',name:null,projected,overBy,limit:gross};
+      }
+    }
+  }
+  return null;
+}
+function updateOverspendNudge(){
+  const el=document.getElementById('overspend-nudge');
+  if(!el) return;
+  const n=computeOverspendNudge();
+  if(!n || localStorage.getItem(_nudgeDismissKey(n.scopeKey))){
+    el.style.display='none'; el.innerHTML='';
+    return;
+  }
+  const msg = n.scope==='cat'
+    ? 'At this pace you\'ll spend ~'+fmt(n.projected)+' on '+escapeHtml(n.name)+' by month-end — ~'+fmt(n.overBy)+' over your '+fmt(n.limit)+' goal.'
+    : 'At this pace you\'ll spend ~'+fmt(n.projected)+' this month — ~'+fmt(n.overBy)+' more than your '+fmt(n.limit)+' income.';
+  const dismissLabel = n.scope==='cat' ? ('Dismiss overspend nudge for '+n.name+' this month') : 'Dismiss overspend nudge for this month';
+  el.innerHTML='<p>⚠ <strong>Heads up —</strong> '+msg+'</p>'
+    +'<button class="btn btn-sm" id="nudge-review-btn" type="button">Review →</button>'
+    +'<button class="btn-ghost btn-sm" id="nudge-dismiss-btn" type="button" aria-label="'+escapeHtml(dismissLabel)+'">Dismiss</button>';
+  el.style.display='flex';
+  document.getElementById('nudge-dismiss-btn').onclick=function(){
+    localStorage.setItem(_nudgeDismissKey(n.scopeKey),'1');
+    el.style.display='none'; el.innerHTML='';
+  };
+  document.getElementById('nudge-review-btn').onclick=function(){
+    const target = n.scope==='cat' ? document.querySelector('tr[data-row-id="'+n.scopeKey+'"]') : document.querySelector('.income-panel');
+    if(target) target.scrollIntoView({behavior:'smooth',block:'center'});
+  };
 }
 
 
@@ -1253,6 +1393,23 @@ function renderTemplatePrompt(){
   _setSelected(selectedName);
   _renderPreview(selectedName);
 }
+// W2: empty-state teaching for the 🎯 goal feature — explains what it does
+// before the user has ever used it. Shown only once there's something to set
+// a goal on; hidden permanently once dismissed or once any goal exists.
+function updateGoalHint(){
+  const el=document.getElementById('goal-hint');
+  if(!el) return;
+  if(localStorage.getItem('fiapp_goal_hint_dismissed')==='1' || getRows().filter(r=>!r.parentId).length===0 || Object.keys(state.goals||{}).length>0){
+    el.style.display='none';
+    return;
+  }
+  el.style.display='flex';
+  const dismissBtn=document.getElementById('goal-hint-dismiss');
+  if(dismissBtn) dismissBtn.onclick=function(){
+    localStorage.setItem('fiapp_goal_hint_dismissed','1');
+    el.style.display='none';
+  };
+}
 function applyTemplate(name){
   const labels=_TEMPLATES[name]; if(!labels) return;
   snapshot();
@@ -1438,6 +1595,13 @@ function renderChart(){
     topLabel='Top Expenses - '+MONTHS_SHORT[state.currentMonth]+' '+state.currentYear;
   }
   if(chartInstance){chartInstance.destroy();chartInstance=null;}
+  const _chartCanvas=document.getElementById('exp-chart');
+  if(_chartCanvas){
+    _chartCanvas.setAttribute('role','img');
+    _chartCanvas.setAttribute('aria-label', data.length
+      ? topLabel+'. Top: '+data.slice(0,3).map(d=>d.label+' $'+parseFloat(d.value.toFixed(2))).join(', ')+(data.length>3?', and '+(data.length-3)+' more':'')+'.'
+      : topLabel+'. No data to display.');
+  }
   if(!data.length){renderTop3([],topLabel);return;}
   const colors=data.map(d=>d.color||'#93c5fd');
   const vals=data.map(d=>parseFloat(d.value.toFixed(2)));
@@ -1804,7 +1968,7 @@ function renderTableBody(table){
       rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
     }
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
-    if(row.recurring){const rb=document.createElement('span');rb.className='row-recur-badge';rb.textContent='🔁';rb.title='Recurring';rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
+    if(row.recurring){const rb=document.createElement('span');rb.className='row-recur-badge';rb.textContent='🔁';rb.title='Recurring';rb.setAttribute('aria-label','Recurring');rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
     if(!isChild && !row.linked && !row.snapshotLinkedRow){
       const dd=document.createElement('div');dd.className='sub-dropdown';
       const addBtn=document.createElement('button');addBtn.className='sub-add-btn';addBtn.textContent='+Sub';addBtn.title='Add subcategory';
@@ -1892,7 +2056,7 @@ function renderTableBody(table){
           const vtr=document.createElement('tr'); vtr.style.height='30px'; vtr.classList.add('child-row'); vtr.style.opacity='.88';
           const vrhTd=document.createElement('td'); vrhTd.className='rh-cell'; vrhTd.style.backgroundColor=row.color;
           const vrhIn=document.createElement('div'); vrhIn.className='rh-inner'; vrhIn.style.paddingLeft='22px';
-          const vbadge=document.createElement('span'); vbadge.style.cssText='font-size:.7rem;margin-right:3px;'; vbadge.textContent='🔗'; vbadge.title='From Subscription Tracker';
+          const vbadge=document.createElement('span'); vbadge.style.cssText='font-size:.7rem;margin-right:3px;'; vbadge.textContent='🔗'; vbadge.title='From Subscription Tracker'; vbadge.setAttribute('aria-label','From Subscription Tracker');
           const vlbl=document.createElement('span'); vlbl.className='row-label'; vlbl.style.cssText='font-weight:500;font-size:.83rem;color:'+(row.textColor||'#1f2937')+';cursor:default;pointer-events:none;'; vlbl.textContent=vc.label;
           vrhIn.appendChild(vbadge); vrhIn.appendChild(vlbl); vrhTd.appendChild(vrhIn); vtr.appendChild(vrhTd);
           getCols().forEach((col,idx)=>{
@@ -2026,9 +2190,11 @@ function render(){
   }
   updateIncomeSummary();
   renderTemplatePrompt();
+  updateGoalHint();
   if(chartVisible) renderChart();
   adjustBodyWidth();
   updateForecastUI();
+  updateOverspendNudge();
   const tbl=document.getElementById('sheet');
   if(tbl) tbl.classList.toggle('forecast',isForecastMonth());
   const hasSubcats=getRows().some(r=>r.parentId);
@@ -2996,6 +3162,7 @@ document.getElementById('dd-share-toggle').addEventListener('click',function(e){
 document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-share');});
 document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-share');});
 document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-share');});
+document.getElementById('import-btn').addEventListener('click',function(){if(window.openImportWizard) openImportWizard();closeDropdown('dd-share');});
 document.getElementById('expand-btn').addEventListener('click',expandAll);
 document.getElementById('collapse-btn').addEventListener('click',collapseAll);
 document.getElementById('reset-btn').addEventListener('click',resetAll);
