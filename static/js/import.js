@@ -147,17 +147,29 @@
   }
 
   // ── Category guessing ────────────────────────────────────────────────────
+  // Linked rows (e.g. "Subscriptions") render every cell as a live computed
+  // total from the Subscriptions tracker (virtualSubChildren()) — they never
+  // read from state.cells. Writing imported amounts into one is a silent
+  // black hole: the value is stored but can never be displayed or totaled.
+  // So these rows must never be offered as import targets.
+  function _isLinkedRow(r){ return !!(r&&(r.linked==='subscriptions'||r.snapshotLinkedRow)); }
   function buildCategoryOptions(){
     const set=new Set(CAT_KEYS);
-    Object.values(state.rowsByMonth||{}).forEach(rows=>rows.forEach(r=>{ if(!r.parentId&&r.label) set.add(r.label); }));
-    (state.rows||[]).forEach(r=>{ if(!r.parentId&&r.label) set.add(r.label); });
+    Object.values(state.rowsByMonth||{}).forEach(rows=>rows.forEach(r=>{ if(!r.parentId&&r.label&&!_isLinkedRow(r)) set.add(r.label); }));
+    (state.rows||[]).forEach(r=>{ if(!r.parentId&&r.label&&!_isLinkedRow(r)) set.add(r.label); });
     return [...set].sort((a,b)=>a.localeCompare(b));
   }
   function guessCategory(keyword,sample,catMap){
-    if(catMap[keyword]) return catMap[keyword];
-    const hay=(sample||'').toLowerCase();
     const rows=getRows(currentMK());
-    for(const r of rows){ if(!r.parentId&&r.label&&hay.includes(r.label.toLowerCase())) return r.label; }
+    if(catMap[keyword]){
+      // Ignore stale remembered mappings that point at a linked row (e.g. an
+      // older import once recorded "Subscriptions" before that became
+      // unavailable as a target) — re-guess instead of proposing it again.
+      const mappedRow=rows.find(function(r){ return !r.parentId&&r.label===catMap[keyword]; });
+      if(!mappedRow||!_isLinkedRow(mappedRow)) return catMap[keyword];
+    }
+    const hay=(sample||'').toLowerCase();
+    for(const r of rows){ if(!r.parentId&&r.label&&!_isLinkedRow(r)&&hay.includes(r.label.toLowerCase())) return r.label; }
     for(const cat of CAT_KEYS){
       const subs=CATEGORIES[cat]||[];
       if(subs.some(s=>hay.includes(s.toLowerCase()))) return cat;
@@ -588,7 +600,7 @@
       }
 
       Object.keys(buckets[tmk]).forEach(function(cat){
-        let row=monthRows.find(function(r){ return !r.parentId&&r.label===cat; });
+        let row=monthRows.find(function(r){ return !r.parentId&&!_isLinkedRow(r)&&r.label===cat; });
         if(!row){
           if(monthRows.filter(function(r){ return !r.parentId; }).length>=MAX_ROWS){ monthsCapped++; return; }
           row={ id:uid(), label:cat, color:CAT_COLORS[cat]||'#e5e7eb', textColor:'#1f2937', height:36, parentId:null };
