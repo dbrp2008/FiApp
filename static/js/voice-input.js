@@ -1093,7 +1093,7 @@ window.VoiceInput = (function () {
     picker.id = '_vi-cat-picker'; picker.className = 'voice-cat-picker';
     picker.innerHTML =
       '<div class="voice-cat-picker-header">' +
-        '<button id="_vi-cat-back" class="voice-btn-cancel" style="flex:none;padding:.5rem .75rem;">←</button>' +
+        '<button id="_vi-cat-back" class="voice-btn-cancel" style="flex:none;padding:.5rem .75rem;" aria-label="Back">←</button>' +
         '<input type="search" id="_vi-cat-search" placeholder="Search…" autocomplete="off">' +
       '</div>' +
       '<ul id="_vi-cat-list" class="voice-cat-list"></ul>';
