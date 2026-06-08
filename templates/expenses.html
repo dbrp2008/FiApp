@@ -416,9 +416,9 @@
         <button id="share-btn">📤 Share</button>
         <button id="export-btn">📥 Export</button>
         <button id="paste-btn">📋 Paste</button>
-        <button id="import-btn">📂 Import</button>
       </div>
     </div>
+    <button class="btn btn-sm" id="import-btn" data-wt="expenses-import">📂 Import</button>
     <button class="btn btn-sm btn-ghost" id="expand-btn" style="display:none">▾ Expand All</button>
     <button class="btn btn-sm btn-ghost" id="collapse-btn" style="display:none">▸ Collapse All</button>
     <span id="export-flash" class="export-flash"></span>
@@ -462,7 +462,8 @@
         <li>Add expense categories as rows via <strong>Table ▾ → + Row</strong>; add subcategories with <strong>+Sub</strong> on any row.</li>
         <li>Enter spending amounts per cell and navigate months with the <strong>◀ Prev / Next ▶</strong> buttons.</li>
         <li><strong>Undo/Redo</strong> via Ctrl+Z / Ctrl+Y or the ↩↪ toolbar buttons (history persists across page visits).</li>
-        <li>Use the <strong>Share ▾</strong> menu to share a snapshot, export to CSV/JSON, or paste imported data.</li>
+        <li>Use the <strong>Share ▾</strong> menu to share a snapshot, export to CSV/JSON, or paste a FiApp data blob.</li>
+        <li>Use the <strong>📂 Import</strong> button to bring in transactions from a bank export (.ofx/.qfx/.qif) or a spreadsheet (.csv) — map columns, assign categories once, and FiApp remembers your choices for next time.</li>
         <li>Set your gross income and monthly tax in the <strong>Monthly Budget</strong> panel above the table to track remaining budget.</li>
         <li>Click <strong>🎯</strong> next to any row total to set a monthly spending limit - the total turns <span style="color:#22c55e;font-weight:700">green</span> / <span style="color:#f59e0b;font-weight:700">amber</span> / <span style="color:#ef4444;font-weight:700">red</span> as spending approaches or exceeds your goal.</li>
         <li><strong>Forecast mode</strong>: future months let you project spend or copy/average last month's values.</li>
