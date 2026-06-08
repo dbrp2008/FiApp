@@ -115,6 +115,9 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   function _buildSavePayload() {
     var blob = null;
     try { blob = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (_) {}
+    if (!blob || typeof blob !== 'object' || !Array.isArray(blob.rows)) {
+      blob = opts.getState ? opts.getState() : blob;
+    }
     return JSON.stringify({ data: blob, base_version: _baseVersion });
   }
 
