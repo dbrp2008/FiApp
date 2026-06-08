@@ -42,18 +42,66 @@ function _deepEqual(a, b) {
   return true;
 }
 
+// Merges two arrays of {id,...} objects (rows or columns) by unioning on `id`,
+// preserving each side's ordering for items it contributed and appending any
+// items the other side added that it doesn't have. Items present on both sides
+// keep the local version (the side currently trying to save — the freshest
+// edit from the user's perspective).
+//
+// Why this matters: bulk operations (CSV/OFX import, paste, "+Row"/"+Column",
+// copy-from-previous-month) create NEW rows/cols *and* new cells in the same
+// state mutation. Taking rows/cols wholesale from the server would silently
+// drop those newly-created rows/cols on a 409, while the cell-merge logic below
+// (which operates on `cells`/`cellTimes` independently) keeps the values that
+// reference them — leaving orphaned cells that point at rows/cols which no
+// longer exist, and are therefore permanently invisible in the UI.
+function _mergeIdArrays(localArr, serverArr) {
+  var local  = Array.isArray(localArr)  ? localArr  : [];
+  var server = Array.isArray(serverArr) ? serverArr : [];
+  var byId = {};
+  var order = [];
+  server.forEach(function(item) {
+    if (item && item.id != null && !Object.prototype.hasOwnProperty.call(byId, item.id)) {
+      byId[item.id] = item; order.push(item.id);
+    }
+  });
+  local.forEach(function(item) {
+    if (!item || item.id == null) return;
+    if (!Object.prototype.hasOwnProperty.call(byId, item.id)) order.push(item.id);
+    byId[item.id] = item; // local wins when both sides have this id
+  });
+  return order.map(function(id) { return byId[id]; });
+}
+
+// Same id-union merge, applied per month-key for rowsByMonth/colsByMonth maps.
+function _mergeArraysByMonth(localMap, serverMap) {
+  var local  = (localMap  && typeof localMap  === 'object') ? localMap  : {};
+  var server = (serverMap && typeof serverMap === 'object') ? serverMap : {};
+  var out = {};
+  Object.keys(server).forEach(function(mk) { out[mk] = server[mk]; });
+  Object.keys(local).forEach(function(mk) { out[mk] = _mergeIdArrays(local[mk], server[mk]); });
+  return out;
+}
+
 // Merges a local tracker blob with the server's blob after a 409 conflict.
 //   - cells/cellTimes: union of keys; whichever side has the strictly-newer cellTimes
 //     entry wins (a key absent from `cells` but present in `cellTimes` is a deletion);
 //     ties prefer whichever side actually has a value, then fall back to the server.
-//   - Every other field (rows, cols, goals, rowsByMonth, income, collapsed, ...) is
-//     taken wholesale from the server's blob — EXCEPT currentYear/currentMonth, which
-//     (mirroring loadFromServer's existing stale-reload behavior below) stay on the
-//     local device's own choice, since they're per-device viewing state, not synced data.
+//   - rows/cols/rowsByMonth/colsByMonth: id-union merge (see _mergeIdArrays) so that
+//     bulk operations which add new rows/cols can't have those additions clobbered.
+//   - Every other field (goals, income, collapsed, ...) is taken wholesale from the
+//     server's blob — EXCEPT currentYear/currentMonth, which (mirroring loadFromServer's
+//     existing stale-reload behavior below) stay on the local device's own choice,
+//     since they're per-device viewing state, not synced data.
 function _mergeTrackerBlobs(localBlob, serverBlob) {
   var local  = (localBlob  && typeof localBlob  === 'object') ? localBlob  : {};
   var server = (serverBlob && typeof serverBlob === 'object') ? serverBlob : local;
   var merged = JSON.parse(JSON.stringify(server));
+
+  if (local.rows  || server.rows)  merged.rows = _mergeIdArrays(local.rows, server.rows);
+  if (local.cols  || server.cols)  merged.cols = _mergeIdArrays(local.cols, server.cols);
+  if (local.rowsByMonth || server.rowsByMonth) merged.rowsByMonth = _mergeArraysByMonth(local.rowsByMonth, server.rowsByMonth);
+  if (local.colsByMonth || server.colsByMonth) merged.colsByMonth = _mergeArraysByMonth(local.colsByMonth, server.colsByMonth);
 
   var localCells  = local.cells      || {};
   var localTimes  = local.cellTimes  || {};
