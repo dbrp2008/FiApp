@@ -416,9 +416,9 @@ function renderAll(){
 
       
       const nav=document.createElement('div'); nav.className='slideshow-nav';
-      const prev=document.createElement('button'); prev.className='slideshow-nav-btn'; prev.textContent='◀';
+      const prev=document.createElement('button'); prev.className='slideshow-nav-btn'; prev.textContent='◀'; prev.setAttribute('aria-label','Previous chart');
       const lbl=document.createElement('span'); lbl.className='slideshow-lbl'; lbl.id=slideEl.id+'-lbl';
-      const next=document.createElement('button'); next.className='slideshow-nav-btn'; next.textContent='▶';
+      const next=document.createElement('button'); next.className='slideshow-nav-btn'; next.textContent='▶'; next.setAttribute('aria-label','Next chart');
       nav.appendChild(prev); nav.appendChild(lbl); nav.appendChild(next);
       slideEl.insertBefore(nav, slideEl.firstChild);
 
@@ -568,7 +568,7 @@ function renderStatCards(){
     var bar=document.createElement('div');
     bar.style.cssText='display:flex;justify-content:flex-end;margin-bottom:.35rem;';
     var btn=document.createElement('button');
-    btn.className='btn-ghost btn-sm'; btn.textContent='⚙ Customize';
+    btn.className='btn-ghost btn-sm'; btn.innerHTML='<span aria-hidden="true">⚙</span> Customize';
     btn.onclick=function(){toggleStatPanel('stat-panel-spend');};
     bar.appendChild(btn);
     var panel=document.createElement('div');
@@ -611,7 +611,7 @@ function renderSubStatCards(){
     var bar=document.createElement('div');
     bar.style.cssText='display:flex;justify-content:flex-end;margin-bottom:.35rem;';
     var btn=document.createElement('button');
-    btn.className='btn-ghost btn-sm'; btn.textContent='⚙ Customize';
+    btn.className='btn-ghost btn-sm'; btn.innerHTML='<span aria-hidden="true">⚙</span> Customize';
     btn.onclick=function(){toggleStatPanel('stat-panel-sub');};
     bar.appendChild(btn);
     var panel=document.createElement('div');
@@ -622,6 +622,10 @@ function renderSubStatCards(){
 }
 
 
+function _setChartAria(canvas, label){
+  canvas.setAttribute('role','img');
+  canvas.setAttribute('aria-label', label);
+}
 function _chartNoData(canvas, msg){
   destroyChart(canvas.id.replace('chart-',''));
   const ctx=canvas.getContext('2d');
@@ -629,6 +633,7 @@ function _chartNoData(canvas, msg){
   const muted=getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()||'#9ca3af';
   ctx.fillStyle=muted; ctx.font='14px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(msg||'No data yet', canvas.width/2, canvas.height/2);
+  _setChartAria(canvas, msg||'No data yet');
 }
 
 function renderTrendChart(){
@@ -687,6 +692,9 @@ function renderTrendChart(){
       y:{beginAtZero:true,stacked:trendType==='bar',ticks:{color:_cTc.fg,callback:v=>fmtMoneyShort(v)},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
     }}
   });
+  let _peakIdx=-1,_peakVal=-1;
+  actualVals.forEach((v,i)=>{ if(v!=null&&v>_peakVal){_peakVal=v;_peakIdx=i;} });
+  _setChartAria(trendCanvas,'Spending trend, '+labels[0]+'–'+labels[labels.length-1]+(_peakIdx>=0?'. Peak: '+fmtMoney(_peakVal)+' in '+labels[_peakIdx]:'')+'.');
 }
 
 
@@ -728,6 +736,7 @@ function renderBreakdownChart(){
             y:{beginAtZero:true,ticks:{color:_cTc.fg,callback:v=>fmtMoneyShort(v)},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
           }}};
     charts['breakdown']=new Chart(breakCanvas,cfg);
+    _setChartAria(breakCanvas,'Category breakdown. Top: '+sorted[0][0]+', '+fmtMoney(sorted[0][1].value)+' ('+(sorted[0][1].value/total*100).toFixed(0)+'% of '+fmtMoney(total)+' total).');
     const card=document.getElementById('card-breakdown');
     let list=card.querySelector('.insight-list');
     if(!list){ list=document.createElement('ul'); list.className='insight-list'; card.appendChild(list); }
@@ -772,6 +781,7 @@ function renderCatTrendsChart(){
         y:{beginAtZero:true,ticks:{color:_cTc.fg,callback:v=>fmtMoneyShort(v)},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
       }}
     });
+    _setChartAria(catTrendsCanvas,'Category trends over '+_cm.length+' months. Top category: '+entries[0].label+', total '+fmtMoney(entries[0].total)+'.');
   }
 }
 
@@ -799,6 +809,9 @@ function renderSavingsChart(){
         y:{beginAtZero:true,ticks:{color:_cTc.fg,callback:v=>fmtMoneyShort(v)},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
       }}
     });
+    const _totInc=incMonths.reduce((a,m)=>a+(_monthIncomes[m]||0),0);
+    const _totExp=incMonths.reduce((a,m)=>a+(_monthTotals[m]||0),0);
+    _setChartAria(savingsCanvas,'Income vs expenses over '+incMonths.length+' month'+(incMonths.length!==1?'s':'')+': total income '+fmtMoney(_totInc)+', total expenses '+fmtMoney(_totExp)+'.');
   }
 }
 
@@ -836,6 +849,7 @@ function renderSubBreakChart(){
           y:{ticks:{color:_cTc.fg},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
         }}};
   charts['subbreak']=new Chart(subBreakCanvas,subCfg);
+  _setChartAria(subBreakCanvas,'Subscription cost breakdown, '+_subRows.length+' subscription'+(_subRows.length!==1?'s':'')+' totaling '+fmtMoney(total)+'/month. Largest: '+sorted[0].name+', '+fmtMoney(sorted[0].monthly)+'/mo.');
   const card=document.getElementById('card-subbreak');
   let list=card.querySelector('.insight-list');
   if(!list){ list=document.createElement('ul'); list.className='insight-list'; card.appendChild(list); }
@@ -884,6 +898,7 @@ function renderSubTrendChart(){
       y:{beginAtZero:true,ticks:{color:_cTc.fg,callback:v=>fmtMoneyShort(v)},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
     }}
   });
+  _setChartAria(subTrendCanvas,'Subscription cost trend, '+labels[0]+'–'+labels[labels.length-1]+'. Latest: '+fmtMoney(costs[costs.length-1])+'/mo.');
 }
 
 
