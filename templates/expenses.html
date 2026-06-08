@@ -29,6 +29,10 @@
     .month-nav button{background:var(--secondary-bg);color:var(--fg);border:none;border-radius:6px;cursor:pointer;padding:.3rem .8rem;font-size:.9rem;}
     .month-nav button:hover{background:var(--secondary-hover);}
     .month-nav button:disabled{opacity:.35;cursor:not-allowed;}
+    /* W2: quiet one-line context note explaining the per-month "fork" —
+       deliberately plain text, not a banner, so it doesn't compete with
+       forecast-bar/close-bar (which need attention; this is just orientation). */
+    .month-context-note{display:none;font-size:.78rem;color:var(--muted);margin:-.25rem 0 .65rem;}
 
     
     .income-panel{background:var(--total-soft);border:1px solid var(--success-border);border-radius:8px;padding:.9rem 1.1rem;margin-bottom:.75rem;}
@@ -62,6 +66,12 @@
     .forecast-bar p{margin:0;font-size:.83rem;color:#92400e;flex:1;font-weight:500;}
     html.dark .forecast-bar p{color:#fde68a;}
     html.theme-midnight .forecast-bar p{color:#fde68a;}
+    /* High-contrast overspend nudge — deliberately stronger than the gentle
+       amber forecast/recommendation banners; this is the one "firm" signal. */
+    .overspend-nudge{display:none;background:#fee2e2;border:1.5px solid #ef4444;border-radius:8px;padding:.65rem 1rem;margin-bottom:.75rem;align-items:center;gap:.6rem;flex-wrap:wrap;}
+    html.dark .overspend-nudge,html.theme-midnight .overspend-nudge{background:#450a0a4d;border-color:#ef444466;}
+    .overspend-nudge p{margin:0;font-size:.83rem;color:#991b1b;flex:1;font-weight:600;}
+    html.dark .overspend-nudge p,html.theme-midnight .overspend-nudge p{color:#fca5a5;}
     table.sheet.forecast tbody td:not(.rh-cell){font-style:italic;}
     .income-panel.forecast-panel{background:#fffbeb;border-color:#fde68a;}
     html.dark .income-panel.forecast-panel{background:#451a03;border-color:#78350f;}
@@ -318,6 +328,7 @@
     <select id="month-jump" class="month-jump" onchange="jumpToMonth(this.value)"></select>
     <button id="next-btn">Next ▶</button>
   </div>
+  <p class="month-context-note" id="month-context-note"></p>
   <div style="margin-bottom:.5rem;">
     <button class="btn-ghost btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
     <button class="btn-ghost btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
@@ -329,9 +340,9 @@
     <button onclick="openCloseModal()" class="btn btn-sm" style="flex-shrink:0">Review &amp; close ✓</button>
   </div>
   <!-- Monthly Close Modal -->
-  <div id="close-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
+  <div id="close-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="close-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
     <div style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:14px;padding:1.5rem;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.25);">
-      <h2 style="font-size:1rem;font-weight:700;margin:0 0 .75rem">Close this month?</h2>
+      <h2 id="close-modal-title" style="font-size:1rem;font-weight:700;margin:0 0 .75rem">Close this month?</h2>
       <div id="close-modal-body" style="font-size:.9rem;color:var(--fg);line-height:1.6;margin-bottom:1rem;"></div>
       <div style="display:flex;gap:.5rem;justify-content:flex-end">
         <button onclick="cancelClose()" class="btn-ghost btn-sm">Cancel</button>
@@ -346,7 +357,9 @@
     <button class="btn btn-sm" id="forecast-avg-btn">Use 3-month avg</button>
   </div>
 
-  
+  <div class="overspend-nudge" id="overspend-nudge"></div>
+
+
   <div class="income-panel" data-wt="expenses-tax-link">
     <h3>Monthly Budget - <span id="budget-month"></span></h3>
     <p style="font-size:.75rem;color:var(--muted);margin:-.3rem 0 .6rem;">Set a monthly spending limit per category with the 🎯 in the totals column.</p>
@@ -403,6 +416,7 @@
         <button id="share-btn">📤 Share</button>
         <button id="export-btn">📥 Export</button>
         <button id="paste-btn">📋 Paste</button>
+        <button id="import-btn">📂 Import</button>
       </div>
     </div>
     <button class="btn btn-sm btn-ghost" id="expand-btn" style="display:none">▾ Expand All</button>
@@ -427,6 +441,12 @@
   </div>
 
   <div id="template-prompt"></div>
+  <!-- W2: empty-state teaching for goals (🎯) — explains the feature before
+       the user has ever set one; dismissible, never reappears once a goal exists. -->
+  <div id="goal-hint" style="display:none;margin-bottom:.6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;">
+    <span>🎯 <strong>Tip:</strong> click the target icon next to any category's total to set a monthly spending limit — FiApp will track your progress and let you know before you go over.</span>
+    <button id="goal-hint-dismiss" aria-label="Dismiss tip about spending goals" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0">✕</button>
+  </div>
   <!-- Spend trend voice strip -->
   <div id="voice-strip" style="display:none;margin-bottom:.6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;">
     <span id="voice-strip-text"></span>
@@ -446,10 +466,12 @@
         <li>Set your gross income and monthly tax in the <strong>Monthly Budget</strong> panel above the table to track remaining budget.</li>
         <li>Click <strong>🎯</strong> next to any row total to set a monthly spending limit - the total turns <span style="color:#22c55e;font-weight:700">green</span> / <span style="color:#f59e0b;font-weight:700">amber</span> / <span style="color:#ef4444;font-weight:700">red</span> as spending approaches or exceeds your goal.</li>
         <li><strong>Forecast mode</strong>: future months let you project spend or copy/average last month's values.</li>
+        <li><strong>Each month has its own categories and columns</strong> — adding, renaming, or removing a row in one month doesn't change any other month. Use <strong>📋 Copy rows/cols from previous month</strong> to bring a setup forward instead of rebuilding it.</li>
+        <li>A row marked <strong>→ Subscriptions</strong> is <strong>linked</strong>: its amount is filled in automatically from your Subscription Tracker, so you don't enter it twice — edit it there, not here.</li>
       </ul>
     </div>
     <div class="share-actions"><button class="btn btn-sm" id="help-close-btn">✕ Close</button></div>
   </div>
 </div>
 {% endblock %}
-{% block body_scripts %}<script src="/static/js/expenses.js?v=20260607"></script><script src="/static/js/voice-input.js"></script><script>VoiceInput && VoiceInput.init('expenses');</script>{% endblock %}
+{% block body_scripts %}<script src="/static/js/expenses.js?v=20260607"></script><script src="/static/js/import.js?v=20260608"></script><script src="/static/js/voice-input.js"></script><script>VoiceInput && VoiceInput.init('expenses');</script>{% endblock %}
