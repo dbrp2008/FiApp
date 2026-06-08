@@ -291,6 +291,35 @@
       gap: .5rem;
     }
     html.dark .snap-renewal { background: #451a0333; color: #fcd34d; border-color: #f59e0b33; }
+    /* Overspend nudge — deliberately higher-contrast than the gentle amber
+       banners above; this is the one "firm" trajectory signal (W6). */
+    .snap-nudge {
+      background: #fee2e2;
+      border: 1.5px solid #ef4444;
+      border-radius: 10px;
+      padding: .7rem 1.1rem;
+      margin: .6rem 0;
+      font-size: .85rem;
+      font-weight: 600;
+      color: #991b1b;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+    html.dark .snap-nudge { background: #450a0a4d; color: #fca5a5; border-color: #ef444466; }
+    .snap-nudge-dismiss {
+      margin-left: auto;
+      font-size: .78rem;
+      font-weight: 600;
+      padding: .25rem .65rem;
+      border-radius: 999px;
+      border: 1.5px solid #991b1b55;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+    html.dark .snap-nudge-dismiss { border-color: #fca5a555; }
     /* Win card */
     .snap-win {
       font-size: .82rem;
@@ -564,9 +593,9 @@
   // ── Helper: earned identity badge ──
   function earnedBadges() {
     var badges = [];
-    // Streak: history dimension (independent of current-month behaviour)
+    // Streak is shown separately (and less prominently) via .snap-streak in
+    // the card body — not duplicated here as a header badge.
     var streak = trackingStreak();
-    if(streak >= 2) badges.push('🔥 ' + streak + '-month streak');
     var hasExp  = currentMonthCellCount() > 0;
     var hasInc  = grossForMonth(cmk) > 0;
     var hasSubs = subs && subs.rows && subs.rows.length > 0;
@@ -707,6 +736,10 @@
       }
       html += '</div>';
 
+      // Overspend nudge — the one firm/trajectory signal (W6); shown before
+      // the gentler win-card so the actionable item surfaces first.
+      html += '<div id="snap-nudge-slot"></div>';
+
       // Component 5: Win card placeholder (Phase 4d will populate)
       html += '<div id="snap-win-slot"></div>';
 
@@ -797,6 +830,69 @@
     slot.innerHTML='<div class="snap-renewal">⚠ <strong>'+escapeHtml(first.name)+'</strong> renews '+when+extra+' — <a href="/subscriptions" style="color:#92400e;font-weight:600">Review subscriptions →</a></div>';
   })();
 
+  // W6: Overspend nudge — pace-vs-calendar projection for the live current
+  // month (mirrors computeOverspendNudge() in expenses.js; shares its
+  // dismissal keys so dismissing on one page dismisses on the other).
+  (function(){
+    var slot = document.getElementById('snap-nudge-slot');
+    if(!slot) return;
+    // cmk is always todayMK() on this page (the snapshot isn't month-navigable
+    // like the trackers), so it's already "the month in progress" by definition.
+    var now = new Date();
+    var daysPassed = now.getDate();
+    if(daysPassed < 7) return;
+    var daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    var timeFraction = daysPassed / daysInMonth;
+    var MATERIAL_GAP = 0.15;
+
+    function dismissKey(scopeKey){ return 'fiapp_nudge_dismissed_' + cmk + '_' + scopeKey; }
+
+    var worst = null;
+    if(exp && exp.goals){
+      var nCols = (exp.colsByMonth && exp.colsByMonth[cmk]) || exp.cols || [];
+      var nRows = (exp.rowsByMonth && exp.rowsByMonth[cmk] && exp.rowsByMonth[cmk].length > 0) ? exp.rowsByMonth[cmk] : (exp.rows || []);
+      var nCells = (exp.cells || {});
+      Object.keys(exp.goals).forEach(function(gk){
+        if(!gk.startsWith(cmk + '|')) return;
+        var rowId4 = gk.split('|')[1];
+        var goalAmt = parseFloat(exp.goals[gk]) || 0;
+        if(!goalAmt) return;
+        var row4 = nRows.find(function(rr){ return rr.id === rowId4; });
+        if(!row4) return;
+        var spent4 = 0;
+        nCols.forEach(function(col){ spent4 += parseFloat(nCells[cmk + '|' + rowId4 + '|' + col.id] || 0) || 0; });
+        if(spent4 <= 0) return;
+        var projected4 = (spent4 / daysPassed) * daysInMonth;
+        var overBy4 = projected4 - goalAmt;
+        if(overBy4 <= 0) return;
+        if((spent4 / goalAmt) - timeFraction <= MATERIAL_GAP) return;
+        if(!worst || overBy4 > worst.overBy) worst = {scope:'cat', scopeKey:rowId4, name:row4.label, projected:projected4, overBy:overBy4, limit:goalAmt};
+      });
+    }
+    if(!worst && gross > 0 && spent > 0){
+      var projectedT = (spent / daysPassed) * daysInMonth;
+      var overByT = projectedT - gross;
+      if(overByT > 0 && (spent / gross) - timeFraction > MATERIAL_GAP){
+        worst = {scope:'overall', scopeKey:'overall', name:null, projected:projectedT, overBy:overByT, limit:gross};
+      }
+    }
+    if(!worst) return;
+    if(localStorage.getItem(dismissKey(worst.scopeKey))) return;
+
+    var msg = worst.scope === 'cat'
+      ? 'At this pace you\'ll spend ~' + fmtMoney(worst.projected) + ' on ' + escapeHtml(worst.name) + ' by month-end — ~' + fmtMoney(worst.overBy) + ' over your ' + fmtMoney(worst.limit) + ' goal.'
+      : 'At this pace you\'ll spend ~' + fmtMoney(worst.projected) + ' this month — ~' + fmtMoney(worst.overBy) + ' more than your ' + fmtMoney(worst.limit) + ' income.';
+    var dismissLabel = worst.scope === 'cat' ? ('Dismiss overspend nudge for ' + worst.name + ' this month') : 'Dismiss overspend nudge for this month';
+    slot.innerHTML = '<div class="snap-nudge">⚠ <strong>Heads up —</strong> ' + msg +
+      ' <a href="/expenses" style="color:#991b1b;font-weight:700">Review →</a>' +
+      ' <button type="button" class="snap-nudge-dismiss" aria-label="' + escapeHtml(dismissLabel) + '">Dismiss</button></div>';
+    var dBtn = slot.querySelector('.snap-nudge-dismiss');
+    if(dBtn) dBtn.onclick = function(){
+      localStorage.setItem(dismissKey(worst.scopeKey), '1');
+      slot.innerHTML = '';
+    };
+  })();
+
   // Phase 4d: Win cards — most recently completed month
   (function(){
     var winSlot = document.getElementById('snap-win-slot');
@@ -804,6 +900,19 @@
     // Only show in State C or D — slot exists only when injected above
     var prevMonth = pmk; // the most recently completed calendar month
     var wins = [];
+
+    // Anti-gaming guard for outcome wins that compare income vs spend: a month
+    // only counts once it has real expense data, not just a logged income figure
+    // (blocks a misleading "100% saved" from logging income and nothing else).
+    var MIN_EXPENSE_ENTRIES = 3;
+    function expenseEntryCount(mk2) {
+      var cells2 = (exp && exp.cells) || {};
+      var n = 0;
+      Object.keys(cells2).forEach(function(k){
+        if(k.indexOf(mk2 + '|') === 0 && (parseFloat(cells2[k]) || 0) > 0) n++;
+      });
+      return n;
+    }
 
     // Win 1: Goals met (categories under budget)
     if(exp && exp.goals) {
@@ -845,7 +954,7 @@
     if(!prevGross && inc && inc.months && inc.months[prevMonth]) {
       prevGross = parseFloat(inc.months[prevMonth].gross || inc.months[prevMonth].total) || 0;
     }
-    if(prevGross > 0) {
+    if(prevGross > 0 && expenseEntryCount(prevMonth) >= MIN_EXPENSE_ENTRIES) {
       var prevSpent2 = 0, savingsRowTotal = 0;
       var prevRows2 = (exp && exp.rowsByMonth && exp.rowsByMonth[prevMonth] && exp.rowsByMonth[prevMonth].length > 0)
         ? exp.rowsByMonth[prevMonth] : (exp && exp.rows) || [];
@@ -864,6 +973,16 @@
       if(freeRate > 0.20) wins.push('🟢 Only ' + Math.round((1 - freeRate) * 100) + '% of your income was budgeted last month.');
     }
 
+    // Win 4: Positive cash-flow streak — consecutive complete months (ending
+    // at prevMonth) where logged income exceeded logged spend.
+    var spendByMonth = combinedMonthTotals(exp, subs, allMonths2);
+    var pcfStreak = 0, walkMk = prevMonth;
+    while(grossForMonth(walkMk) > (spendByMonth[walkMk] || 0) && expenseEntryCount(walkMk) >= MIN_EXPENSE_ENTRIES) {
+      pcfStreak++;
+      walkMk = prevMK(walkMk);
+    }
+    if(pcfStreak >= 2) wins.push('📈 You spent less than you earned for ' + pcfStreak + ' months in a row.');
+
     if(!wins.length) return;
     winSlot.innerHTML = '<div class="snap-win">' + wins.join(' ') + '</div>';
   })();
@@ -880,8 +999,8 @@
 
   const wrap = document.querySelector('.cards');
   const nav = document.createElement('div'); nav.className='deck-nav';
-  const prevBtn = document.createElement('button'); prevBtn.className='deck-arrow'; prevBtn.textContent='◀';
-  const nextBtn = document.createElement('button'); nextBtn.className='deck-arrow'; nextBtn.textContent='▶';
+  const prevBtn = document.createElement('button'); prevBtn.className='deck-arrow'; prevBtn.textContent='◀'; prevBtn.setAttribute('aria-label','Previous card');
+  const nextBtn = document.createElement('button'); nextBtn.className='deck-arrow'; nextBtn.textContent='▶'; nextBtn.setAttribute('aria-label','Next card');
   const dotsWrap = document.createElement('div'); dotsWrap.className='deck-dots';
   cards.forEach(()=>{ const d=document.createElement('span'); d.className='deck-dot'; dotsWrap.appendChild(d); });
   nav.appendChild(prevBtn); nav.appendChild(dotsWrap); nav.appendChild(nextBtn);
