@@ -50,7 +50,7 @@
     }
     .change-form input:focus { outline: none; border-color: var(--accent); }
     .btn-primary {
-      background: var(--accent);
+      background: var(--accent-strong);
       color: #fff;
       padding: .6rem 1.1rem;
       border: none;
@@ -78,6 +78,35 @@
       background: var(--success-bg, #dcfce7);
       border: 1px solid var(--success-border, #86efac);
       color: var(--success-fg, #166534);
+    }
+
+    .pw-checklist {
+      list-style: none;
+      margin: .35rem 0 0;
+      padding: 0;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    .pw-checklist li { margin: .1rem 0; }
+    .pw-checklist li::before { content: '○ '; }
+    .pw-checklist li.met { color: var(--success-fg, #16a34a); }
+    .pw-checklist li.met::before { content: '✓ '; }
+
+    .rev-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      padding: .5rem 0;
+      border-bottom: 1px solid var(--panel-border);
+      font-size: .85rem;
+      color: var(--fg);
+    }
+    .rev-row:last-child { border-bottom: none; }
+    .rev-empty, .rev-loading {
+      font-size: .85rem;
+      color: var(--muted);
+      padding: .3rem 0;
     }
 
     .danger-card {
@@ -184,7 +213,12 @@
       </div>
       <div>
         <label for="new-pw">New password</label>
-        <input type="password" id="new-pw" placeholder="At least 6 characters" minlength="6" autocomplete="new-password" />
+        <input type="password" id="new-pw" placeholder="Min 8 chars, 1 uppercase, 1 number" minlength="8" autocomplete="new-password" />
+        <ul id="new-pw-checklist" class="pw-checklist">
+          <li data-rule="len">8–128 characters</li>
+          <li data-rule="upper">One uppercase letter</li>
+          <li data-rule="num">One number</li>
+        </ul>
       </div>
       <div>
         <label for="confirm-pw">Confirm new password</label>
@@ -195,9 +229,28 @@
   </div>
 
   <div class="account-card">
-    <h2>📥 Export Data</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download all your expenses, income, and subscription data as a single CSV file.</p>
+    <h2>📥 Export &amp; Backup</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download a CSV for spreadsheets, or a full JSON backup that preserves everything CSV drops — goals, per-row currencies, and multi-month history. Restoring a backup replaces your current data.</p>
     <button class="btn-primary" id="export-csv-btn">Export all data as CSV</button>
+    <button class="btn-primary" id="export-backup-btn" style="margin-left:.5rem;">Download full backup (JSON)</button>
+    <div style="margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--panel-border);">
+      <button class="btn-ghost" id="restore-backup-btn">Restore from backup…</button>
+      <input type="file" id="restore-backup-file" accept="application/json,.json" style="display:none;" />
+      <div class="change-feedback" id="restore-feedback"></div>
+    </div>
+  </div>
+
+  <div class="account-card">
+    <h2>🕐 Version History</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">FiApp keeps your last 20 saves of each tracker. If something looks wrong, step back to an earlier version — your current data stays in this list too, so this can itself be undone.</p>
+    <label for="rev-tracker-select" style="font-size:.85rem;font-weight:600;color:var(--fg);display:block;margin-bottom:.3rem;">Tracker</label>
+    <select id="rev-tracker-select">
+      <option value="expenses">Expenses</option>
+      <option value="subs">Subscriptions</option>
+      <option value="income">Income</option>
+    </select>
+    <div id="rev-list" style="margin-top:.85rem;"></div>
+    <div class="change-feedback" id="rev-feedback"></div>
   </div>
 
   <div class="account-card">
@@ -248,7 +301,7 @@
           <button class="btn-danger" id="del-arm-btn">Delete my account</button>
         </div>
         <div id="delete-confirm-step">
-          <p>Are you absolutely sure? This will permanently delete everything.</p>
+          <p id="delete-confirm-warning" tabindex="-1">Are you absolutely sure? This will permanently delete everything.</p>
           <div class="confirm-btns">
             <button class="btn-danger" id="del-confirm-btn">Yes, delete permanently</button>
             <button class="btn-ghost btn-sm" id="del-cancel-btn">Cancel</button>
@@ -321,6 +374,188 @@ function exportAllCSV(){
   }catch(e){}
 }
 
+// ── Full-state JSON backup/restore (Tier A) ─────────────────────────────
+var BACKUP_TRACKER_MAP={
+  expenses:      {storageKey:'fiapp_expenses_v4', saveApi:'/api/save/expenses'},
+  subscriptions: {storageKey:'fiapp_subs_v4',     saveApi:'/api/save/subs'},
+  income:        {storageKey:'fiapp_income_v1',   saveApi:'/api/save/income'}
+};
+
+function exportFullBackup(){
+  const backup={fiapp_backup_version:1, exported_at:new Date().toISOString(), trackers:{}};
+  Object.entries(BACKUP_TRACKER_MAP).forEach(function(entry){
+    const name=entry[0], storageKey=entry[1].storageKey;
+    try{
+      const raw=localStorage.getItem(storageKey);
+      if(raw) backup.trackers[name]=JSON.parse(raw);
+    }catch(e){}
+  });
+  const date=new Date().toISOString().slice(0,10);
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='fiapp-backup-'+date+'.json'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function _isValidTrackerBlob(t){
+  return !!t && typeof t==='object' && !Array.isArray(t) && (Array.isArray(t.rows)||t.cells||t.rowsByMonth);
+}
+
+// Validates the whole file before anything is written. Returns the list of
+// tracker names to restore, or null if the file is malformed in any way —
+// we never want to partially apply a backup.
+function _validateBackup(obj){
+  if(!obj||typeof obj!=='object'||!obj.trackers||typeof obj.trackers!=='object') return null;
+  const names=Object.keys(BACKUP_TRACKER_MAP).filter(function(n){
+    return Object.prototype.hasOwnProperty.call(obj.trackers,n);
+  });
+  if(!names.length) return null;
+  for(let i=0;i<names.length;i++){
+    if(!_isValidTrackerBlob(obj.trackers[names[i]])) return null;
+  }
+  return names;
+}
+
+function showRestoreFeedback(msg,type){
+  const el=document.getElementById('restore-feedback');
+  if(!el) return;
+  el.textContent=msg;
+  el.className='change-feedback '+type;
+  el.style.display='block';
+}
+function hideRestoreFeedback(){
+  const el=document.getElementById('restore-feedback');
+  if(!el) return;
+  el.style.display='none'; el.textContent='';
+}
+
+async function restoreFromBackupFile(file){
+  hideRestoreFeedback();
+  if(!file) return;
+  if(file.size>5*1024*1024){ showRestoreFeedback('That file is too large to be a FiApp backup (max 5 MB).','error'); return; }
+
+  let parsed;
+  try{
+    parsed=JSON.parse(await file.text());
+  }catch(e){ showRestoreFeedback('That file is not valid JSON.','error'); return; }
+
+  const names=_validateBackup(parsed);
+  if(!names){ showRestoreFeedback('That file does not look like a valid FiApp backup — nothing was changed.','error'); return; }
+
+  const when=parsed.exported_at?new Date(parsed.exported_at).toLocaleString():'an unknown date';
+  const trackerList=names.join(', ');
+  if(!confirm('This will REPLACE your current data for: '+trackerList+'.\n\nBackup created: '+when+'.\n\nThis cannot be undone. Continue?')) return;
+
+  const btn=document.getElementById('restore-backup-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Restoring…'; }
+  try{
+    // Serialize everything first so a JSON.stringify failure can't leave us
+    // with some keys written and others not (validate-all-then-write-all).
+    const blobs={};
+    names.forEach(function(name){ blobs[name]=JSON.stringify(parsed.trackers[name]); });
+    names.forEach(function(name){
+      localStorage.setItem(BACKUP_TRACKER_MAP[name].storageKey, blobs[name]);
+    });
+    for(const name of names){
+      try{ await apiFetch(BACKUP_TRACKER_MAP[name].saveApi,{method:'POST',body:JSON.stringify({data:parsed.trackers[name],force:true})}); }catch(e){}
+    }
+    showRestoreFeedback('✓ Backup restored. Reloading…','success');
+    setTimeout(function(){ window.location.reload(); },900);
+  }catch(e){
+    showRestoreFeedback('Something went wrong while restoring. Please try again.','error');
+    if(btn){ btn.disabled=false; btn.textContent='Restore from backup…'; }
+  }
+}
+
+// ── Revision history (W3 safety net) ────────────────────────────────────
+// Maps the API's tracker names (matching app.py's _TRACKER_COLUMNS — note
+// "subs", not "subscriptions") to a display label and the localStorage key
+// the live tracker page caches its state under.
+var REV_TRACKERS={
+  expenses: {label:'Expenses',      storageKey:'fiapp_expenses_v4'},
+  subs:     {label:'Subscriptions', storageKey:'fiapp_subs_v4'},
+  income:   {label:'Income',        storageKey:'fiapp_income_v1'}
+};
+
+function showRevFeedback(msg,type){
+  const el=document.getElementById('rev-feedback');
+  if(!el) return;
+  el.textContent=msg;
+  el.className='change-feedback '+type;
+  el.style.display='block';
+}
+function hideRevFeedback(){
+  const el=document.getElementById('rev-feedback');
+  if(!el) return;
+  el.style.display='none'; el.textContent='';
+}
+
+async function loadRevisions(tracker){
+  const list=document.getElementById('rev-list');
+  if(!list) return;
+  hideRevFeedback();
+  list.innerHTML='<div class="rev-loading">Loading…</div>';
+  try{
+    const res=await apiFetch('/api/revisions/'+tracker);
+    if(!res) return;
+    const data=await res.json();
+    if(!res.ok||!data.ok){ list.innerHTML=''; showRevFeedback(data.error||'Could not load version history.','error'); return; }
+    const revisions=data.revisions||[];
+    if(!revisions.length){
+      list.innerHTML='<div class="rev-empty">No earlier versions yet — they\'ll appear here as you keep using FiApp.</div>';
+      return;
+    }
+    list.innerHTML='';
+    revisions.forEach(function(rev){
+      const when=new Date(rev.saved_at).toLocaleString();
+      const row=document.createElement('div');
+      row.className='rev-row';
+      const label=document.createElement('span');
+      label.textContent='Version '+rev.version+' — '+when;
+      const btn=document.createElement('button');
+      btn.className='btn-ghost btn-sm';
+      btn.textContent='Restore';
+      btn.addEventListener('click',function(){ restoreRevision(tracker,rev.version,when,btn); });
+      row.appendChild(label);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }catch(e){
+    list.innerHTML='';
+    showRevFeedback('Network error. Please try again.','error');
+  }
+}
+
+async function restoreRevision(tracker,version,when,btn){
+  const info=REV_TRACKERS[tracker]||{label:tracker};
+  if(!confirm('Replace your current '+info.label+' data with the version from '+when+'?\n\nYour present data stays in this list afterwards, so you can step back again if needed.')) return;
+  hideRevFeedback();
+  const original=btn.textContent;
+  btn.disabled=true; btn.textContent='Restoring…';
+  try{
+    const res=await apiFetch('/api/revisions/'+tracker+'/restore',{
+      method:'POST',
+      body:JSON.stringify({version:version})
+    });
+    if(!res) return;
+    const data=await res.json();
+    if(!res.ok||!data.ok){
+      showRevFeedback(data.error||'Could not restore that version.','error');
+      btn.disabled=false; btn.textContent=original;
+      return;
+    }
+    // The restore endpoint only updates the server copy. Drop our local cache so the
+    // next time this tracker's page loads, loadFromServer() adopts the restored data
+    // unconditionally — its "don't clobber local data" guard exists for routine
+    // background sync, not for a restore the user just explicitly confirmed.
+    if(info.storageKey) localStorage.removeItem(info.storageKey);
+    showRevFeedback('✓ Restored. Reloading…','success');
+    setTimeout(function(){ window.location.reload(); },900);
+  }catch(e){
+    showRevFeedback('Network error. Please try again.','error');
+    btn.disabled=false; btn.textContent=original;
+  }
+}
+
 function _clearAllStorage(){
   FIAPP_USER_KEYS.forEach(function(k){ localStorage.removeItem(k); });
   // Only clear this specific user's walkthrough key — not other users' keys on the same device
@@ -342,12 +577,23 @@ function armDelete(){
   if(!pw){ showDeleteError('Please enter your password first.'); return; }
   document.getElementById('delete-arm-step').style.display='none';
   document.getElementById('delete-confirm-step').style.display='block';
+  // W8c: move focus onto the warning so screen-reader users hear it before
+  // reaching the destructive button; Esc collapses back to the arm step.
+  const warning=document.getElementById('delete-confirm-warning');
+  if(warning) warning.focus();
+  document.addEventListener('keydown',_deleteConfirmEsc);
 }
 
 function cancelDelete(){
   document.getElementById('delete-arm-step').style.display='';
   document.getElementById('delete-confirm-step').style.display='none';
   hideDeleteError();
+  document.removeEventListener('keydown',_deleteConfirmEsc);
+  const armBtn=document.getElementById('del-arm-btn');
+  if(armBtn) armBtn.focus();
+}
+function _deleteConfirmEsc(e){
+  if(e.key==='Escape'){ e.preventDefault(); cancelDelete(); }
 }
 
 async function confirmDelete(){
@@ -430,6 +676,27 @@ function hidePwFeedback(){
   el.style.display='none'; el.textContent='';
 }
 
+function pwIssues(pw){
+  const out=[];
+  if(pw.length<8||pw.length>128) out.push('8–128 characters');
+  if(!/[A-Z]/.test(pw)) out.push('one uppercase letter');
+  if(!/[0-9]/.test(pw)) out.push('one number');
+  return out; // [] === valid
+}
+
+function updatePwChecklist(listEl, pw){
+  if(!listEl) return;
+  const ruleMet={
+    len: pw.length>=8 && pw.length<=128,
+    upper: /[A-Z]/.test(pw),
+    num: /[0-9]/.test(pw)
+  };
+  listEl.querySelectorAll('li').forEach(function(li){
+    const rule=li.getAttribute('data-rule');
+    li.classList.toggle('met', !!ruleMet[rule]);
+  });
+}
+
 async function submitChangePassword(){
   hidePwFeedback();
   const cur=document.getElementById('cur-pw').value;
@@ -437,7 +704,8 @@ async function submitChangePassword(){
   const cp=document.getElementById('confirm-pw').value;
   if(!cur){ showPwFeedback('Please enter your current password.','error'); return; }
   if(!np){ showPwFeedback('Please enter a new password.','error'); return; }
-  if(np.length<6){ showPwFeedback('New password must be at least 6 characters.','error'); return; }
+  const issues=pwIssues(np);
+  if(issues.length){ showPwFeedback('New password needs: '+issues.join(', ')+'.','error'); return; }
   if(np!==cp){ showPwFeedback('New passwords do not match.','error'); return; }
   const btn=document.getElementById('pw-btn');
   btn.disabled=true; btn.textContent='Saving…';
@@ -470,8 +738,29 @@ document.addEventListener('DOMContentLoaded',function(){
   if(changeBtn) changeBtn.addEventListener('click',submitChangeUsername);
   var pwBtn=document.getElementById('pw-btn');
   if(pwBtn) pwBtn.addEventListener('click',submitChangePassword);
+  var newPwInput=document.getElementById('new-pw');
+  var newPwChecklist=document.getElementById('new-pw-checklist');
+  if(newPwInput && newPwChecklist){
+    newPwInput.addEventListener('keyup',function(){ updatePwChecklist(newPwChecklist, newPwInput.value); });
+  }
   var exportBtn=document.getElementById('export-csv-btn');
   if(exportBtn) exportBtn.addEventListener('click',exportAllCSV);
+  var exportBackupBtn=document.getElementById('export-backup-btn');
+  if(exportBackupBtn) exportBackupBtn.addEventListener('click',exportFullBackup);
+  var restoreBtn=document.getElementById('restore-backup-btn');
+  var restoreFile=document.getElementById('restore-backup-file');
+  if(restoreBtn && restoreFile){
+    restoreBtn.addEventListener('click',function(){ restoreFile.click(); });
+    restoreFile.addEventListener('change',function(){
+      const f=restoreFile.files&&restoreFile.files[0];
+      restoreFromBackupFile(f).finally(function(){ restoreFile.value=''; });
+    });
+  }
+  var revSelect=document.getElementById('rev-tracker-select');
+  if(revSelect){
+    loadRevisions(revSelect.value);
+    revSelect.addEventListener('change',function(){ loadRevisions(revSelect.value); });
+  }
   var wtBtn=document.getElementById('wt-acct-btn');
   if(wtBtn) wtBtn.addEventListener('click',function(){window.wtStart();});
   var delArmBtn=document.getElementById('del-arm-btn');
