@@ -295,6 +295,23 @@
       if(fmt==='csv'){
         const rows=parseCSVText(text);
         if(rows.length<2){ status.textContent='⚠ That CSV has no data rows.'; status.className='paste-status bad'; return; }
+        // Reject text that parses but isn't tabular transaction data (code,
+        // templates, prose, ...). A real export has a consistent column count
+        // across its rows — at least 2 columns, shared by most non-blank lines.
+        // Free-form text mostly parses into single-column, wildly varying rows.
+        const lenCounts={}; let nonBlank=0;
+        rows.forEach(function(r){
+          if(!r||r.every(function(c){ return !String(c||'').trim(); })) return;
+          nonBlank++;
+          lenCounts[r.length]=(lenCounts[r.length]||0)+1;
+        });
+        let modeLen=0,modeCount=0;
+        Object.keys(lenCounts).forEach(function(len){ if(lenCounts[len]>modeCount){ modeCount=lenCounts[len]; modeLen=+len; } });
+        if(nonBlank<2||modeLen<2||modeCount/nonBlank<0.7){
+          status.textContent='⚠ That doesn’t look like tabular transaction data — FiApp expects a CSV with consistent columns for date, description, and amount.';
+          status.className='paste-status bad';
+          return;
+        }
         _wiz.csvRows=rows;
         _wiz.step='map'; renderWizStep();
         return;
