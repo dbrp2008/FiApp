@@ -164,16 +164,28 @@
     }
     return '';
   }
-  // Looks for an existing *linked-subscription* row (parentId set — these are the
-  // subcategory rows created when a subscription is linked into the expense tracker)
-  // whose label appears in the transaction description. Used to warn the user that
-  // an imported group may duplicate something already tracked via subscriptions,
-  // since guessCategory() deliberately ignores these rows when matching categories.
+  // Looks for an existing tracked subscription whose service name appears in the
+  // transaction description. Used to warn the user that an imported group may
+  // duplicate something already billed via the Subscriptions tracker.
+  //
+  // Note: linked-subscription rows shown inside the expense tracker (e.g.
+  // "Netflix" under "Subscriptions") are *virtual* — computed at render time by
+  // virtualSubChildren() directly from the Subscriptions tracker's own data, and
+  // never exist as real entries in getRows()/state.rows. So the source of truth
+  // for "what subscriptions does this user track" is the Subscriptions tracker's
+  // own blob, read the same way virtualSubChildren() does (via loadSubsState()
+  // and its text-type "service name" column) — not the expense tracker's rows.
   function findLinkedSubscriptionMatch(sample){
     const hay=(sample||'').toLowerCase();
     if(!hay) return null;
-    const rows=getRows(currentMK());
-    for(const r of rows){ if(r.parentId&&r.label&&hay.includes(r.label.toLowerCase())) return r.label; }
+    const subs=(typeof loadSubsState==='function')?loadSubsState():null;
+    if(!subs||!Array.isArray(subs.rows)||!Array.isArray(subs.cols)) return null;
+    const svcCol=subs.cols.find(function(c){ return c.ctype==='text'; });
+    if(!svcCol) return null;
+    for(const r of subs.rows){
+      const label=subs.cells&&subs.cells[r.id+'|'+svcCol.id];
+      if(label&&hay.includes(String(label).toLowerCase())) return String(label);
+    }
     return null;
   }
   // When the chosen mapping settings produce zero matching transactions, inspect
