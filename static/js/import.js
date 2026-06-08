@@ -10,21 +10,24 @@
 (function(){
   'use strict';
 
-  const SEEN_KEY = 'fiapp_import_seen_v1';   // fingerprint dedup — local only, can grow large
-  const MAP_KEY  = 'fiapp_import_catmap_v1'; // keyword -> category label, remembered across imports
   const MAX_SEEN = 4000;
   const IMPORT_COL_LABEL = 'Imported';
 
   // ── Persisted helpers (plain localStorage; not part of the synced blob — these
   //    are import-assistant memory, not financial data) ──────────────────────
-  function loadSeen(){ try{ return new Set(JSON.parse(localStorage.getItem(SEEN_KEY)||'[]')); }catch(_){ return new Set(); } }
+  // Keyed per-account (window.__currentUser, set by the tracker's startup IIFE
+  // before the wizard can be opened) — otherwise two accounts sharing the same
+  // browser would see each other's "already imported" memory as false positives.
+  function _seenKey(){ return 'fiapp_import_seen_v1_'+(window.__currentUser||'anon'); }
+  function _mapKey(){ return 'fiapp_import_catmap_v1_'+(window.__currentUser||'anon'); }
+  function loadSeen(){ try{ return new Set(JSON.parse(localStorage.getItem(_seenKey())||'[]')); }catch(_){ return new Set(); } }
   function saveSeen(set){
     let arr=[...set];
     if(arr.length>MAX_SEEN) arr=arr.slice(arr.length-MAX_SEEN);
-    try{ localStorage.setItem(SEEN_KEY, JSON.stringify(arr)); }catch(_){}
+    try{ localStorage.setItem(_seenKey(), JSON.stringify(arr)); }catch(_){}
   }
-  function loadCatMap(){ try{ const m=JSON.parse(localStorage.getItem(MAP_KEY)||'{}'); return (m&&typeof m==='object')?m:{}; }catch(_){ return {}; } }
-  function saveCatMap(map){ try{ localStorage.setItem(MAP_KEY, JSON.stringify(map)); }catch(_){} }
+  function loadCatMap(){ try{ const m=JSON.parse(localStorage.getItem(_mapKey())||'{}'); return (m&&typeof m==='object')?m:{}; }catch(_){ return {}; } }
+  function saveCatMap(map){ try{ localStorage.setItem(_mapKey(), JSON.stringify(map)); }catch(_){} }
 
   function fingerprint(t){ return t.date+'|'+t.amount.toFixed(2)+'|'+t.description.trim().toLowerCase(); }
   function keywordFor(desc){
@@ -424,6 +427,9 @@
   // Shared tail of parsing: dedupe against previously-imported fingerprints,
   // group the new ones by merchant keyword, and pre-fill a category guess.
   function finishParsing(txns,badRows){
+    // Stashed so the "forget what's been imported" recovery path (below) can
+    // re-run the dedup pass against a cleared memory without re-parsing the file.
+    _wiz.lastTxns=txns; _wiz.lastBadRows=badRows;
     const seen=loadSeen();
     const fresh=[];
     let dupCount=0;
@@ -465,9 +471,15 @@
     if(!_wiz.txns.length){
       const status=document.createElement('div'); status.className='paste-status ok';
       status.textContent='Nothing new to import — every matching transaction in this file has already been imported.';
+      const hint=document.createElement('p'); hint.className='share-hint';
+      hint.textContent="If you undid a previous import, FiApp's duplicate-detection memory won't know that — it still thinks those transactions are in your tracker. Use the button below to clear that memory, then try again.";
       const actions=document.createElement('div'); actions.className='share-actions';
+      actions.appendChild(mkBtn('Forget previous imports & retry','btn btn-sm btn-ghost',function(){
+        saveSeen(new Set());
+        finishParsing(_wiz.lastTxns,_wiz.lastBadRows);
+      }));
       actions.appendChild(mkBtn('Close','btn btn-sm',function(){ _wiz.overlay.remove(); }));
-      m.appendChild(status); m.appendChild(actions);
+      m.appendChild(status); m.appendChild(hint); m.appendChild(actions);
       return;
     }
 
