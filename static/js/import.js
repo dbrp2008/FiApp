@@ -34,6 +34,7 @@
   const INCOME_STORAGE_KEY='fiapp_income_v1';
   const INCOME_DEFAULT_ROWS=['Salary','Freelance','Investments','Other Income'];
   const INCOME_CAT_COLORS={'Salary':'#bbf7d0','Freelance':'#bfdbfe','Investments':'#fed7aa','Other Income':'#e9d5ff'};
+  const IMPORT_CURRENCIES=['USD','EUR','GBP','CHF','CAD','AUD','JPY','NZD','SEK','NOK','DKK','HKD','SGD','CNY','INR'];
   function _incomeMapKey(){ return 'fiapp_import_income_catmap_v1_'+(window.__currentUser||'anon'); }
   function loadIncomeCatMap(){ try{ const m=JSON.parse(localStorage.getItem(_incomeMapKey())||'{}'); return (m&&typeof m==='object')?m:{}; }catch(_){ return {}; } }
   function saveIncomeCatMap(map){ try{ localStorage.setItem(_incomeMapKey(),JSON.stringify(map)); }catch(_){} }
@@ -276,7 +277,7 @@
 
   function openImportWizard(){
     if(_isClosedMonth(currentMK())){ showToast('🔒 This month is locked — switch to an open month before importing.'); return; }
-    _wiz={ step:'pick', catMap:loadCatMap(), incomeCatMap:loadIncomeCatMap() };
+    _wiz={ step:'pick', catMap:loadCatMap(), incomeCatMap:loadIncomeCatMap(), importCurrency:'USD' };
     const overlay=document.createElement('div'); overlay.className='share-overlay';
     const modal=document.createElement('div'); modal.className='share-modal'; modal.style.maxWidth='640px';
     overlay.appendChild(modal);
@@ -638,7 +639,18 @@
       const incHdr=document.createElement('div');
       incHdr.style.cssText='font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:.6rem .2rem .2rem;';
       incHdr.textContent='Income — routes to income tracker';
-      list.appendChild(incHdr);
+
+      // Currency selector: income rows in the tracker may be set to a specific currency.
+      // Tell us what currency the amounts in this file are in so we write to the right row.
+      const currRow=document.createElement('div');
+      currRow.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.82rem;padding:.1rem .2rem .4rem;flex-wrap:wrap;';
+      const currLbl=document.createElement('span'); currLbl.textContent='Currency of these transactions:';
+      const currSel=selStyleSmall(document.createElement('select'));
+      IMPORT_CURRENCIES.forEach(function(c){ const o=document.createElement('option'); o.value=c; o.textContent=c; currSel.appendChild(o); });
+      currSel.value=_wiz.importCurrency||'USD';
+      currSel.addEventListener('change',function(){ _wiz.importCurrency=currSel.value; });
+      currRow.appendChild(currLbl); currRow.appendChild(currSel);
+      list.appendChild(incHdr); list.appendChild(currRow);
       const incOpts=buildIncomeCategoryOptions();
       _wiz.incomeGroups.forEach(function(g){
         const card=document.createElement('div');
@@ -753,7 +765,7 @@
         incomeBuckets[tmk][g.category].fps.push(t.fp);
       });
     });
-    const ir=_applyIncomeRows(incomeBuckets,seen);
+    const ir=_applyIncomeRows(incomeBuckets,seen,_wiz.importCurrency||'USD');
 
     _wiz.applied={ count:imported+ir.imported, rowsCreated:rowsCreated+ir.rowsCreated, colsCreated:colsCreated+ir.colsCreated, monthsCapped:monthsCapped+ir.monthsCapped, monthsLocked:monthsLocked, months:months.length, incomeMonths:ir.months };
     _wiz.step='done';
@@ -762,7 +774,8 @@
 
   // Write income transaction buckets directly into the income tracker's localStorage blob,
   // then sync to server. Called from doApply(); income.js is not loaded on this page.
-  function _applyIncomeRows(buckets,seen){
+  function _applyIncomeRows(buckets,seen,importCurrency){
+    importCurrency=importCurrency||'USD';
     const monthKeys=Object.keys(buckets).sort();
     let imported=0,rowsCreated=0,colsCreated=0,monthsCapped=0;
 
@@ -779,10 +792,16 @@
         headerColWidth:185,totalColWidth:110,rowsByMonth:{},colsByMonth:{}
       };
     }
-    if(!blob.cells)       blob.cells={};
-    if(!blob.cellTimes)   blob.cellTimes={};
-    if(!blob.rowsByMonth) blob.rowsByMonth={};
-    if(!blob.colsByMonth) blob.colsByMonth={};
+    if(!blob.cells)              blob.cells={};
+    if(!blob.cellTimes)          blob.cellTimes={};
+    if(!blob.rowsByMonth)        blob.rowsByMonth={};
+    if(!blob.colsByMonth)        blob.colsByMonth={};
+    if(!blob.monthRowCurrencies) blob.monthRowCurrencies={};
+
+    // Helper: currency assigned to a row in this month (falls back to tracker display currency)
+    function rowCurrency(tmk,rowId){
+      return blob.monthRowCurrencies[tmk+'|'+rowId]||(blob.displayCurrency||'USD');
+    }
 
     const now=Date.now();
     monthKeys.forEach(function(tmk){
@@ -800,13 +819,45 @@
       }
 
       Object.keys(buckets[tmk]).forEach(function(cat){
-        let row=monthRows.find(function(r){ return !r.parentId&&r.label===cat; });
-        if(!row){
+        // Find or create the top-level category row
+        let isNew=false;
+        let catRow=monthRows.find(function(r){ return !r.parentId&&r.label===cat; });
+        if(!catRow){
           if(monthRows.filter(function(r){ return !r.parentId; }).length>=MAX_ROWS){ monthsCapped++; return; }
-          row={id:uid(),label:cat,color:INCOME_CAT_COLORS[cat]||'#e5e7eb',textColor:'#1f2937',height:36,parentId:null};
-          monthRows.push(row); rowsCreated++;
+          catRow={id:uid(),label:cat,color:INCOME_CAT_COLORS[cat]||'#e5e7eb',textColor:'#1f2937',height:36,parentId:null};
+          monthRows.push(catRow); rowsCreated++; isNew=true;
         }
-        const key=tmk+'|'+row.id+'|'+impCol.id;
+
+        // Determine the row to write the cell into, honouring two constraints:
+        //   1. income.js renders parent rows (with sub-children) as computed sums for every
+        //      column — writing to the parent cell directly is invisible. Must use a child.
+        //   2. The target row's currency must match importCurrency so the tracker converts
+        //      correctly. If no matching row exists, create a sub-row labelled with the
+        //      currency code so the user can see where the imported value landed.
+        const kids=monthRows.filter(function(r){ return r.parentId===catRow.id; });
+        let targetRow;
+        if(kids.length){
+          // Parent has children — find a child whose currency matches, or create one
+          targetRow=kids.find(function(r){ return rowCurrency(tmk,r.id)===importCurrency; });
+          if(!targetRow){
+            targetRow={id:uid(),label:importCurrency,color:catRow.color,textColor:catRow.textColor||'#1f2937',height:32,parentId:catRow.id};
+            monthRows.push(targetRow); rowsCreated++;
+            blob.monthRowCurrencies[tmk+'|'+targetRow.id]=importCurrency;
+          }
+        } else {
+          // No children — use the parent directly if currency matches (or if it was just
+          // created, claim its currency); otherwise create a sub-row with the right currency.
+          if(isNew||rowCurrency(tmk,catRow.id)===importCurrency){
+            blob.monthRowCurrencies[tmk+'|'+catRow.id]=importCurrency;
+            targetRow=catRow;
+          } else {
+            targetRow={id:uid(),label:importCurrency,color:catRow.color,textColor:catRow.textColor||'#1f2937',height:32,parentId:catRow.id};
+            monthRows.push(targetRow); rowsCreated++;
+            blob.monthRowCurrencies[tmk+'|'+targetRow.id]=importCurrency;
+          }
+        }
+
+        const key=tmk+'|'+targetRow.id+'|'+impCol.id;
         const existing=parseFloat(blob.cells[key]||0)||0;
         blob.cells[key]=String(parseFloat((existing+buckets[tmk][cat].sum).toFixed(2)));
         blob.cellTimes[key]=now; // stamp explicitly — income.js's _stampCellTimes isn't available here
