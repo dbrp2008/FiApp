@@ -717,12 +717,13 @@
     });
 
     const months=Object.keys(buckets).sort();
-    let imported=0, rowsCreated=0, colsCreated=0, monthsCapped=0, monthsLocked=0;
+    let imported=0, rowsCreated=0, colsCreated=0, monthsCapped=0;
+    const lockedMonths=[];
     const seen=loadSeen();
 
     snapshot();
     months.forEach(function(tmk){
-      if(_isClosedMonth(tmk)){ monthsLocked++; return; }
+      if(_isClosedMonth(tmk)){ lockedMonths.push(tmk); return; }
       if(!state.rowsByMonth) state.rowsByMonth={};
       if(!state.colsByMonth) state.colsByMonth={};
       if(!state.rowsByMonth[tmk]) state.rowsByMonth[tmk]=getRows(tmk).map(function(r){ return Object.assign({},r); });
@@ -767,7 +768,7 @@
     });
     const ir=_applyIncomeRows(incomeBuckets,seen,_wiz.importCurrency||'USD');
 
-    _wiz.applied={ count:imported+ir.imported, rowsCreated:rowsCreated+ir.rowsCreated, colsCreated:colsCreated+ir.colsCreated, monthsCapped:monthsCapped+ir.monthsCapped, monthsLocked:monthsLocked, months:months.length, incomeMonths:ir.months };
+    _wiz.applied={ count:imported+ir.imported, rowsCreated:rowsCreated+ir.rowsCreated, colsCreated:colsCreated+ir.colsCreated, monthsCapped:monthsCapped+ir.monthsCapped, lockedMonths:lockedMonths, months:months.length, incomeMonths:ir.months };
     _wiz.step='done';
     renderWizStep();
   }
@@ -814,7 +815,7 @@
       // Find or create "Imported" column (same label as expenses for consistency)
       let impCol=monthCols.find(function(c){ return c.label===IMPORT_COL_LABEL; });
       if(!impCol){
-        if(monthCols.length<MAX_COLS){ impCol={id:uid(),label:IMPORT_COL_LABEL,width:100}; monthCols.push(impCol); colsCreated++; }
+        if(monthCols.length<MAX_COLS){ impCol={id:uid(),label:IMPORT_COL_LABEL,width:160}; monthCols.push(impCol); colsCreated++; }
         else { impCol=monthCols[monthCols.length-1]; }
       }
 
@@ -901,7 +902,10 @@
     if(a.rowsCreated) s+=' Created '+a.rowsCreated+' new categor'+(a.rowsCreated===1?'y':'ies')+'.';
     if(a.colsCreated) s+=' Added an "Imported" column to '+a.colsCreated+' month'+(a.colsCreated===1?'':'s')+'.';
     if(a.monthsCapped) s+=' '+a.monthsCapped+' categor'+(a.monthsCapped===1?'y was':'ies were')+' skipped (20-row limit reached for that month).';
-    if(a.monthsLocked) s+=' '+a.monthsLocked+' month'+(a.monthsLocked===1?' was':'s were')+' skipped because '+(a.monthsLocked===1?'it is':'they are')+' closed.';
+    if(a.lockedMonths&&a.lockedMonths.length){
+      const fmtMk=function(mk){ const d=new Date(mk+'-02'); return d.toLocaleString('default',{month:'short',year:'numeric'}); };
+      s+=' Skipped '+a.lockedMonths.map(fmtMk).join(', ')+(a.lockedMonths.length===1?' (closed month)':' (closed months)')+'.';
+    }
     if(a.incomeMonths) s+=' Also sent '+a.incomeMonths+' income month'+(a.incomeMonths===1?'':'s')+' to the income tracker.';
     status.textContent=s;
     const actions=document.createElement('div'); actions.className='share-actions';
