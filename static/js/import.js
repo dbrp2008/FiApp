@@ -733,9 +733,9 @@
 
       let impCol=monthCols.find(function(c){ return c.label===IMPORT_COL_LABEL; });
       if(!impCol){
-        if(monthCols.length<MAX_COLS){ impCol={ id:uid(), label:IMPORT_COL_LABEL, width:100 }; monthCols.push(impCol); colsCreated++; }
+        if(monthCols.length<MAX_COLS){ impCol={ id:uid(), label:IMPORT_COL_LABEL, width:160 }; monthCols.push(impCol); colsCreated++; }
         else { impCol=monthCols[monthCols.length-1]; }
-      }
+      } else if(impCol.width<160){ impCol.width=160; }
 
       Object.keys(buckets[tmk]).forEach(function(cat){
         let row=monthRows.find(function(r){ return !r.parentId&&!_isLinkedRow(r)&&r.label===cat; });
@@ -817,7 +817,7 @@
       if(!impCol){
         if(monthCols.length<MAX_COLS){ impCol={id:uid(),label:IMPORT_COL_LABEL,width:160}; monthCols.push(impCol); colsCreated++; }
         else { impCol=monthCols[monthCols.length-1]; }
-      }
+      } else if(impCol.width<160){ impCol.width=160; }
 
       Object.keys(buckets[tmk]).forEach(function(cat){
         // Find or create the top-level category row
