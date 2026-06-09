@@ -29,6 +29,15 @@
   function loadCatMap(){ try{ const m=JSON.parse(localStorage.getItem(_mapKey())||'{}'); return (m&&typeof m==='object')?m:{}; }catch(_){ return {}; } }
   function saveCatMap(map){ try{ localStorage.setItem(_mapKey(), JSON.stringify(map)); }catch(_){} }
 
+  // Income-specific catmap — kept separate so "PAYROLL" → "Salary" memory never
+  // collides with an expense category of the same keyword.
+  const INCOME_STORAGE_KEY='fiapp_income_v1';
+  const INCOME_DEFAULT_ROWS=['Salary','Freelance','Investments','Other Income'];
+  const INCOME_CAT_COLORS={'Salary':'#bbf7d0','Freelance':'#bfdbfe','Investments':'#fed7aa','Other Income':'#e9d5ff'};
+  function _incomeMapKey(){ return 'fiapp_import_income_catmap_v1_'+(window.__currentUser||'anon'); }
+  function loadIncomeCatMap(){ try{ const m=JSON.parse(localStorage.getItem(_incomeMapKey())||'{}'); return (m&&typeof m==='object')?m:{}; }catch(_){ return {}; } }
+  function saveIncomeCatMap(map){ try{ localStorage.setItem(_incomeMapKey(),JSON.stringify(map)); }catch(_){} }
+
   function fingerprint(t){ return t.date+'|'+t.amount.toFixed(2)+'|'+t.description.trim().toLowerCase(); }
   function keywordFor(desc){
     const w=(desc||'').trim().toUpperCase().split(/[\s,.\-#*\/]+/).filter(Boolean)[0];
@@ -187,6 +196,32 @@
   // for "what subscriptions does this user track" is the Subscriptions tracker's
   // own blob, read the same way virtualSubChildren() does (via loadSubsState()
   // and its text-type "service name" column) — not the expense tracker's rows.
+  function guessIncomeCategory(keyword,sample,catMap){
+    if(catMap[keyword]) return catMap[keyword];
+    const hay=(sample||'').toLowerCase();
+    const hints={
+      'Salary':      ['payroll','salary','wages','direct dep','employer'],
+      'Freelance':   ['freelance','consulting','invoice','client','gig'],
+      'Investments': ['dividend','capital gain','rental','interest','vanguard','fidelity','schwab'],
+      'Other Income':['refund','reimbursement','gift','tax return','cashback']
+    };
+    for(const cat of Object.keys(hints)){
+      if(hints[cat].some(function(s){ return hay.includes(s); })) return cat;
+    }
+    return '';
+  }
+
+  function buildIncomeCategoryOptions(){
+    try{
+      const blob=JSON.parse(localStorage.getItem(INCOME_STORAGE_KEY)||'null');
+      if(blob&&Array.isArray(blob.rows)){
+        const labels=blob.rows.filter(function(r){ return !r.parentId&&r.label; }).map(function(r){ return r.label; });
+        if(labels.length) return labels.sort(function(a,b){ return a.localeCompare(b); });
+      }
+    }catch(_){}
+    return INCOME_DEFAULT_ROWS.slice().sort();
+  }
+
   function findLinkedSubscriptionMatch(sample){
     const hay=(sample||'').toLowerCase();
     if(!hay) return null;
@@ -241,7 +276,7 @@
 
   function openImportWizard(){
     if(_isClosedMonth(currentMK())){ showToast('🔒 This month is locked — switch to an open month before importing.'); return; }
-    _wiz={ step:'pick', catMap:loadCatMap() };
+    _wiz={ step:'pick', catMap:loadCatMap(), incomeCatMap:loadIncomeCatMap() };
     const overlay=document.createElement('div'); overlay.className='share-overlay';
     const modal=document.createElement('div'); modal.className='share-modal'; modal.style.maxWidth='640px';
     overlay.appendChild(modal);
@@ -319,9 +354,10 @@
       let txns;
       try{ txns=(fmt==='ofx')?parseOFX(text):parseQIF(text); }
       catch(e){ status.textContent='⚠ Could not parse that file — is it a valid '+fmt.toUpperCase()+' export?'; status.className='paste-status bad'; return; }
+      const incomeTxnsOfx=txns.filter(function(t){ return t.sign==='credit'; });
       txns=txns.filter(function(t){ return t.sign==='debit'; });
-      if(!txns.length){ status.textContent='⚠ No spending transactions were found in that file.'; status.className='paste-status bad'; return; }
-      finishParsing(txns,0);
+      if(!txns.length&&!incomeTxnsOfx.length){ status.textContent='⚠ No transactions were found in that file.'; status.className='paste-status bad'; return; }
+      finishParsing(txns,incomeTxnsOfx,0);
     });
 
     m.appendChild(desc); m.appendChild(inp); m.appendChild(status); m.appendChild(actions);
@@ -431,7 +467,7 @@
       const dateCol=+dateSel.value, amtCol=+amtSel.value, descCol=+descSel.value;
       const creditCol=creditSel.value===''?-1:+creditSel.value;
       const fmt=fmtSel.value, sign=signSel.value, skip=hasHeader.checked?1:0;
-      const txns=[]; let badRows=0;
+      const txns=[]; const incomeTxns=[]; let badRows=0;
       for(let i=skip;i<rows.length;i++){
         const r=rows[i];
         if(!r||r.every(function(c){ return !String(c||'').trim(); })) continue;
@@ -447,9 +483,7 @@
           if(!isNaN(outAmt)&&outAmt!==0){
             txns.push({ date:iso, amount:Math.abs(outAmt), sign:'debit', description:description });
           } else if(!isNaN(inAmt)&&inAmt!==0){
-            // Recognized income — correctly skipped from the expense import,
-            // not counted as a bad/unreadable row.
-            continue;
+            incomeTxns.push({ date:iso, amount:Math.abs(inAmt), sign:'credit', description:description });
           } else {
             badRows++;
           }
@@ -457,19 +491,22 @@
           const rawAmt=parseFloat(String(r[amtCol]||'').replace(/[^0-9.\-]/g,''));
           if(isNaN(rawAmt)){ badRows++; continue; }
           const sg=applySignConvention(rawAmt,sign);
-          if(sg.sign!=='debit') continue; // only spending lands in the expense tracker
+          if(sg.sign!=='debit'){
+            incomeTxns.push({ date:iso, amount:sg.amount, sign:'credit', description:description });
+            continue;
+          }
           txns.push({ date:iso, amount:sg.amount, sign:sg.sign, description:description });
         }
       }
-      if(!txns.length){
+      if(!txns.length&&!incomeTxns.length){
         const tips=diagnoseMismatch(rows,skip,dateCol,amtCol,fmt,sign,creditCol);
         status.textContent=tips.length
-          ? '⚠ No spending transactions matched those settings. '+tips.join(' ')
-          : '⚠ No spending transactions matched those settings — double-check the column and sign choices.';
+          ? '⚠ No transactions matched those settings. '+tips.join(' ')
+          : '⚠ No transactions matched those settings — double-check the column and sign choices.';
         status.className='paste-status bad'; status.style.display='block';
         return;
       }
-      finishParsing(txns,badRows);
+      finishParsing(txns,incomeTxns,badRows);
     }));
 
     m.appendChild(desc); m.appendChild(tableWrap); m.appendChild(grid); m.appendChild(status); m.appendChild(actions);
@@ -477,10 +514,11 @@
 
   // Shared tail of parsing: dedupe against previously-imported fingerprints,
   // group the new ones by merchant keyword, and pre-fill a category guess.
-  function finishParsing(txns,badRows){
+  // incomeTxns (sign:'credit') are grouped separately and routed to the income tracker.
+  function finishParsing(txns,incomeTxns,badRows){
     // Stashed so the "forget what's been imported" recovery path (below) can
     // re-run the dedup pass against a cleared memory without re-parsing the file.
-    _wiz.lastTxns=txns; _wiz.lastBadRows=badRows;
+    _wiz.lastTxns=txns; _wiz.lastIncomeTxns=incomeTxns||[]; _wiz.lastBadRows=badRows;
     const seen=loadSeen();
     const fresh=[];
     let dupCount=0;
@@ -506,6 +544,27 @@
       g.subsConflict=findLinkedSubscriptionMatch(g.sample);
     });
 
+    // Income grouping — same keyword/fingerprint logic, separate category memory.
+    // Income txns share the same `seen` set: a payroll deposit has a distinct
+    // fingerprint from any expense, so there's no risk of double-routing.
+    const freshIncome=[];
+    (incomeTxns||[]).forEach(function(t){
+      const fp=fingerprint(t);
+      if(!seen.has(fp)) freshIncome.push(Object.assign({},t,{fp:fp}));
+    });
+    const incGroups={};
+    freshIncome.forEach(function(t){
+      const kw=keywordFor(t.description);
+      if(!incGroups[kw]) incGroups[kw]={keyword:kw,sample:t.description,txns:[],total:0};
+      incGroups[kw].txns.push(t); incGroups[kw].total+=t.amount;
+    });
+    _wiz.incomeGroups=Object.keys(incGroups).map(function(k){
+      const g=incGroups[k];
+      g.category=guessIncomeCategory(g.keyword,g.sample,_wiz.incomeCatMap);
+      return g;
+    }).sort(function(a,b){ return b.total-a.total; });
+    _wiz.allIncomeCount=(incomeTxns||[]).length;
+
     _wiz.txns=fresh; _wiz.groups=list;
     _wiz.step='review'; renderWizStep();
   }
@@ -513,13 +572,15 @@
   // Step 3 — review groups, assign/confirm a category for each.
   function renderReviewStep(m){
     const summary=document.createElement('p'); summary.className='share-hint';
-    let s='Found '+_wiz.allCount+' spending transaction'+(_wiz.allCount===1?'':'s')+'.';
+    let s='Found '+_wiz.allCount+' spending transaction'+(_wiz.allCount===1?'':'s');
+    if(_wiz.allIncomeCount) s+=' and '+_wiz.allIncomeCount+' income transaction'+(_wiz.allIncomeCount===1?'':'s');
+    s+='.';
     if(_wiz.dupCount) s+=' '+_wiz.dupCount+' '+(_wiz.dupCount===1?'was':'were')+' already imported (skipped).';
     if(_wiz.badRows) s+=' '+_wiz.badRows+' row'+(_wiz.badRows===1?'':'s')+' could not be read (skipped).';
     summary.textContent=s;
     m.appendChild(summary);
 
-    if(!_wiz.txns.length){
+    if(!_wiz.txns.length&&!(_wiz.incomeGroups&&_wiz.incomeGroups.length)){
       const status=document.createElement('div'); status.className='paste-status ok';
       status.textContent='Nothing new to import — every matching transaction in this file has already been imported.';
       const hint=document.createElement('p'); hint.className='share-hint';
@@ -527,7 +588,7 @@
       const actions=document.createElement('div'); actions.className='share-actions';
       actions.appendChild(mkBtn('Forget previous imports & retry','btn btn-sm btn-ghost',function(){
         saveSeen(new Set());
-        finishParsing(_wiz.lastTxns,_wiz.lastBadRows);
+        finishParsing(_wiz.lastTxns,_wiz.lastIncomeTxns,_wiz.lastBadRows);
       }));
       actions.appendChild(mkBtn('Close','btn btn-sm',function(){ _wiz.overlay.remove(); }));
       m.appendChild(status); m.appendChild(hint); m.appendChild(actions);
@@ -544,7 +605,7 @@
       const card=document.createElement('div'); card.style.cssText='display:flex;flex-direction:column;gap:.35rem;';
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.83rem;flex-wrap:wrap;';
       const info=document.createElement('span'); info.style.cssText='flex:1;min-width:160px;';
-      info.innerHTML='<strong>'+escapeHtml(g.keyword)+'</strong> <span style="color:var(--muted)">— '+escapeHtml(g.sample.slice(0,40))+' · '+g.txns.length+' txn'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2)+'</span>';
+      info.innerHTML='<strong>'+escapeHtml(g.keyword)+'</strong> <span style="color:var(--muted)">— '+escapeHtml(g.sample.slice(0,40))+' · '+g.txns.length+' transaction'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2)+'</span>';
       const sel=selStyleSmall(document.createElement('select'));
       const blank=document.createElement('option'); blank.value=''; blank.textContent='— choose category —'; sel.appendChild(blank);
       catOptions.forEach(function(c){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
@@ -572,11 +633,43 @@
       list.appendChild(card);
     });
 
+    // Income section — only shown when the file had credit/income rows
+    if(_wiz.incomeGroups&&_wiz.incomeGroups.length){
+      const incHdr=document.createElement('div');
+      incHdr.style.cssText='font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:.6rem .2rem .2rem;';
+      incHdr.textContent='Income — routes to income tracker';
+      list.appendChild(incHdr);
+      const incOpts=buildIncomeCategoryOptions();
+      _wiz.incomeGroups.forEach(function(g){
+        const card=document.createElement('div');
+        card.style.cssText='display:flex;flex-direction:column;gap:.35rem;background:rgba(187,247,208,.08);border-radius:5px;padding:.3rem .4rem;';
+        const row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.83rem;flex-wrap:wrap;';
+        const info=document.createElement('span'); info.style.cssText='flex:1;min-width:160px;';
+        const badge=document.createElement('span');
+        badge.style.cssText='background:#bbf7d0;color:#166534;border-radius:3px;padding:.1rem .35rem;font-size:.72rem;font-weight:600;margin-right:.3rem;';
+        badge.textContent='income';
+        const kw=document.createElement('strong'); kw.textContent=g.keyword;
+        const detail=document.createElement('span'); detail.style.color='var(--muted)';
+        detail.textContent=' — '+g.sample.slice(0,40)+' · '+g.txns.length+' transaction'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2);
+        info.appendChild(badge); info.appendChild(kw); info.appendChild(detail);
+        const sel=selStyleSmall(document.createElement('select'));
+        const blank=document.createElement('option'); blank.value=''; blank.textContent='— choose income category —'; sel.appendChild(blank);
+        incOpts.forEach(function(c){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+        sel.value=g.category||'';
+        sel.addEventListener('change',function(){ g.category=sel.value; });
+        row.appendChild(info); row.appendChild(sel);
+        card.appendChild(row);
+        list.appendChild(card);
+      });
+    }
+
     const status=document.createElement('div'); status.className='paste-status'; status.style.display='none';
     const actions=document.createElement('div'); actions.className='share-actions';
     actions.appendChild(mkBtn('Back','btn btn-sm btn-ghost',function(){ _wiz.step=(_wiz.format==='csv'?'map':'pick'); renderWizStep(); }));
     actions.appendChild(mkBtn('Import →','btn btn-sm',function(){
-      if(_wiz.groups.some(function(g){ return !g.skip&&!g.category; })){
+      if(_wiz.groups.some(function(g){ return !g.skip&&!g.category; })||
+         (_wiz.incomeGroups||[]).some(function(g){ return !g.category; })){
         status.textContent='⚠ Choose a category for every group before importing (or check the skip box for subscriptions you already track).';
         status.className='paste-status bad'; status.style.display='block';
         return;
@@ -593,6 +686,11 @@
     const map=_wiz.catMap;
     _wiz.groups.forEach(function(g){ if(!g.skip) map[g.keyword]=g.category; });
     saveCatMap(map);
+
+    // Save income category memory
+    const incomeMap=_wiz.incomeCatMap;
+    (_wiz.incomeGroups||[]).forEach(function(g){ if(g.category) incomeMap[g.keyword]=g.category; });
+    saveIncomeCatMap(incomeMap);
 
     const buckets={}; // monthKey -> category -> { sum, fps:[] }
     _wiz.groups.forEach(function(g){
@@ -644,9 +742,105 @@
     saveSeen(seen);
     save(); render(); syncIncomeInputs();
 
-    _wiz.applied={ count:imported, rowsCreated:rowsCreated, colsCreated:colsCreated, monthsCapped:monthsCapped, monthsLocked:monthsLocked, months:months.length };
+    // Build income buckets and apply to income tracker
+    const incomeBuckets={};
+    (_wiz.incomeGroups||[]).forEach(function(g){
+      g.txns.forEach(function(t){
+        const tmk=t.date.slice(0,7);
+        if(!incomeBuckets[tmk]) incomeBuckets[tmk]={};
+        if(!incomeBuckets[tmk][g.category]) incomeBuckets[tmk][g.category]={sum:0,fps:[]};
+        incomeBuckets[tmk][g.category].sum+=t.amount;
+        incomeBuckets[tmk][g.category].fps.push(t.fp);
+      });
+    });
+    const ir=_applyIncomeRows(incomeBuckets,seen);
+
+    _wiz.applied={ count:imported+ir.imported, rowsCreated:rowsCreated+ir.rowsCreated, colsCreated:colsCreated+ir.colsCreated, monthsCapped:monthsCapped+ir.monthsCapped, monthsLocked:monthsLocked, months:months.length, incomeMonths:ir.months };
     _wiz.step='done';
     renderWizStep();
+  }
+
+  // Write income transaction buckets directly into the income tracker's localStorage blob,
+  // then sync to server. Called from doApply(); income.js is not loaded on this page.
+  function _applyIncomeRows(buckets,seen){
+    const monthKeys=Object.keys(buckets).sort();
+    let imported=0,rowsCreated=0,colsCreated=0,monthsCapped=0;
+
+    // Read income blob; synthesize a minimal valid blob if it has never been saved.
+    let blob;
+    try{ blob=JSON.parse(localStorage.getItem(INCOME_STORAGE_KEY)||'null'); }catch(_){}
+    if(!blob||typeof blob!=='object'){
+      blob={
+        rows:INCOME_DEFAULT_ROWS.map(function(label){
+          return {id:uid(),label:label,color:INCOME_CAT_COLORS[label]||'#e5e7eb',textColor:'#1f2937',height:36,parentId:null};
+        }),
+        cols:[{id:uid(),label:'Amount',width:160}],
+        cells:{},cellTimes:{},collapsed:{},monthRowCurrencies:{},displayCurrency:'USD',
+        headerColWidth:185,totalColWidth:110,rowsByMonth:{},colsByMonth:{}
+      };
+    }
+    if(!blob.cells)       blob.cells={};
+    if(!blob.cellTimes)   blob.cellTimes={};
+    if(!blob.rowsByMonth) blob.rowsByMonth={};
+    if(!blob.colsByMonth) blob.colsByMonth={};
+
+    const now=Date.now();
+    monthKeys.forEach(function(tmk){
+      // Fork month structure if not yet done (mirrors income.js's getRows/forkCurrentMonth pattern)
+      if(!blob.rowsByMonth[tmk]) blob.rowsByMonth[tmk]=(blob.rows||[]).map(function(r){ return Object.assign({},r); });
+      if(!blob.colsByMonth[tmk]) blob.colsByMonth[tmk]=(blob.cols||[]).map(function(c){ return Object.assign({},c); });
+      const monthRows=blob.rowsByMonth[tmk];
+      const monthCols=blob.colsByMonth[tmk];
+
+      // Find or create "Imported" column (same label as expenses for consistency)
+      let impCol=monthCols.find(function(c){ return c.label===IMPORT_COL_LABEL; });
+      if(!impCol){
+        if(monthCols.length<MAX_COLS){ impCol={id:uid(),label:IMPORT_COL_LABEL,width:100}; monthCols.push(impCol); colsCreated++; }
+        else { impCol=monthCols[monthCols.length-1]; }
+      }
+
+      Object.keys(buckets[tmk]).forEach(function(cat){
+        let row=monthRows.find(function(r){ return !r.parentId&&r.label===cat; });
+        if(!row){
+          if(monthRows.filter(function(r){ return !r.parentId; }).length>=MAX_ROWS){ monthsCapped++; return; }
+          row={id:uid(),label:cat,color:INCOME_CAT_COLORS[cat]||'#e5e7eb',textColor:'#1f2937',height:36,parentId:null};
+          monthRows.push(row); rowsCreated++;
+        }
+        const key=tmk+'|'+row.id+'|'+impCol.id;
+        const existing=parseFloat(blob.cells[key]||0)||0;
+        blob.cells[key]=String(parseFloat((existing+buckets[tmk][cat].sum).toFixed(2)));
+        blob.cellTimes[key]=now; // stamp explicitly — income.js's _stampCellTimes isn't available here
+        buckets[tmk][cat].fps.forEach(function(fp){ if(!seen.has(fp)){ seen.add(fp); imported++; } });
+      });
+    });
+
+    try{ localStorage.setItem(INCOME_STORAGE_KEY,JSON.stringify(blob)); }catch(_){}
+    _saveIncomeBlob(blob,0,3); // async, non-blocking
+    return {imported:imported,rowsCreated:rowsCreated,colsCreated:colsCreated,monthsCapped:monthsCapped,months:monthKeys.length};
+  }
+
+  // Mini sync for income tracker: POST the blob to /api/save/income, retrying on
+  // 409 using the globally-available _mergeTrackerBlobs from tracker-sync.js.
+  // Starting with base_version:0 is intentional — on first use it succeeds immediately;
+  // for existing accounts it triggers one 409+merge cycle which the fixed merge handles correctly.
+  function _saveIncomeBlob(blob,baseVersion,retriesLeft){
+    if(!window.__currentUser) return;
+    fetch('/api/save/income',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-Token':window._CSRF||''},
+      body:JSON.stringify({data:blob,base_version:baseVersion})
+    }).then(function(r){
+      if(r.ok) return;
+      if(r.status===409&&retriesLeft>0) return r.json().then(function(resp){
+        var sv=(resp&&typeof resp.server_version==='number')?resp.server_version:baseVersion;
+        var lb=blob;
+        try{ var raw=localStorage.getItem(INCOME_STORAGE_KEY); if(raw) lb=JSON.parse(raw); }catch(_){}
+        var merged=_mergeTrackerBlobs(lb,resp&&resp.server_data);
+        try{ localStorage.setItem(INCOME_STORAGE_KEY,JSON.stringify(merged)); }catch(_){}
+        _saveIncomeBlob(merged,sv,retriesLeft-1);
+      });
+      // other errors: data is in localStorage; income tracker will sync on next visit
+    }).catch(function(){});
   }
 
   function renderDoneStep(m){
@@ -657,6 +851,7 @@
     if(a.colsCreated) s+=' Added an "Imported" column to '+a.colsCreated+' month'+(a.colsCreated===1?'':'s')+'.';
     if(a.monthsCapped) s+=' '+a.monthsCapped+' categor'+(a.monthsCapped===1?'y was':'ies were')+' skipped (20-row limit reached for that month).';
     if(a.monthsLocked) s+=' '+a.monthsLocked+' month'+(a.monthsLocked===1?' was':'s were')+' skipped because '+(a.monthsLocked===1?'it is':'they are')+' closed.';
+    if(a.incomeMonths) s+=' Also sent '+a.incomeMonths+' income month'+(a.incomeMonths===1?'':'s')+' to the income tracker.';
     status.textContent=s;
     const actions=document.createElement('div'); actions.className='share-actions';
     actions.appendChild(mkBtn('Done','btn btn-sm',function(){ _wiz.overlay.remove(); }));
