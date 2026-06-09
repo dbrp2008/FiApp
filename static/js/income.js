@@ -518,7 +518,7 @@ function _isPastMonth(){
   return currentMK()<nowMk;
 }
 function _isClosedMonth(mk2){
-  return !!(state.closedMonths&&state.closedMonths[mk2]);
+  return false; // Income tracker months are never locked
 }
 function updateCloseBar(){
   const bar=document.getElementById('close-bar');
