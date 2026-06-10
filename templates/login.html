@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>FiApp - Log In</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function(){
       var t=localStorage.getItem('fiapp_theme')||'light';
       if(t==='dark') document.documentElement.classList.add('dark');
@@ -159,7 +159,7 @@
 </head>
 <body>
   <div class="nav">
-    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script>(function(){var t=localStorage.getItem('fiapp_theme')||'light';var L={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};var b=document.getElementById('theme-btn');if(b)b.textContent=L[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
+    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var L={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};var b=document.getElementById('theme-btn');if(b)b.textContent=L[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
 
   <div id="deleted-banner" style="display:none;background:var(--success-bg);border:1px solid var(--success-border);color:var(--success-fg);padding:.65rem .9rem;border-radius:8px;font-size:.88rem;font-weight:600;margin-bottom:1rem;text-align:center;">
@@ -170,7 +170,7 @@
     <h1>FiApp</h1>
     <p>Sign in to sync your data across devices</p>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce }}">
   var _qp=new URLSearchParams(window.location.search);
   if(_qp.get('deleted')==='1'){
     document.getElementById('deleted-banner').style.display='block';
@@ -232,7 +232,7 @@
     <div class="back-link"><a href="/">← Back to FiApp</a></div>
   </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 function setTheme(name){
   document.documentElement.classList.remove('dark','theme-ocean','theme-forest',
     'theme-sunset','theme-midnight','theme-rose','theme-purple','theme-indigo');
