@@ -1201,7 +1201,7 @@ function renderOtherForm(menu, row){
 }
 
 function showSubMenu(btn, row){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   closeMenu();
   let subs=[];
@@ -1434,7 +1434,7 @@ function dismissTemplatePrompt(){
 }
 
 function addRow(){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
@@ -1459,7 +1459,7 @@ function addSubRow(parentRow, subLabel){
   save(); render();
 }
 function addCol(){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
@@ -1469,7 +1469,7 @@ function addCol(){
   save(); render();
 }
 function deleteRow(id){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
@@ -1496,7 +1496,7 @@ function deleteRow(id){
   showToast('Row deleted.', false, 5000, undo);
 }
 function deleteCol(id){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
+  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
