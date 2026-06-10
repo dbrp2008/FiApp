@@ -38,7 +38,7 @@
       <div class="curr-row" data-wt="currency-from">
         <select id="currency_i" required></select>
         <input type="text" id="currency_i_other" placeholder="e.g. VND" maxlength="5" style="display:none;">
-        <button type="button" class="btn other-btn" id="currency_i_other_btn" onclick="applyOtherFrom()" style="display:none;">OK</button>
+        <button type="button" class="btn other-btn" id="currency_i_other_btn" style="display:none;">OK</button>
         <span id="currency_i_note" style="font-size:.8rem;color:#6b7280;"></span>
       </div>
     </div>
@@ -51,14 +51,14 @@
       <div class="curr-row">
         <select id="currency_o" required></select>
         <input type="text" id="currency_o_other" placeholder="e.g. VND" maxlength="5" style="display:none;">
-        <button type="button" class="btn other-btn" id="currency_o_other_btn" onclick="applyOtherTo()" style="display:none;">OK</button>
+        <button type="button" class="btn other-btn" id="currency_o_other_btn" style="display:none;">OK</button>
         <span id="currency_o_note" style="font-size:.8rem;color:#6b7280;"></span>
       </div>
     </div>
     <br>
     <button class="btn" type="submit" id="conv-btn">Convert</button>
     <div class="rates-wrap">
-      <button id="rates-date-btn" type="button" class="rates-date-btn" onclick="toggleRatesPanel()"></button>
+      <button id="rates-date-btn" type="button" class="rates-date-btn"></button>
       <div id="rates-info-panel" class="rates-info-panel"></div>
     </div>
   </form>
@@ -69,7 +69,7 @@
 {% endblock %}
 
 {% block body_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 
 const CURRENCIES = [
   {code:'USD', name:'US Dollar'}, {code:'EUR', name:'Euro'},
@@ -162,6 +162,19 @@ function applyOtherFrom(){ applyOther('currency_i'); }
 function applyOtherTo(){ applyOther('currency_o'); }
 document.getElementById('currency_i_other').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyOtherFrom();}});
 document.getElementById('currency_o_other').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyOtherTo();}});
+// CSP: bound here instead of inline onclick attributes
+document.getElementById('currency_i_other_btn').addEventListener('click',applyOtherFrom);
+document.getElementById('currency_o_other_btn').addEventListener('click',applyOtherTo);
+document.getElementById('rates-date-btn').addEventListener('click',function(){toggleRatesPanel();});
+// Rates panel content is rebuilt via innerHTML — delegate its button clicks
+document.getElementById('rates-info-panel').addEventListener('click',function(e){
+  var rb=e.target.closest('[data-refresh-base]');
+  if(rb){_refreshBase(rb.dataset.refreshBase);return;}
+  var act=e.target.closest('[data-action]');
+  if(!act) return;
+  if(act.dataset.action==='refresh-all') _refreshFromPanel();
+  else if(act.dataset.action==='close-rates') closeRatesPanel();
+});
 
 function showError(msg){
   document.getElementById('msg-area').innerHTML='<div class="error">'+msg+'</div>';
@@ -317,7 +330,7 @@ function _buildRatesPanel(){
       html+='<div class="rates-info-row"><span class="rates-info-label">Base: '+b.base+'</span>'
         +'<span style="display:flex;align-items:center;gap:.5rem;">'
         +'<span>'+fetched.toLocaleDateString()+' '+fetched.toLocaleTimeString()+'</span>'
-        +'<button type="button" class="btn-ghost btn-sm" style="padding:.1rem .4rem;font-size:.75rem;" onclick="_refreshBase(\''+b.base+'\')" aria-label="Refresh rates for '+b.base+'">↻</button>'
+        +'<button type="button" class="btn-ghost btn-sm" style="padding:.1rem .4rem;font-size:.75rem;" data-refresh-base="'+b.base+'" aria-label="Refresh rates for '+b.base+'">↻</button>'
         +'</span></div>'
         +'<div style="font-size:.77rem;padding-bottom:.38rem;color:var(--muted);">'
         +'Next refresh: <span class="rates-countdown" id="rcd-ref-'+b.base+'">'+(msRefresh<=0?'<span style="color:var(--accent)">overdue</span>':_fmtCountdown(msRefresh))+'</span>'
@@ -327,8 +340,8 @@ function _buildRatesPanel(){
   }
   html+='<hr style="border:none;border-top:1px solid var(--panel-border);margin:.4rem -.1rem .45rem;">'
     +'<div style="display:flex;gap:.5rem;">'
-    +'<button type="button" class="btn-ghost btn-sm" onclick="_refreshFromPanel()">↻ Refresh all</button>'
-    +'<button type="button" class="btn-ghost btn-sm" onclick="closeRatesPanel()">✕ Close</button>'
+    +'<button type="button" class="btn-ghost btn-sm" data-action="refresh-all">↻ Refresh all</button>'
+    +'<button type="button" class="btn-ghost btn-sm" data-action="close-rates">✕ Close</button>'
     +'</div>';
   panel.innerHTML=html;
 }
