@@ -1563,6 +1563,10 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
 // Static toolbar event wiring (replaces onclick= attributes)
 document.getElementById('help-open-btn').addEventListener('click',openHelp);
 document.getElementById('guide-btn').addEventListener('click',function(){wtStartEnhanced('subscriptions');});
+document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
+document.getElementById('sub-sel').addEventListener('change',onPresetChange);
+document.getElementById('chk-cancelled').addEventListener('change',recalcTotals);
+document.getElementById('curr-sel').addEventListener('change',onCurrencyChange);
 document.getElementById('prev-btn').addEventListener('click',function(){shiftMonth(-1);});
 document.getElementById('next-btn').addEventListener('click',function(){shiftMonth(1);});
 document.getElementById('add-sub-btn').addEventListener('click',addSubscription);
