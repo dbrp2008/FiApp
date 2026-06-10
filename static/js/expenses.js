@@ -1201,6 +1201,7 @@ function renderOtherForm(menu, row){
 }
 
 function showSubMenu(btn, row){
+  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)return;}catch{}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   closeMenu();
   let subs=[];
