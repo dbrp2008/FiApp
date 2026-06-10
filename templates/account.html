@@ -558,8 +558,11 @@ async function restoreRevision(tracker,version,when,btn){
 
 function _clearAllStorage(){
   FIAPP_USER_KEYS.forEach(function(k){ localStorage.removeItem(k); });
-  // Only clear this specific user's walkthrough key — not other users' keys on the same device
+  // Only clear this specific user's keys — not other users' keys on the same device
   localStorage.removeItem('fiapp_wt_u_{{ current_user }}');
+  localStorage.removeItem('fiapp_import_seen_v1_{{ current_user }}');
+  localStorage.removeItem('fiapp_import_catmap_v1_{{ current_user }}');
+  localStorage.removeItem('fiapp_import_income_catmap_v1_{{ current_user }}');
 }
 
 function showDeleteError(msg){
