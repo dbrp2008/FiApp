@@ -2242,6 +2242,8 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape') document.q
 // Static toolbar event wiring (replaces onclick= attributes)
 document.getElementById('help-open-btn').addEventListener('click',openHelp);
 document.getElementById('guide-btn').addEventListener('click',function(){wtStartEnhanced('income');});
+document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
+document.getElementById('curr-sel').addEventListener('change',onCurrencyChange);
 document.getElementById('prev-btn').addEventListener('click',function(){shiftMonth(-1);});
 document.getElementById('next-btn').addEventListener('click',function(){shiftMonth(1);});
 document.getElementById('copy-prev-btn').addEventListener('click',copyStructureFromPrevMonth);
