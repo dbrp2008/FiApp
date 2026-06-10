@@ -3,6 +3,7 @@ import re
 import json
 import math
 import time
+import hmac
 import secrets
 from datetime import datetime, timezone
 import psycopg2
@@ -10,7 +11,7 @@ import psycopg2.extras
 from psycopg2 import sql as _sql
 from psycopg2 import pool as _pgpool
 from flask import (Flask, render_template, request, flash,
-    session, jsonify, redirect, url_for, send_from_directory, abort)
+    session, jsonify, redirect, url_for, send_from_directory, abort, g)
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import requests
@@ -53,6 +54,10 @@ app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' a
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # 1 hour — caches /static/ files per session
 EXCHANGE_API_KEY = os.environ.get("EXCHANGE_API_KEY")
+if not EXCHANGE_API_KEY:
+    app.logger.warning(
+        "EXCHANGE_API_KEY is not set — live exchange-rate fetches will fail "
+        "(cached/DB rates still work).")
 
 # Currency codes are ISO-4217 three-letter uppercase. Validating before building
 # the upstream URL prevents control-char/path injection into the exchange API call.
@@ -66,6 +71,9 @@ if _limiter_available:
         """Apply rate limits only when Flask-Limiter is available."""
         return limiter.limit("; ".join(limits), **kwargs)
 else:
+    app.logger.warning(
+        "Flask-Limiter is NOT installed — rate limiting is DISABLED. "
+        "Install Flask-Limiter before deploying to production.")
     class _NoopDecorator:
         def __call__(self, f): return f
     def _rl(*limits, **kwargs):
@@ -102,11 +110,31 @@ def service_unavailable(e):
         ctx = {}
     return render_template('500.html', **ctx), 503
 
+@app.before_request
+def set_csp_nonce():
+    g.csp_nonce = secrets.token_urlsafe(16)
+
+@app.context_processor
+def inject_csp_nonce():
+    return {"csp_nonce": getattr(g, 'csp_nonce', '')}
+
 @app.after_request
 def set_security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
     resp.headers['Referrer-Policy'] = 'no-referrer'
+    nonce = getattr(g, 'csp_nonce', '')
+    resp.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        f"script-src 'self' 'nonce-{nonce}'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'; "
+        "object-src 'none'"
+    )
     if not app.debug:
         resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return resp
@@ -223,7 +251,7 @@ def csrf_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('X-CSRF-Token', '')
-        if not token or token != session.get('csrf_token'):
+        if not token or not hmac.compare_digest(token, session.get('csrf_token') or ''):
             return jsonify({"error": "Invalid CSRF token"}), 403
         return f(*args, **kwargs)
     return decorated
@@ -418,11 +446,11 @@ def tax():
 
         try:
             income_float = float(income)
-            if income_float < 0:
+            if not math.isfinite(income_float) or income_float < 0:
                 flash('Income cannot be negative.', 'error')
                 return render_template('tax.html', income=income, status=status, **_ctx())
 
-            tax_amount = fetch_tax(income, status)
+            tax_amount = fetch_tax(income_float, status)
             flash('Tax calculated successfully.', 'success')
             result = {'income': income_float, 'status': display_status, 'tax': tax_amount}
             return render_template('tax.html', result=result, income=income, status=status, **_ctx())
@@ -473,6 +501,7 @@ def register():
                 )
                 user_id = cur.fetchone()[0]
                 cur.execute("INSERT INTO user_data (user_id) VALUES (%s)", (user_id,))
+        session.clear()  # drop any pre-auth session state (fixation hardening)
         session['user_id'] = user_id
         session['username'] = username
         session['theme'] = 'light'
@@ -499,6 +528,7 @@ def auth_login():
             return jsonify({"error": "Invalid username or password"}), 401
         if not check_password_hash(row[1], password):
             return jsonify({"error": "Invalid username or password"}), 401
+        session.clear()  # drop any pre-auth session state (fixation hardening)
         session['user_id'] = row[0]
         session['username'] = username
         session['theme'] = row[2] or 'light'
@@ -745,6 +775,9 @@ def save_subs():
         return jsonify({"error": "Missing required field: rows"}), 400
     if len(data.get('rows', [])) > MAX_SUBS:
         return jsonify({"error": f"Subscription limit ({MAX_SUBS}) exceeded"}), 400
+    cols = data.get('cols')
+    if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
+        return jsonify({"error": "Column limit exceeded"}), 400
     status, resp = _save_tracker_versioned('subs', data, base_version, force=force)
     return jsonify(resp), status
 
@@ -855,7 +888,8 @@ def compound_interest(principal, rate, years, periods):
     return round(principal * ((1 + (rate / 100) / periods) ** (years * periods)), 2)
 
 def fetch_tax(income, status):
-    url = f"https://api.taxapi.net/income/{status}/{income}"
+    # income is a validated finite float — :g renders 50000.0 as 50000
+    url = f"https://api.taxapi.net/income/{status}/{income:g}"
     response = requests.get(url, timeout=8)
     response.raise_for_status()
     return round(response.json(), 2)
