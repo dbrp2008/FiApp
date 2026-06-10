@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Income Tracker{% endblock %}
 {% block head_scripts %}<script src="/static/rates-utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/vendor/chart.umd.min.js"></script>
 <script src="/static/js/tracker-sync.js?v=20260608"></script>{% endblock %}
 {% block head_styles %}
 <style>
@@ -317,7 +317,7 @@
 
   <div class="month-nav">
     <button id="prev-btn">◀ Prev</button>
-    <select id="month-jump" class="month-jump" onchange="jumpToMonth(this.value)"></select>
+    <select id="month-jump" class="month-jump"></select>
     <button id="next-btn">Next ▶</button>
   </div>
   <p class="month-context-note" id="month-context-note"></p>
@@ -358,7 +358,7 @@
     
     <div class="curr-row" style="margin-top:.6rem;">
       <label style="font-size:.78rem;font-weight:600;color:var(--muted);margin-right:.4rem;">Display currency:</label>
-      <select id="curr-sel" data-wt="income-currency" onchange="onCurrencyChange()" style="padding:.25rem .5rem;border:1px solid var(--input-border);border-radius:5px;font-size:.82rem;background:var(--input-bg);color:var(--fg);">
+      <select id="curr-sel" data-wt="income-currency" style="padding:.25rem .5rem;border:1px solid var(--input-border);border-radius:5px;font-size:.82rem;background:var(--input-bg);color:var(--fg);">
         <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option>
         <option value="CAD">CAD</option><option value="AUD">AUD</option><option value="JPY">JPY</option>
         <option value="CNY">CNY</option><option value="INR">INR</option><option value="MXN">MXN</option>
@@ -444,4 +444,4 @@
   </div>
 </div>
 {% endblock %}
-{% block body_scripts %}<script src="/static/js/income.js?v=20260607"></script><script src="/static/js/voice-input.js"></script><script>VoiceInput && VoiceInput.init('income');</script>{% endblock %}
+{% block body_scripts %}<script src="/static/js/income.js?v=20260607"></script><script src="/static/js/voice-input.js"></script><script nonce="{{ csp_nonce }}">VoiceInput && VoiceInput.init('income');</script>{% endblock %}
