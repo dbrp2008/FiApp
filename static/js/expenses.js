@@ -868,7 +868,7 @@ function enterIncomeManually(){
   inp.focus(); inp.select();
   const icon=document.getElementById('income-sync-icon');
   if(icon) icon.style.display='none';
-  document.getElementById('income-sync-badge').innerHTML='<button class="income-sync-update" data-action="accept-income-sync" data-mk="'+currentMK()+'">↺ Re-link to Income Tracker</button>';
+  document.getElementById('income-sync-badge').innerHTML='<button class="income-sync-update" data-action="accept-income-sync" data-mk="'+escapeHtml(currentMK())+'">↺ Re-link to Income Tracker</button>';
 }
 function applyIncomeToYear(){
   snapshot();
@@ -1072,11 +1072,11 @@ async function syncFromIncomeTracker(mk2){
     if(alreadySynced||obj.fromIncome){
       document.getElementById('inp-gross').readOnly=true;
       if(icon) icon.style.display='';
-      badge.innerHTML='<button onclick="enterIncomeManually()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.78rem;padding:0;font-family:inherit;text-decoration:underline;">Enter manually</button>';
+      badge.innerHTML='<button data-action="enter-income-manually" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.78rem;padding:0;font-family:inherit;text-decoration:underline;">Enter manually</button>';
     } else {
       document.getElementById('inp-gross').readOnly=false;
       if(icon) icon.style.display='none';
-      badge.innerHTML='<button class="income-sync-update" data-action="accept-income-sync" data-mk="'+mk2+'">↺ Re-link to Income Tracker ('+tFmt+')</button>';
+      badge.innerHTML='<button class="income-sync-update" data-action="accept-income-sync" data-mk="'+escapeHtml(mk2)+'">↺ Re-link to Income Tracker ('+tFmt+')</button>';
     }
   }catch(e){badge.innerHTML='';}
 }
@@ -3179,8 +3179,17 @@ document.getElementById('help-close-btn').addEventListener('click',closeHelp);
 // Event delegation for dynamically-injected income-sync update button
 document.getElementById('income-sync-badge').addEventListener('click',function(e){
   var btn=e.target.closest('[data-action="accept-income-sync"]');
-  if(btn) acceptIncomeSync(btn.dataset.mk);
+  if(btn){ acceptIncomeSync(btn.dataset.mk); return; }
+  if(e.target.closest('[data-action="enter-income-manually"]')) enterIncomeManually();
 });
+// CSP: bound here instead of inline attributes in expenses.html
+document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
+(function(){var b=document.getElementById('close-bar-btn');if(b)b.addEventListener('click',openCloseModal);})();
+(function(){var b=document.getElementById('close-modal-cancel');if(b)b.addEventListener('click',cancelClose);})();
+(function(){var b=document.getElementById('close-modal-confirm');if(b)b.addEventListener('click',confirmClose);})();
+document.getElementById('inp-gross').addEventListener('input',onGrossInput);
+document.getElementById('inp-tax').addEventListener('input',onIncomeInput);
+(function(){var b=document.getElementById('voice-strip-dismiss');if(b)b.addEventListener('click',function(){this.parentElement.style.display='none';});})();
 
 function openHelp(){ document.getElementById('help-modal').style.display='flex'; }
 function closeHelp(){ document.getElementById('help-modal').style.display='none'; }
