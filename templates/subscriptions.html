@@ -212,7 +212,7 @@
 
   <div class="month-nav">
     <button id="prev-btn">◀ Prev</button>
-    <select id="month-jump" class="month-jump" onchange="jumpToMonth(this.value)"></select>
+    <select id="month-jump" class="month-jump"></select>
     <button id="next-btn">Next ▶</button>
   </div>
 
@@ -222,7 +222,7 @@
 
   <div class="add-bar" data-wt="subs-add">
     <label>Add subscription:</label>
-    <select id="sub-sel" onchange="onPresetChange()">
+    <select id="sub-sel">
       <option value="">- select -</option>
       <optgroup label="Streaming"><option>Netflix</option><option>Disney+</option><option>Amazon Prime</option><option>Apple TV+</option><option>Hulu</option><option>HBO Max</option><option>YouTube Premium</option><option>Paramount+</option></optgroup>
       <optgroup label="Music"><option>Spotify</option><option>Apple Music</option><option>Tidal</option></optgroup>
@@ -234,7 +234,7 @@
     <input type="text" id="custom-inp" placeholder="Service name"/>
     <button class="btn btn-sm" id="add-sub-btn">Add</button>
     <label style="margin-left:.75rem;font-size:.85rem;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;">
-      <input type="checkbox" id="chk-cancelled" checked onchange="recalcTotals()"> Include cancelled
+      <input type="checkbox" id="chk-cancelled" checked> Include cancelled
     </label>
   </div>
 
@@ -265,7 +265,7 @@
       <div class="tot-field" id="conv-y-wrap" style="display:none"><label id="conv-y-lbl">Yearly</label><div class="tot-val" id="tot-y-conv">-</div></div>
       <div class="curr-row">
         <label>Display currency:</label>
-        <select id="curr-sel" onchange="onCurrencyChange()">
+        <select id="curr-sel">
           <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option>
           <option value="CAD">CAD</option><option value="AUD">AUD</option><option value="JPY">JPY</option>
           <option value="CNY">CNY</option><option value="INR">INR</option><option value="MXN">MXN</option>
