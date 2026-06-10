@@ -306,6 +306,13 @@
     var _waitOff=[];
     var _elevatedEl=null;
     var _guardOff=null;
+    var _lastGuardToastTs=0;
+    function _guardToast(){
+      var now=Date.now();
+      if(now-_lastGuardToastTs<1500) return;
+      _lastGuardToastTs=now;
+      _toast('🧭 Finish or skip the walkthrough to use this.');
+    }
     var _hlTrackOff=null;
     var _curTarget=null,_curPin=null; // tracked so resize can reposition
     var _preTourFocus=null; // element focused before tour opened — restored on close
@@ -327,10 +334,10 @@
         var inToast=!!t.closest('[data-wt-toast]');
 
         var navLink=t.closest('a[href]');
-        if(navLink&&!inBubble){e.stopPropagation();e.preventDefault();return;}
+        if(navLink&&!inBubble){e.stopPropagation();e.preventDefault();_guardToast();return;}
         var inTarget=targetEl&&targetEl.contains(t);
         var inAllowed=allowSelectors&&allowSelectors.some(function(sel){return !!t.closest(sel);});
-        if(!inBubble&&!inTarget&&!inToast&&!inAllowed){e.stopPropagation();e.preventDefault();}
+        if(!inBubble&&!inTarget&&!inToast&&!inAllowed){e.stopPropagation();e.preventDefault();_guardToast();}
       }
 
 
