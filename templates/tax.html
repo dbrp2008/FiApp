@@ -148,9 +148,9 @@
   <div class="tax-src-wrap" style="margin-bottom:1rem;" data-wt="tax-country">
     <div class="tax-src-head">Country</div>
     <div class="tax-mode-bar">
-      <button type="button" class="tax-mode-btn active" id="btn-us" onclick="_setCountry('US')">🇺🇸 United States</button>
-      <button type="button" class="tax-mode-btn"        id="btn-in" onclick="_setCountry('IN')">🇮🇳 India</button>
-      <button type="button" class="tax-mode-btn"        id="btn-hk" onclick="_setCountry('HK')">🇭🇰 Hong Kong</button>
+      <button type="button" class="tax-mode-btn active" id="btn-us" data-country="US">🇺🇸 United States</button>
+      <button type="button" class="tax-mode-btn"        id="btn-in" data-country="IN">🇮🇳 India</button>
+      <button type="button" class="tax-mode-btn"        id="btn-hk" data-country="HK">🇭🇰 Hong Kong</button>
     </div>
   </div>
 
@@ -183,8 +183,8 @@
     <div id="hk-married-row" style="display:none;margin-bottom:1rem;">
       <div class="tax-src-head" style="margin-bottom:.5rem;">Allowance</div>
       <div class="tax-mode-bar">
-        <button type="button" class="tax-mode-btn" id="hk-married-btn" onclick="_toggleHKMarried()">Married Person's Allowance (HK$290,000)</button>
-        <button type="button" class="tax-mode-btn" id="hk-sp-btn" onclick="_toggleHKSingleParent()">Single Parent Allowance (HK$145,000)</button>
+        <button type="button" class="tax-mode-btn" id="hk-married-btn">Married Person's Allowance (HK$290,000)</button>
+        <button type="button" class="tax-mode-btn" id="hk-sp-btn">Single Parent Allowance (HK$145,000)</button>
       </div>
     </div>
     <div id="hk-children-row" style="display:none;margin-bottom:1rem;">
@@ -193,17 +193,17 @@
         <div>
           <span class="tax-hint" style="display:block;margin-bottom:.35rem;">Number of children (1st–9th):</span>
           <div style="display:flex;align-items:center;gap:.4rem;">
-            <button type="button" class="tax-mode-btn" onclick="_hkChildrenAdj(-1)">−</button>
+            <button type="button" class="tax-mode-btn" data-hk-ch="-1">−</button>
             <span id="hk-ch-val" style="min-width:1.5rem;text-align:center;font-weight:700;font-size:.95rem;">0</span>
-            <button type="button" class="tax-mode-btn" onclick="_hkChildrenAdj(1)">+</button>
+            <button type="button" class="tax-mode-btn" data-hk-ch="1">+</button>
           </div>
         </div>
         <div>
           <span class="tax-hint" style="display:block;margin-bottom:.35rem;">Born this year (+HK$140,000 each):</span>
           <div style="display:flex;align-items:center;gap:.4rem;">
-            <button type="button" class="tax-mode-btn" onclick="_hkChildrenBornAdj(-1)">−</button>
+            <button type="button" class="tax-mode-btn" data-hk-cb="-1">−</button>
             <span id="hk-cb-val" style="min-width:1.5rem;text-align:center;font-weight:700;font-size:.95rem;">0</span>
-            <button type="button" class="tax-mode-btn" onclick="_hkChildrenBornAdj(1)">+</button>
+            <button type="button" class="tax-mode-btn" data-hk-cb="1">+</button>
           </div>
         </div>
       </div>
@@ -211,7 +211,7 @@
     <div id="hk-immigrant-row" style="display:none;margin-bottom:1rem;">
       <div class="tax-src-head" style="margin-bottom:.5rem;">Immigrant Arrival</div>
       <div class="tax-mode-bar">
-        <button type="button" class="tax-mode-btn" id="hk-immigrant-btn" onclick="_toggleHKImmigrant()">Arrived in HK mid-year</button>
+        <button type="button" class="tax-mode-btn" id="hk-immigrant-btn">Arrived in HK mid-year</button>
       </div>
       <div id="hk-immigrant-picks" style="display:none;margin-top:.6rem;"></div>
     </div>
@@ -243,14 +243,12 @@
 
   
   <div id="tax-explainer-overlay"
-       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;overflow-y:auto;cursor:pointer;"
-       onclick="if(event.target===this)this.style.display='none'">
+       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;overflow-y:auto;cursor:pointer;">
     <div id="tax-explainer-modal"
          style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:14px;max-width:520px;margin:2rem auto;padding:1.5rem 1.75rem;cursor:default;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
         <strong id="explainer-title" style="font-size:1.05rem;"></strong>
-        <button type="button"
-                onclick="document.getElementById('tax-explainer-overlay').style.display='none'"
+        <button type="button" id="tax-explainer-close"
                 style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);">✕</button>
       </div>
       <div id="explainer-body" style="font-size:.88rem;line-height:1.6;"></div>
@@ -259,7 +257,7 @@
 {% endblock %}
 
 {% block body_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 
 
 
@@ -746,8 +744,8 @@ function _renderCountryUI(){
     regimeRow.innerHTML =
       '<div class="tax-src-head">Residency Status</div>'+
       '<div class="tax-mode-bar">'+
-        '<button type="button" class="tax-mode-btn '+(_inResidency==='ROR'?'active':'')+'" onclick="_setResidency(\'ROR\')">ROR (Resident)</button>'+
-        '<button type="button" class="tax-mode-btn '+(_inResidency==='NRI'?'active':'')+'" onclick="_setResidency(\'NRI\')">NRI (Non-Resident)</button>'+
+        '<button type="button" class="tax-mode-btn '+(_inResidency==='ROR'?'active':'')+'" data-residency="ROR">ROR (Resident)</button>'+
+        '<button type="button" class="tax-mode-btn '+(_inResidency==='NRI'?'active':'')+'" data-residency="NRI">NRI (Non-Resident)</button>'+
       '</div>';
   } else {
     statusRow.style.display = 'none';
@@ -1381,6 +1379,28 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   document.addEventListener('keydown', e=>{
     if(e.key==='Escape') document.getElementById('tax-explainer-overlay').style.display='none';
   });
+
+  // CSP: bound here instead of inline onclick attributes
+  document.querySelectorAll('[data-country]').forEach(b=>{
+    b.addEventListener('click',()=>_setCountry(b.dataset.country));
+  });
+  document.getElementById('hk-married-btn').addEventListener('click',_toggleHKMarried);
+  document.getElementById('hk-sp-btn').addEventListener('click',_toggleHKSingleParent);
+  document.getElementById('hk-immigrant-btn').addEventListener('click',_toggleHKImmigrant);
+  document.querySelectorAll('[data-hk-ch]').forEach(b=>{
+    b.addEventListener('click',()=>_hkChildrenAdj(parseInt(b.dataset.hkCh,10)));
+  });
+  document.querySelectorAll('[data-hk-cb]').forEach(b=>{
+    b.addEventListener('click',()=>_hkChildrenBornAdj(parseInt(b.dataset.hkCb,10)));
+  });
+  // Residency buttons are re-created inside #regime-row's innerHTML — delegate
+  document.getElementById('regime-row').addEventListener('click',e=>{
+    const b=e.target.closest('[data-residency]');
+    if(b) _setResidency(b.dataset.residency);
+  });
+  const _expOverlay=document.getElementById('tax-explainer-overlay');
+  _expOverlay.addEventListener('click',function(e){ if(e.target===this) this.style.display='none'; });
+  document.getElementById('tax-explainer-close').addEventListener('click',()=>{ _expOverlay.style.display='none'; });
 
   // Fetch income from server if not yet in localStorage (e.g. after logout/login without visiting income.html)
   if(!_getInc()){
