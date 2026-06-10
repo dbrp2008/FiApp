@@ -277,6 +277,10 @@
 
   function openImportWizard(){
     if(_isClosedMonth(currentMK())){ showToast('🔒 This month is locked — switch to an open month before importing.'); return; }
+    if(localStorage.getItem('fiapp_template_dismissed')!=='1' && Object.keys(state.cells||{}).length===0 && getRows().length===0){
+      showToast('Choose a starting template (or "Start blank") before importing.');
+      return;
+    }
     _wiz={ step:'pick', catMap:loadCatMap(), incomeCatMap:loadIncomeCatMap(), importCurrency:'USD' };
     const overlay=document.createElement('div'); overlay.className='share-overlay';
     const modal=document.createElement('div'); modal.className='share-modal'; modal.style.maxWidth='640px';
