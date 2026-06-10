@@ -258,7 +258,7 @@
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">New to FiApp or want a refresher? Start the guided tour - Fi will walk you through every tool.</p>
     <button class="btn-primary" id="wt-acct-btn">Start Walkthrough</button>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce }}">
   (function(){
     var wt=null;try{wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');}catch{}
     var btn=document.getElementById('wt-acct-btn');
@@ -272,7 +272,7 @@
     <div class="info-row" style="justify-content:space-between;align-items:center;">
       <span class="info-label">Always confirm before logging</span>
       <label class="voice-toggle-label">
-        <input type="checkbox" id="voice-always-confirm" onchange="localStorage.setItem('fiapp_voice_always_confirm', this.checked.toString());">
+        <input type="checkbox" id="voice-always-confirm">
         <span class="voice-toggle-track"></span>
       </label>
     </div>
@@ -293,7 +293,7 @@
     <div class="delete-form">
       <div>
         <label for="del-pw">Confirm your password to continue</label>
-        <input type="password" id="del-pw" placeholder="Your password" autocomplete="current-password" onkeydown="if(event.key==='Enter'){document.getElementById('delete-confirm-step').style.display==='block'?confirmDelete():armDelete();}">
+        <input type="password" id="del-pw" placeholder="Your password" autocomplete="current-password">
       </div>
 
       <div id="delete-steps">
@@ -313,7 +313,7 @@
 {% endblock %}
 
 {% block body_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 window._csrfToken={{ csrf_token | default('') | tojson }};
 async function apiFetch(url,opts={}){
   opts.headers=opts.headers||{};
@@ -397,7 +397,12 @@ function exportFullBackup(){
 }
 
 function _isValidTrackerBlob(t){
-  return !!t && typeof t==='object' && !Array.isArray(t) && (Array.isArray(t.rows)||t.cells||t.rowsByMonth);
+  if(!t || typeof t!=='object' || Array.isArray(t)) return false;
+  if(!(Array.isArray(t.rows)||t.cells||t.rowsByMonth)) return false;
+  // Sanity caps — a crafted "backup" must not be able to stuff localStorage to quota.
+  if(Array.isArray(t.rows) && t.rows.length>500) return false;
+  if(t.cells && typeof t.cells==='object' && Object.keys(t.cells).length>50000) return false;
+  return true;
 }
 
 // Validates the whole file before anything is written. Returns the list of
@@ -772,9 +777,19 @@ document.addEventListener('DOMContentLoaded',function(){
   if(delConfirmBtn) delConfirmBtn.addEventListener('click',confirmDelete);
   var delCancelBtn=document.getElementById('del-cancel-btn');
   if(delCancelBtn) delCancelBtn.addEventListener('click',cancelDelete);
+  var delPw=document.getElementById('del-pw');
+  if(delPw) delPw.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){
+      document.getElementById('delete-confirm-step').style.display==='block'?confirmDelete():armDelete();
+    }
+  });
+  var voiceCb=document.getElementById('voice-always-confirm');
+  if(voiceCb) voiceCb.addEventListener('change',function(){
+    localStorage.setItem('fiapp_voice_always_confirm', this.checked.toString());
+  });
 });
 </script>
-<script>
+<script nonce="{{ csp_nonce }}">
 (function(){
   var cb = document.getElementById('voice-always-confirm');
   if (cb) cb.checked = localStorage.getItem('fiapp_voice_always_confirm') === 'true';
