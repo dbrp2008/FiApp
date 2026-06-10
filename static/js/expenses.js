@@ -98,7 +98,9 @@ function loadState(){
       delete s.cellCurrencies; delete s.displayCurrency;
 
       if(!s.rows.some(row=>row.linked==='subscriptions')){
-        s.rows.push({id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null,linked:'subscriptions'});
+        if(s.rows.length>0||localStorage.getItem('fiapp_template_dismissed')==='1'){
+          s.rows.push({id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null,linked:'subscriptions'});
+        }
       }
       return s;
     }
@@ -3162,7 +3164,7 @@ document.getElementById('dd-share-toggle').addEventListener('click',function(e){
 document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-share');});
 document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-share');});
 document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-share');});
-document.getElementById('import-btn').addEventListener('click',function(){if(window.openImportWizard) openImportWizard();closeDropdown('dd-share');});
+document.getElementById('import-btn').addEventListener('click',function(){if(window.openImportWizard) openImportWizard();});
 document.getElementById('expand-btn').addEventListener('click',expandAll);
 document.getElementById('collapse-btn').addEventListener('click',collapseAll);
 document.getElementById('reset-btn').addEventListener('click',resetAll);
