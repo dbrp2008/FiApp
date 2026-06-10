@@ -4,14 +4,14 @@
   <meta charset="utf-8" />
   <title>{% block title %}FiApp{% endblock %}</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function(){
       var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';
       if(t==='dark') document.documentElement.classList.add('dark');
       else if(t!=='light') document.documentElement.classList.add('theme-'+t);
     })();
   </script>
-  <script>
+  <script nonce="{{ csp_nonce }}">
   (function(){
     try {
       var _srv={{ current_user|default(none)|tojson }};
@@ -30,7 +30,7 @@
   </script>
   <link rel="stylesheet" href="/styles.css">
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-  <script>
+  <script nonce="{{ csp_nonce }}">
     var THEME_LABELS={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
   </script>
   <script src="/static/js/voice.js"></script>
@@ -101,9 +101,9 @@
     {% block nav_extra %}<a href="/">← Home</a>{% endblock %}
     <span id="sync-status" aria-live="polite" aria-atomic="true"></span>
     <span id="auth-badge-container" style="display:none"></span>
-    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script>(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b)b.textContent=THEME_LABELS[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
+    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b)b.textContent=THEME_LABELS[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce }}">
   var _CSRF='{{ csrf_token|default("") }}';
 
 
@@ -232,7 +232,7 @@
       <li><a href="/currency" class="drawer-link" data-path="/currency">💱 Currency Converter</a></li>
     </ul>
   </nav>
-  <script>document.querySelectorAll('.drawer-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('drawer-link-active');});</script>
+  <script nonce="{{ csp_nonce }}">document.querySelectorAll('.drawer-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('drawer-link-active');});</script>
 
   
   <div id="wt-overlay" aria-hidden="true"></div>
@@ -246,7 +246,7 @@
   <canvas id="wt-confetti" aria-hidden="true"></canvas>
   
 
-  <script>
+  <script nonce="{{ csp_nonce }}">
   (function(){
     'use strict';
     var WT_KEY='fiapp_walkthrough_v1';
