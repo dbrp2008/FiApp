@@ -3,39 +3,43 @@
 {% block title %}Interest Calculator{% endblock %}
 
 {% block content %}
-  <h1>Interest Calculator</h1>
+  <div class="page-header">
+    <h1>Interest calculator</h1>
+  </div>
 
   <div id="msg-area"></div>
 
-  <form id="interest-form">
-    <div class="form-row">
-      <label for="type">Interest Type</label>
-      <select name="type" id="type" required>
-        <option value="simple">Simple</option>
-        <option value="compound">Compound</option>
-        <option value="continuous">Continuous</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label for="principal">Principal</label>
-      <input type="number" step="any" inputmode="decimal" name="principal" id="principal" required placeholder="e.g. 10000">
-    </div>
-    <div class="form-row">
-      <label for="rate">Rate (%)</label>
-      <input type="number" step="any" inputmode="decimal" name="rate" id="rate" required placeholder="e.g. 5">
-    </div>
-    <div class="form-row">
-      <label for="years">Time (years)</label>
-      <input type="number" step="any" inputmode="decimal" name="years" id="years" required placeholder="e.g. 3">
-    </div>
-    <div class="form-row" id="periods-row" style="display:none;">
-      <label for="periods">Compounding Periods per Year</label>
-      <input type="number" step="any" inputmode="decimal" name="periods" id="periods" value="1" placeholder="e.g. 12 for monthly">
-    </div>
-    <button class="btn" type="submit">Calculate</button>
-  </form>
+  <div class="glass-panel">
+    <form id="interest-form">
+      <div class="form-row field">
+        <label for="type">Interest Type</label>
+        <select name="type" id="type" required>
+          <option value="simple">Simple</option>
+          <option value="compound">Compound</option>
+          <option value="continuous">Continuous</option>
+        </select>
+      </div>
+      <div class="form-row field">
+        <label for="principal">Principal</label>
+        <input type="number" step="any" inputmode="decimal" name="principal" id="principal" required placeholder="e.g. 10000">
+      </div>
+      <div class="form-row field">
+        <label for="rate">Rate (%)</label>
+        <input type="number" step="any" inputmode="decimal" name="rate" id="rate" required placeholder="e.g. 5">
+      </div>
+      <div class="form-row field">
+        <label for="years">Time (years)</label>
+        <input type="number" step="any" inputmode="decimal" name="years" id="years" required placeholder="e.g. 3">
+      </div>
+      <div class="form-row field" id="periods-row" style="display:none;">
+        <label for="periods">Compounding Periods per Year</label>
+        <input type="number" step="any" inputmode="decimal" name="periods" id="periods" value="1" placeholder="e.g. 12 for monthly">
+      </div>
+      <button class="btn btn-gradient" type="submit">Calculate</button>
+    </form>
+  </div>
 
-  <div class="result" id="result-box" style="display:none;">
+  <div class="gradient-card result" id="result-box" style="display:none;">
     <h2 id="res-desc"></h2>
     <p>Interest: $<span id="res-interest"></span></p>
     <p>Total: $<span id="res-total"></span></p>
