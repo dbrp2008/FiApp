@@ -310,10 +310,18 @@
     .mc-ebtns{display:flex;gap:7px;margin-top:9px;}
     .mc-esave{flex:1;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}
     .mc-ecancel{flex:1;background:var(--panel-bg);color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
+
+    /* ── Modern glass chrome (scoped reskin) ───────────────────── */
+    .month-nav button{background:var(--glass-bg);border:1px solid var(--glass-border);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+    .month-nav button:hover{background:var(--secondary-hover);}
+    .month-jump{background:var(--glass-bg);border:1px solid var(--glass-border);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+    .dropdown-menu{background:var(--glass-bg);border:1px solid var(--glass-border);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
 </style>
 {% endblock %}
 {% block content %}
-  <h1>Income Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+  <div class="page-header">
+    <h1>Income Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+  </div>
 
   <div class="month-nav">
     <button id="prev-btn">◀ Prev</button>
@@ -322,20 +330,20 @@
   </div>
   <p class="month-context-note" id="month-context-note"></p>
   <div style="margin-bottom:.5rem;">
-    <button class="btn-ghost btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
-    <button class="btn-ghost btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
-    <div class="dropdown" id="dd-copy-to"><button class="btn-ghost btn-sm" id="copy-to-toggle">📤 Copy to ▾</button><div class="dropdown-menu copy-to-menu" id="dd-copy-to-menu"></div></div>
+    <button class="btn btn-glass btn-ghost btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
+    <button class="btn btn-glass btn-ghost btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
+    <div class="dropdown" id="dd-copy-to"><button class="btn btn-glass btn-ghost btn-sm" id="copy-to-toggle">📤 Copy to ▾</button><div class="dropdown-menu copy-to-menu" id="dd-copy-to-menu"></div></div>
   </div>
 
 
-  <div class="forecast-bar" id="forecast-bar">
+  <div class="forecast-bar glass-panel" id="forecast-bar">
     <p>📋 <strong>Forecast mode</strong> - this is a future month. Enter projected income, or seed from history:</p>
     <button class="btn btn-sm" id="forecast-copy-last-btn">Copy last month</button>
     <button class="btn btn-sm" id="forecast-avg-btn">Use 3-month avg</button>
   </div>
 
   
-  <div class="summary-bar" id="summary-bar">
+  <div class="summary-bar glass-panel" id="summary-bar">
     <h3>Income Summary - <span id="summary-month"></span></h3>
     <div class="summary-grid">
       <div class="summary-item">
@@ -378,10 +386,10 @@
   </div>
 
   <div class="toolbar-row-1">
-    <button class="btn btn-sm" id="undo-btn" disabled>↩ Undo</button>
-    <button class="btn btn-sm" id="redo-btn" disabled>↪ Redo</button>
+    <button class="btn btn-glass btn-sm" id="undo-btn" disabled>↩ Undo</button>
+    <button class="btn btn-glass btn-sm" id="redo-btn" disabled>↪ Redo</button>
     <div class="dropdown" id="dd-table">
-      <button class="btn btn-sm" id="dd-table-toggle">Table ▾</button>
+      <button class="btn btn-glass btn-sm" id="dd-table-toggle">Table ▾</button>
       <div class="dropdown-menu" id="dd-table-menu">
         <button id="add-row-btn">+ Row</button>
         <button id="add-col-btn">+ Column</button>
@@ -389,15 +397,15 @@
       </div>
     </div>
     <div class="dropdown" id="dd-share" data-wt="income-share">
-      <button class="btn btn-sm" id="dd-share-toggle">Share ▾</button>
+      <button class="btn btn-glass btn-sm" id="dd-share-toggle">Share ▾</button>
       <div class="dropdown-menu" id="dd-share-menu">
         <button id="share-btn">📤 Share</button>
         <button id="export-btn">📥 Export</button>
         <button id="paste-btn">📋 Paste</button>
       </div>
     </div>
-    <button class="btn btn-sm btn-ghost" id="expand-btn" style="display:none">▾ Expand All</button>
-    <button class="btn btn-sm btn-ghost" id="collapse-btn" style="display:none">▸ Collapse All</button>
+    <button class="btn btn-glass btn-sm btn-ghost" id="expand-btn" style="display:none">▾ Expand All</button>
+    <button class="btn btn-glass btn-sm btn-ghost" id="collapse-btn" style="display:none">▸ Collapse All</button>
     <span id="export-flash" class="export-flash"></span>
     <button class="btn btn-sm btn-reset" id="reset-btn">⚠ Reset</button>
   </div>
