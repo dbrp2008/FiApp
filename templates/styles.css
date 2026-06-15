@@ -790,11 +790,18 @@ body{max-width:none;margin:0;padding:0;}
   .rail-account{margin-top:auto;}
   .rail-ico{font-size:1.05rem;width:1.3rem;text-align:center;}
   .hamburger-btn{display:none;}
-  .app-canvas{margin-left:230px;max-width:1180px;padding:1.5rem 2rem 4rem;}
+  body{padding-left:230px;}
+  .app-canvas{margin:0 auto;max-width:960px;padding:1.5rem 2rem 4rem;}
 }
 .nav, .home-nav{align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:14px;
   background:var(--glass-bg);border:1px solid var(--glass-border);
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
   margin-bottom:1.25rem;}
 .topbar-help{font-weight:700;min-width:34px;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:.5rem;}
+.topbar-right .theme-menu-wrap{margin-left:0;}
+.acct-avatar{width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;font-family:inherit;
+  font-weight:600;font-size:.9rem;color:#fff;background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
+  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.acct-dropdown-right{right:0;left:auto;}
 @media (min-width:900px){ .nav, .home-nav{margin-top:.25rem;} }
