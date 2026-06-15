@@ -11,8 +11,6 @@
 
 {% block head_styles %}
   <style>
-    body { max-width: 680px; }
-
     .home-nav {
       display: flex;
       justify-content: flex-end;
@@ -149,9 +147,11 @@
   <style>
     /* ── Home Snapshot ── */
     .snap-card {
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      backdrop-filter:blur(var(--glass-blur));
+      -webkit-backdrop-filter:blur(var(--glass-blur));
       padding: 1.1rem 1.4rem;
       margin-bottom: 1.25rem;
     }
@@ -246,9 +246,11 @@
     }
     /* Compact strip (State B) */
     .snap-strip {
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      backdrop-filter:blur(var(--glass-blur));
+      -webkit-backdrop-filter:blur(var(--glass-blur));
       padding: .7rem 1.1rem;
       margin-bottom: 1.25rem;
       display: flex;
@@ -262,10 +264,12 @@
     .snap-strip-amt   { font-size: 1.1rem; font-weight: 800; color: var(--fg); }
     /* Welcome back strip (State D) */
     .snap-welcome {
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       border-left: 3px solid var(--accent);
-      border-radius: 10px;
+      border-radius: 16px;
+      backdrop-filter:blur(var(--glass-blur));
+      -webkit-backdrop-filter:blur(var(--glass-blur));
       padding: .8rem 1.1rem;
       margin-bottom: 1.25rem;
       display: flex;
@@ -331,9 +335,11 @@
     }
     /* Checklist */
     .snap-checklist {
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      backdrop-filter:blur(var(--glass-blur));
+      -webkit-backdrop-filter:blur(var(--glass-blur));
       padding: .75rem 1.1rem;
       margin-bottom: 1.25rem;
     }
@@ -357,6 +363,12 @@
     .snap-check-icon { font-size: .9rem; flex-shrink: 0; }
     .snap-check-link { color: var(--accent); text-decoration: none; }
     .snap-check-link:hover { text-decoration: underline; }
+    .dash-hero-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:.85rem;margin-bottom:1.25rem;}
+    .hero-delta{font-size:.78rem;margin-top:.2rem;}
+    @media (max-width:600px){
+      .dash-hero-grid{grid-template-columns:1fr 1fr;}
+      .hero-net-card{grid-column:1 / -1;}
+    }
   </style>
 {% endblock %}
 
@@ -372,6 +384,18 @@
     </span>
     {% endif %}
   </div>
+
+  {% if current_user %}
+  <div class="dash-hero-grid" id="snap-hero" style="display:none">
+    <div class="gradient-card hero-net-card">
+      <div class="stat-label" style="color:rgba(255,255,255,.85)">Net balance · this month</div>
+      <div class="stat-value" id="hero-net" style="color:#fff">$0</div>
+      <div class="hero-delta" id="hero-delta" style="color:rgba(255,255,255,.9)"></div>
+    </div>
+    <div class="stat-card"><div class="stat-label">Income</div><div class="stat-value" id="hero-income">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-value" id="hero-expenses">$0</div></div>
+  </div>
+  {% endif %}
 
   <div id="snapshot-root"></div>
 
@@ -631,6 +655,28 @@
   var spent     = currentMonthSpent();
   var gross     = grossForMonth(cmk);
   var lastActive = lastActiveMonth();
+
+  // Gradient net-balance hero — reuses the snapshot's own current-month figures
+  // so the hero number can never disagree with the snapshot card below it.
+  (function(){
+    var heroEl = document.getElementById('snap-hero');
+    if(!heroEl) return;
+    var net = gross - spent;
+    var prevTotals = combinedMonthTotals(exp, subs, [pmk]);
+    var prevSpent = (prevTotals && prevTotals[pmk]) || 0;
+    var prevNet = grossForMonth(pmk) - prevSpent;
+    var setT = function(id, v){ var e = document.getElementById(id); if(e) e.textContent = v; };
+    setT('hero-net', fmtMoney(net));
+    setT('hero-income', fmtMoney(gross));
+    setT('hero-expenses', fmtMoney(spent));
+    var dEl = document.getElementById('hero-delta');
+    if(dEl){
+      if(prevNet !== 0){ var pct = Math.round((net - prevNet) / Math.abs(prevNet) * 100);
+        dEl.textContent = (pct >= 0 ? '+ ' : '– ') + Math.abs(pct) + '% vs ' + mkLabel(pmk); }
+      else { dEl.textContent = mkLabel(cmk); }
+    }
+    heroEl.style.display = '';
+  })();
   // Subscriptions are always-present and not month-specific — don't count toward "current month data"
   // for State D detection. Only expense cells signal whether this month has been tracked.
   var hasCurrentExpData = cellCount > 0;
