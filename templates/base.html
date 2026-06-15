@@ -1,3 +1,13 @@
+{% set NAV_ITEMS = [
+  ('/', '🏠', 'Home'),
+  ('/income', '💰', 'Income'),
+  ('/expenses', '📊', 'Expenses'),
+  ('/subscriptions', '🔄', 'Subscriptions'),
+  ('/analytics', '📉', 'Analytics'),
+  ('/currency', '💱', 'Currency'),
+  ('/tax', '🧾', 'Tax'),
+  ('/interest', '📈', 'Interest')
+] %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -85,6 +95,18 @@
   </style>
 </head>
 <body>
+  <aside class="app-rail" aria-label="Primary">
+    <a href="/" class="rail-brand"><span class="rail-logo" aria-hidden="true"></span><span class="rail-wordmark">FiApp</span></a>
+    <nav class="rail-nav">
+      {% for path, icon, label in NAV_ITEMS %}
+      <a href="{{ path }}" class="rail-link" data-path="{{ path }}"><span class="rail-ico" aria-hidden="true">{{ icon }}</span><span>{{ label }}</span></a>
+      {% endfor %}
+    </nav>
+    {% if current_user|default(none) %}
+    <a href="/account" class="rail-link rail-account" data-path="/account"><span class="rail-ico" aria-hidden="true">⚙</span><span>Account</span></a>
+    {% endif %}
+  </aside>
+  <main class="app-canvas {% block canvas_class %}{% endblock %}">
   <div class="{% block nav_class %}nav{% endblock %}">
     <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu">☰</button>
     {% if current_user|default(none) %}
@@ -100,6 +122,7 @@
     {% endif %}
     {% block nav_extra %}<a href="/">← Home</a>{% endblock %}
     <span id="sync-status" aria-live="polite" aria-atomic="true"></span>
+    <button class="btn-ghost btn-sm topbar-help" id="topbar-help-btn" aria-label="Help and walkthrough">?</button>
     <span id="auth-badge-container" style="display:none"></span>
     <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b)b.textContent=THEME_LABELS[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
@@ -199,6 +222,10 @@
     if(drawerOverlay) drawerOverlay.addEventListener('click',closeDrawer);
     var drawerClose=document.getElementById('drawer-close-btn');
     if(drawerClose) drawerClose.addEventListener('click',closeDrawer);
+    var helpBtn=document.getElementById('topbar-help-btn');
+    if(helpBtn) helpBtn.addEventListener('click',function(){
+      if(typeof window.wtStart==='function') window.wtStart();
+    });
   });
   // Session expiry check — debounced to 30s so rapid tab switches don't spam /auth/me
   var _lastAuthCheck=0;
@@ -214,6 +241,7 @@
   </script>
 
   {% block content %}{% endblock %}
+  </main>
 
   {% block body_scripts %}{% endblock %}
 
@@ -222,17 +250,13 @@
     <button class="drawer-close" id="drawer-close-btn" aria-label="Close navigation menu">✕</button>
     <h2>Tools</h2>
     <ul>
-      <li><a href="/" class="drawer-link" data-path="/">🏠 Home</a></li>
-      <li><a href="/income"   class="drawer-link" data-path="/income">💰 Income Tracker</a></li>
-      <li><a href="/expenses" class="drawer-link" data-path="/expenses">📊 Expense Tracker</a></li>
-      <li><a href="/analytics" class="drawer-link" data-path="/analytics">📉 Analytics</a></li>
-      <li><a href="/subscriptions" class="drawer-link" data-path="/subscriptions">🔄 Subscription Tracker</a></li>
-      <li><a href="/interest" class="drawer-link" data-path="/interest">📈 Interest Calculator</a></li>
-      <li><a href="/tax" class="drawer-link" data-path="/tax">🧾 Tax Calculator</a></li>
-      <li><a href="/currency" class="drawer-link" data-path="/currency">💱 Currency Converter</a></li>
+      {% for path, icon, label in NAV_ITEMS %}
+      <li><a href="{{ path }}" class="drawer-link" data-path="{{ path }}"><span aria-hidden="true">{{ icon }}</span> {{ label }}</a></li>
+      {% endfor %}
     </ul>
   </nav>
-  <script nonce="{{ csp_nonce }}">document.querySelectorAll('.drawer-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('drawer-link-active');});</script>
+  <script nonce="{{ csp_nonce }}">document.querySelectorAll('.drawer-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('drawer-link-active');});
+document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('rail-active');});</script>
 
   
   <div id="wt-overlay" aria-hidden="true"></div>
