@@ -205,10 +205,25 @@
       .add-bar select,.add-bar input[type="text"],
       .curr-row select,input.th-label{font-size:16px!important;}
     }
+
+    /* Glass chrome — let glass tokens win over the page-local panel styles.
+       Skip the totals panel while it carries .forecast-panel so the JS
+       forecast tint is preserved. */
+    .add-bar.glass-panel,
+    .totals-panel.glass-panel:not(.forecast-panel),
+    .leaderboard.glass-panel{
+      background:var(--glass-bg);
+      border:1px solid var(--glass-border);
+      border-radius:16px;
+      backdrop-filter:blur(var(--glass-blur));
+      -webkit-backdrop-filter:blur(var(--glass-blur));
+    }
 </style>
 {% endblock %}
 {% block content %}
-  <h1>Subscription Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+  <div class="page-header">
+    <h1>Subscription Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+  </div>
 
   <div class="month-nav">
     <button id="prev-btn">◀ Prev</button>
@@ -220,7 +235,7 @@
     <p>📋 <strong>Forecast mode</strong> - costs shown are projected from your billing schedules. Add or edit subscriptions to update the forecast.</p>
   </div>
 
-  <div class="add-bar" data-wt="subs-add">
+  <div class="add-bar glass-panel" data-wt="subs-add">
     <label>Add subscription:</label>
     <select id="sub-sel">
       <option value="">- select -</option>
@@ -232,7 +247,7 @@
       <optgroup label="Other"><option>Duolingo Plus</option><option>NordVPN</option><option value="__other__">Other…</option></optgroup>
     </select>
     <input type="text" id="custom-inp" placeholder="Service name"/>
-    <button class="btn btn-sm" id="add-sub-btn">Add</button>
+    <button class="btn btn-sm btn-gradient" id="add-sub-btn">Add</button>
     <label style="margin-left:.75rem;font-size:.85rem;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;">
       <input type="checkbox" id="chk-cancelled" checked> Include cancelled
     </label>
@@ -256,7 +271,7 @@
       <span id="slide-label">Spending Summary 1/2</span>
       <button class="slide-arrow" id="slide-next-btn" aria-label="Next summary">▶</button>
     </div>
-    <div class="totals-panel" id="slide-panel-0">
+    <div class="totals-panel glass-panel" id="slide-panel-0">
       <h3>Spending Summary - <span id="sum-label"></span></h3>
       <div class="tot-field"><label>Monthly Cost (USD)</label><div class="tot-val" id="tot-m-usd">$0.00</div></div>
       <div class="tot-field"><label>Yearly Cost (USD)</label><div class="tot-val" id="tot-y-usd">$0.00</div></div>
@@ -284,7 +299,7 @@
       </div>
     </div>
     
-    <div class="leaderboard" id="slide-panel-1" style="display:none">
+    <div class="leaderboard glass-panel" id="slide-panel-1" style="display:none">
       <h3>🏆 Subscription Leaderboard <span id="lb-month-lbl" style="font-weight:500;font-size:.78rem;color:#92400e;"></span></h3>
       <div id="lb-content"></div>
     </div>
