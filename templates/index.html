@@ -369,20 +369,37 @@
       .dash-hero-grid{grid-template-columns:1fr 1fr;}
       .hero-net-card{grid-column:1 / -1;}
     }
+    .dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap;}
+    .dash-greeting{font-size:1.6rem;font-weight:500;letter-spacing:-.02em;margin:0;color:var(--fg);}
+    .dash-sub{color:var(--muted);font-size:.92rem;margin:.15rem 0 0;}
+    .dash-tools{margin-bottom:1rem;}
+    .dash-tools-title{font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;}
+    .dash-tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;}
+    .dash-tool{display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:10px;text-decoration:none;color:var(--fg);font-weight:500;font-size:.88rem;background:var(--hover-bg);border:1px solid var(--glass-border);transition:transform .12s,filter .12s;}
+    .dash-tool:hover{filter:brightness(1.06);transform:translateY(-1px);text-decoration:none;}
+    .dash-tool-ic{font-size:1.05rem;}
+    .dash-insights-toggle{display:inline-flex;align-items:center;gap:.4rem;margin:0 0 1rem;padding:.5rem .9rem;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--fg);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;}
+    .dash-insights-toggle:hover{background:var(--hover-bg);}
+    .dash-toggle-caret{transition:transform .2s;}
+    .dash-insights-toggle.open .dash-toggle-caret{transform:rotate(180deg);}
   </style>
 {% endblock %}
 
 {% block content %}
-  <div class="hero">
-    <h1>FiApp</h1>
-    <p>Your 7-in-1 personal finance toolkit</p>
-    {% if not current_user %}
-    <button class="btn" id="hero-start-wt-btn" style="margin-top:.75rem;font-size:.9rem;">🧭 Start Walkthrough</button>
-    {% else %}
-    <span id="wt-restart-link" style="display:none;font-size:.82rem;color:var(--muted);margin-top:.5rem;">
-      <a id="wt-restart-lbl" href="#" style="color:var(--accent);">↺ Restart walkthrough</a>
-    </span>
-    {% endif %}
+  <div class="dash-head">
+    <div>
+      <h1 class="dash-greeting" id="dash-greeting">{% if current_user %}Welcome back, {{ current_user }}{% else %}Welcome to FiApp{% endif %}</h1>
+      <p class="dash-sub" id="dash-sub">Your 7-in-1 personal finance toolkit</p>
+    </div>
+    <div class="dash-head-actions">
+      {% if not current_user %}
+      <button class="btn btn-gradient" id="hero-start-wt-btn">🧭 Start walkthrough</button>
+      {% else %}
+      <span id="wt-restart-link" style="display:none;">
+        <a id="wt-restart-lbl" href="#" class="income-sync-link">↺ Restart walkthrough</a>
+      </span>
+      {% endif %}
+    </div>
   </div>
 
   {% if current_user %}
@@ -397,92 +414,27 @@
   </div>
   {% endif %}
 
-  <div id="snapshot-root"></div>
+  <div class="glass-panel dash-tools">
+    <div class="dash-tools-title">Quick tools</div>
+    <div class="dash-tools-grid">
+      <a href="/expenses" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📊</span>Add expense</a>
+      <a href="/income" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">💰</span>Log income</a>
+      <a href="/subscriptions" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">🔄</span>Subscriptions</a>
+      <a href="/analytics" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📉</span>Analytics</a>
+      <a href="/interest" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📈</span>Interest</a>
+      <a href="/tax" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">🧾</span>Income tax</a>
+      <a href="/currency" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">💱</span>Currency</a>
+    </div>
+  </div>
 
-  <div class="cards">
-    <a class="app-card card-income" href="/income">
-      <div class="card-body">
-        <span class="card-icon">💰</span>
-        <div class="card-text">
-          <div class="card-num">01</div>
-          <div class="card-title">Income Tracker</div>
-          <p class="card-desc">Track all your income sources month by month. Auto-links gross income to your Expense Tracker budget panel.</p>
-        </div>
-        <span class="card-arrow">→</span>
-      </div>
-    </a>
+  {% if current_user %}
+  <button class="dash-insights-toggle" id="insights-toggle" aria-expanded="false" aria-controls="snapshot-wrap">
+    <span id="insights-toggle-label">Show insights</span> <span class="dash-toggle-caret" aria-hidden="true">▾</span>
+  </button>
+  {% endif %}
 
-    <a class="app-card card-expenses" href="/expenses">
-      <div class="card-body">
-        <span class="card-icon">📊</span>
-        <div class="card-text">
-          <div class="card-num">02</div>
-          <div class="card-title">Expense Tracker</div>
-          <p class="card-desc">Organise your monthly expenses in a stylised spreadsheet that can be sent to others seamlessly!</p>
-        </div>
-        <span class="card-arrow">→</span>
-      </div>
-    </a>
-
-    <a class="app-card card-analytics" href="/analytics">
-      <div class="card-body">
-        <span class="card-icon">📉</span>
-        <div class="card-text">
-          <div class="card-num">03</div>
-          <div class="card-title">Analytics</div>
-          <p class="card-desc">Cross-tracker insights: spending trends, category breakdowns, income vs expenses, and subscription costs over time.</p>
-        </div>
-        <span class="card-arrow">→</span>
-      </div>
-    </a>
-
-    <a class="app-card card-subs" href="/subscriptions">
-      <div class="card-body">
-        <span class="card-icon">🔄</span>
-        <div class="card-text">
-          <div class="card-num">04</div>
-          <div class="card-title">Subscription Tracker</div>
-          <p class="card-desc">Using too many subscriptions? Track them all in one place (integrated with Expense Tracker).</p>
-        </div>
-        <span class="card-arrow">→</span>
-      </div>
-    </a>
-
-    <a class="app-card card-interest" href="/interest">
-      <div class="card-body">
-        <span class="card-icon">📈</span>
-        <div class="card-text">
-          <div class="card-num">05</div>
-          <div class="card-title">Interest Calculator</div>
-          <p class="card-desc">Compute simple, compound, or continuous interest. See how your money grows over time (and by how much).</p>
-        </div>
-        <span class="card-arrow">→</span>
-      </div>
-    </a>
-
-    <a class="app-card card-tax" href="/tax">
-      <div class="card-body">
-        <span class="card-icon">🧾</span>
-        <div class="card-text">
-          <div class="card-num">06</div>
-          <div class="card-title">Income Tax Calculator</div>
-          <p class="card-desc">Estimate how much tax you have to pay!. Auto-fills from Income Tracker and syncs with Expense Tracker.</p>
-        </div>
-        <span class="card-arrow">→</span>
-      </div>
-    </a>
-
-    <a class="app-card card-currency app-card-last" href="/currency">
-      <div class="card-body">
-        <span class="card-icon">💱</span>
-        <div class="card-text">
-          <div class="card-num">07</div>
-          <div class="card-title">Currency Converter</div>
-          <p class="card-desc">Live exchange rates for the world's currencies. Preset list with the option to enter your own currency code.</p>
-        </div>
-        <span class="card-arrow">→</span>
-      </div>
-    </a>
+  <div id="snapshot-wrap" style="display:none">
+    <div id="snapshot-root"></div>
   </div>
 {% endblock %}
 
@@ -1106,6 +1058,38 @@ document.addEventListener('DOMContentLoaded', function(){
     var b=e.target.closest('[data-snap-done-mk]');
     if(b) snapConfirmDone(b.dataset.snapDoneMk);
   });
+
+  // Time-based greeting + month subtitle (logged-in only)
+  var _u = {{ current_user|default(none)|tojson }};
+  if(_u){
+    var h=new Date().getHours();
+    var greet=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+    var gEl=document.getElementById('dash-greeting');
+    if(gEl) gEl.textContent=greet+', '+_u;
+    var sEl=document.getElementById('dash-sub');
+    if(sEl){ try{ sEl.textContent=new Date().toLocaleDateString(undefined,{month:'long',year:'numeric'})+' overview'; }catch(_){} }
+  }
+
+  // Insights toggle — show/hide the snapshot, remembered across visits
+  var tog=document.getElementById('insights-toggle');
+  var wrap=document.getElementById('snapshot-wrap');
+  if(tog && wrap){
+    var lblT=document.getElementById('insights-toggle-label');
+    var open=false;
+    try{ open=localStorage.getItem('fiapp_home_insights')==='1'; }catch(_){}
+    function applyInsights(){
+      wrap.style.display=open?'':'none';
+      tog.classList.toggle('open',open);
+      tog.setAttribute('aria-expanded',open?'true':'false');
+      if(lblT) lblT.textContent=open?'Hide insights':'Show insights';
+    }
+    applyInsights();
+    tog.addEventListener('click',function(){
+      open=!open;
+      try{ localStorage.setItem('fiapp_home_insights',open?'1':'0'); }catch(_){}
+      applyInsights();
+    });
+  }
 })();
 
 function snapConfirmDone(cmk){
