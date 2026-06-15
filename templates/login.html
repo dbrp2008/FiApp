@@ -13,7 +13,7 @@
   </script>
   <link rel="stylesheet" href="/styles.css">
   <style>
-    body { max-width: 420px; padding-top: 3rem; }
+    body { max-width: 880px; margin: 2.5rem auto; padding: 0 1rem 3rem; }
 
     .login-logo {
       text-align: center;
@@ -156,9 +156,15 @@
 
     .nav { justify-content: flex-end; }
 
-    .auth-canvas{max-width:440px;}
-    .auth-card{margin-top:2rem;}
+    .auth-canvas{max-width:880px;margin:0 auto;}
     .auth-card .btn{width:100%;margin-top:.5rem;}
+    .auth-split{display:grid;grid-template-columns:1fr 1fr;border-radius:18px;overflow:hidden;border:1px solid var(--glass-border);margin-top:1.25rem;box-shadow:var(--shadow);}
+    .auth-brand{padding:2.25rem 2rem;display:flex;flex-direction:column;justify-content:center;color:#fff;background:linear-gradient(150deg,var(--grad-from),var(--grad-to));}
+    .auth-brand-mark{font-size:2rem;font-weight:600;letter-spacing:-.02em;}
+    .auth-brand-tag{font-size:1.05rem;font-weight:500;margin:.8rem 0 .45rem;line-height:1.35;}
+    .auth-brand-sub{font-size:.85rem;opacity:.85;line-height:1.55;margin:0;}
+    .auth-split .auth-card{margin-top:0;border:none;border-radius:0;box-shadow:none;}
+    @media(max-width:680px){ body{max-width:440px;} .auth-split{grid-template-columns:1fr;} .auth-brand{display:none;} }
   </style>
 </head>
 <body class="auth-canvas">
@@ -170,9 +176,11 @@
     ✓ Account deleted. All your data has been permanently removed.
   </div>
 
-  <div class="login-logo">
-    <h1>FiApp</h1>
-    <p>Sign in to sync your data across devices</p>
+  <div class="auth-split">
+  <div class="auth-brand">
+    <div class="auth-brand-mark">FiApp</div>
+    <p class="auth-brand-tag">Your money, beautifully tracked.</p>
+    <p class="auth-brand-sub">Income, expenses, subscriptions, tax and more. One calm dashboard.</p>
   </div>
   <script nonce="{{ csp_nonce }}">
   var _qp=new URLSearchParams(window.location.search);
@@ -235,6 +243,7 @@
     </div>
     <button class="login-btn btn btn-gradient" id="register-btn">Create Account</button>
     <div class="back-link"><a href="/">← Back to FiApp</a></div>
+  </div>
   </div>
   </div>
 
