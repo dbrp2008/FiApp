@@ -318,10 +318,19 @@
     .mc-ebtns{display:flex;gap:7px;margin-top:9px;}
     .mc-esave{flex:1;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}
     .mc-ecancel{flex:1;background:var(--panel-bg);color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
+
+    /* ── Modern-UI chrome polish: glass month-nav + toolbar ── */
+    .month-nav{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:.4rem .55rem;backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+    .month-nav button{background:var(--glass-bg);border:1px solid var(--glass-border);}
+    .month-nav button:hover{background:var(--secondary-hover);}
+    .month-jump{background:var(--glass-bg);border:1px solid var(--glass-border);}
+    .dropdown-menu{background:var(--glass-bg);border:1px solid var(--glass-border);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
 </style>
 {% endblock %}
 {% block content %}
-  <h1>Expense Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+  <div class="page-header">
+    <h1>Expense Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+  </div>
 
   <div class="month-nav">
     <button id="prev-btn">◀ Prev</button>
@@ -330,8 +339,8 @@
   </div>
   <p class="month-context-note" id="month-context-note"></p>
   <div style="margin-bottom:.5rem;">
-    <button class="btn-ghost btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
-    <button class="btn-ghost btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
+    <button class="btn btn-glass btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
+    <button class="btn btn-glass btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
   </div>
 
   <!-- Monthly Close Bar -->
@@ -360,7 +369,7 @@
   <div class="overspend-nudge" id="overspend-nudge"></div>
 
 
-  <div class="income-panel" data-wt="expenses-tax-link">
+  <div class="income-panel glass-panel" data-wt="expenses-tax-link">
     <h3>Monthly Budget - <span id="budget-month"></span></h3>
     <p style="font-size:.75rem;color:var(--muted);margin:-.3rem 0 .6rem;">Set a monthly spending limit per category with the 🎯 in the totals column.</p>
     <div class="income-grid" id="income-grid">
