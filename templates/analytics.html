@@ -16,21 +16,27 @@
     }
     .stat-card {
       background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
       padding: .9rem 1rem;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
     }
     .stat-label  { font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:.3rem; }
     .stat-value  { font-size:1.45rem; font-weight:800; color:var(--fg); line-height:1.1; overflow-wrap:anywhere; word-break:break-word; }
     .stat-sub    { font-size:.75rem; color:var(--muted); margin-top:.2rem; }
 
-    
+
     .chart-card {
       background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
       padding: 1rem 1.1rem;
       margin-bottom: 1rem;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
     }
     .chart-card-header {
       display: flex;
@@ -48,9 +54,9 @@
     
     .btn-toggle {
       padding: .28rem .65rem;
-      border: 1px solid var(--input-border);
+      border: 1px solid var(--glass-border);
       border-radius: 6px;
-      background: var(--input-bg);
+      background: var(--glass-bg);
       color: var(--fg);
       font-size: .8rem;
       font-weight: 600;
@@ -60,12 +66,18 @@
     .btn-toggle:hover { border-color:var(--accent); color:var(--accent); }
     .btn-toggle-active { background:var(--accent); color:#fff !important; border-color:var(--accent); }
 
-    
+
     .period-row {
       display: flex;
       align-items: center;
       gap: .6rem;
       margin-bottom: 1rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: .55rem .85rem;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
     }
     .period-label { font-size:.85rem; font-weight:600; color:var(--muted); }
     .period-select {
@@ -100,13 +112,16 @@
     
     #stat-panel-spend, #stat-panel-sub {
       background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 8px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
       padding: .65rem 1rem;
       margin-bottom: .85rem;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
       gap: .3rem .75rem;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
     }
     #stat-panel-spend label, #stat-panel-sub label { font-size: .83rem; display: flex; align-items: center; gap: .4rem; cursor: pointer; color: var(--fg); }
     #stat-panel-spend input[type=checkbox], #stat-panel-sub input[type=checkbox] { cursor: pointer; accent-color: var(--accent); }
@@ -122,8 +137,8 @@
       margin-bottom: .6rem;
     }
     .slideshow-nav-btn {
-      background: none;
-      border: 1.5px solid var(--panel-border);
+      background: var(--glass-bg);
+      border: 1.5px solid var(--glass-border);
       border-radius: 7px;
       padding: .25rem .6rem;
       cursor: pointer;
@@ -171,7 +186,9 @@
 {% endblock %}
 {% block content %}
 
-  <h1>Analytics</h1>
+  <div class="page-header">
+    <h1>Analytics</h1>
+  </div>
   <div id="root"></div>
 {% endblock %}
 {% block body_scripts %}
