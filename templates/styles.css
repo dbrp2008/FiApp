@@ -790,7 +790,7 @@ body{max-width:none;margin:0;padding:0;}
   .rail-account{margin-top:auto;}
   .rail-ico{font-size:1.05rem;width:1.3rem;text-align:center;}
   .hamburger-btn{display:none;}
-  body{padding-left:230px;}
+  body:has(.app-rail){padding-left:230px;}
   .app-canvas{margin:0 auto;max-width:960px;padding:1.5rem 2rem 4rem;}
 }
 .nav, .home-nav{align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:14px;
@@ -805,3 +805,35 @@ body{max-width:none;margin:0;padding:0;}
   display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
 .acct-dropdown-right{right:0;left:auto;}
 @media (min-width:900px){ .nav, .home-nav{margin-top:.25rem;} }
+
+/* ── Wave A: global control & surface polish ──────────────────── */
+/* Buttons — give ghost/glass real definition + responsive hover/press */
+.btn-ghost, .btn-glass{
+  background:var(--secondary-bg);
+  border:1px solid var(--panel-border);
+  transition:background .14s ease, border-color .14s ease, transform .1s ease, filter .14s ease;
+}
+.btn-ghost:hover, .btn-glass:hover{ background:var(--hover-bg); border-color:var(--accent); color:var(--fg); }
+.btn-ghost:active, .btn-glass:active{ transform:translateY(1px); }
+.btn{ transition:filter .14s ease, transform .1s ease; }
+.btn:active{ transform:translateY(1px); }
+
+/* Inputs — softer radius + theme-tinted focus ring (replaces the hard accent ring) */
+input, select, textarea{ border-radius:10px; transition:border-color .14s ease, box-shadow .14s ease; }
+input:focus-visible, select:focus-visible, textarea:focus-visible{
+  outline:none; border-color:var(--grad-from); box-shadow:0 0 0 3px var(--glow-1);
+}
+
+/* Themed slim scrollbars */
+*{ scrollbar-width:thin; scrollbar-color:var(--panel-border) transparent; }
+*::-webkit-scrollbar{ width:10px; height:10px; }
+*::-webkit-scrollbar-track{ background:transparent; }
+*::-webkit-scrollbar-thumb{ background:var(--panel-border); border-radius:6px; border:2px solid transparent; background-clip:content-box; }
+*::-webkit-scrollbar-thumb:hover{ background:var(--secondary-hover); }
+
+/* Reusable uppercase section label */
+.section-label{ font-size:.72rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin:0 0 .5rem; }
+
+/* ── Wave B: tracker grid polish (CSS-only, render JS untouched) ── */
+.sheet tbody tr:hover td{ background:var(--hover-bg); }
+.sheet thead th{ border-bottom:2px solid var(--grad-from); }
