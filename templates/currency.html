@@ -20,7 +20,7 @@
     .rates-date-btn{background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:20px;padding:.28rem .85rem;font-size:.78rem;color:var(--muted);cursor:pointer;display:none;transition:border-color .15s,color .15s,background .15s;white-space:nowrap;}
     .rates-date-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--hover-bg);}
     .rates-wrap{position:relative;display:block;margin-top:.6rem;}
-    .rates-info-panel{position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.75rem 1rem;min-width:280px;box-shadow:0 4px 16px rgba(0,0,0,.12);font-size:.82rem;display:none;}
+    .rates-info-panel{position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));padding:.75rem 1rem;min-width:280px;box-shadow:0 4px 16px rgba(0,0,0,.12);font-size:.82rem;display:none;}
     .rates-info-row{display:flex;justify-content:space-between;gap:1.5rem;padding:.18rem 0;color:var(--fg);}
     .rates-info-label{color:var(--muted);font-weight:600;}
     .rates-countdown{color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;}
@@ -28,43 +28,47 @@
 {% endblock %}
 
 {% block content %}
-  <h1>Currency Converter</h1>
+  <div class="page-header">
+    <h1>Currency converter</h1>
+  </div>
 
   <div id="msg-area"></div>
 
-  <form id="currency-form">
-    <div>
-      <label for="currency_i">From Currency</label>
-      <div class="curr-row" data-wt="currency-from">
-        <select id="currency_i" required></select>
-        <input type="text" id="currency_i_other" placeholder="e.g. VND" maxlength="5" style="display:none;">
-        <button type="button" class="btn other-btn" id="currency_i_other_btn" style="display:none;">OK</button>
-        <span id="currency_i_note" style="font-size:.8rem;color:#6b7280;"></span>
+  <div class="glass-panel">
+    <form id="currency-form">
+      <div>
+        <label for="currency_i">From Currency</label>
+        <div class="curr-row" data-wt="currency-from">
+          <select id="currency_i" required></select>
+          <input type="text" id="currency_i_other" placeholder="e.g. VND" maxlength="5" style="display:none;">
+          <button type="button" class="btn other-btn" id="currency_i_other_btn" style="display:none;">OK</button>
+          <span id="currency_i_note" style="font-size:.8rem;color:#6b7280;"></span>
+        </div>
       </div>
-    </div>
-    <div>
-      <label for="currency_a">Amount</label>
-      <input name="currency_a" id="currency_a" type="number" step="any" inputmode="decimal" required placeholder="e.g. 100">
-    </div>
-    <div>
-      <label for="currency_o">To Currency</label>
-      <div class="curr-row">
-        <select id="currency_o" required></select>
-        <input type="text" id="currency_o_other" placeholder="e.g. VND" maxlength="5" style="display:none;">
-        <button type="button" class="btn other-btn" id="currency_o_other_btn" style="display:none;">OK</button>
-        <span id="currency_o_note" style="font-size:.8rem;color:#6b7280;"></span>
+      <div>
+        <label for="currency_a">Amount</label>
+        <input name="currency_a" id="currency_a" type="number" step="any" inputmode="decimal" required placeholder="e.g. 100">
       </div>
-    </div>
-    <br>
-    <button class="btn" type="submit" id="conv-btn">Convert</button>
-    <div class="rates-wrap">
-      <button id="rates-date-btn" type="button" class="rates-date-btn"></button>
-      <div id="rates-info-panel" class="rates-info-panel"></div>
-    </div>
-  </form>
+      <div>
+        <label for="currency_o">To Currency</label>
+        <div class="curr-row">
+          <select id="currency_o" required></select>
+          <input type="text" id="currency_o_other" placeholder="e.g. VND" maxlength="5" style="display:none;">
+          <button type="button" class="btn other-btn" id="currency_o_other_btn" style="display:none;">OK</button>
+          <span id="currency_o_note" style="font-size:.8rem;color:#6b7280;"></span>
+        </div>
+      </div>
+      <br>
+      <button class="btn btn-gradient" type="submit" id="conv-btn">Convert</button>
+      <div class="rates-wrap">
+        <button id="rates-date-btn" type="button" class="rates-date-btn"></button>
+        <div id="rates-info-panel" class="rates-info-panel"></div>
+      </div>
+    </form>
+  </div>
 
-  <div class="result" id="result-box" style="display:none;">
-    <p id="result-text"></p></output>
+  <div class="gradient-card result" id="result-box" style="display:none;">
+    <p id="result-text"></p>
   </div>
 {% endblock %}
 
