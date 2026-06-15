@@ -155,9 +155,13 @@
     .back-link a:hover { text-decoration: underline; }
 
     .nav { justify-content: flex-end; }
+
+    .auth-canvas{max-width:440px;}
+    .auth-card{margin-top:2rem;}
+    .auth-card .btn{width:100%;margin-top:.5rem;}
   </style>
 </head>
-<body>
+<body class="auth-canvas">
   <div class="nav">
     <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var L={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};var b=document.getElementById('theme-btn');if(b)b.textContent=L[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
@@ -182,12 +186,13 @@
   }
   </script>
 
+  <div class="glass-panel auth-card aurora-bg">
   <div class="tab-bar">
     <button class="tab-btn active" id="tab-login">Log In</button>
     <button class="tab-btn" id="tab-register">Register</button>
   </div>
 
-  
+
   <div id="panel-login" class="login-panel">
     <div class="auth-error" id="login-error"></div>
     <div class="form-group">
@@ -200,11 +205,11 @@
       <input type="password" id="login-password" autocomplete="current-password"
              placeholder="Your password" />
     </div>
-    <button class="login-btn" id="login-btn">Log In</button>
+    <button class="login-btn btn btn-gradient" id="login-btn">Log In</button>
     <div class="back-link"><a href="/">← Back to FiApp</a></div>
   </div>
 
-  
+
   <div id="panel-register" class="login-panel" style="display:none;">
     <div class="auth-error" id="register-error"></div>
     <div class="form-group">
@@ -228,8 +233,9 @@
       <input type="password" id="reg-password-confirm" autocomplete="new-password"
              placeholder="Repeat your password" minlength="8" />
     </div>
-    <button class="login-btn" id="register-btn">Create Account</button>
+    <button class="login-btn btn btn-gradient" id="register-btn">Create Account</button>
     <div class="back-link"><a href="/">← Back to FiApp</a></div>
+  </div>
   </div>
 
 <script nonce="{{ csp_nonce }}">
