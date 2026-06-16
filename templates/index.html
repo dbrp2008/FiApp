@@ -7,7 +7,8 @@
 {% block nav_extra %}{% endblock %}
 
 {% block head_scripts %}<script src="/static/rates-utils.js"></script>
-<script src="/static/js/analytics_core.js"></script>{% endblock %}
+<script src="/static/js/analytics_core.js"></script>
+<script src="/static/js/vendor/chart.umd.min.js"></script>{% endblock %}
 
 {% block head_styles %}
   <style>
@@ -372,9 +373,16 @@
     .dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap;}
     .dash-greeting{font-size:1.6rem;font-weight:500;letter-spacing:-.02em;margin:0;color:var(--fg);}
     .dash-sub{color:var(--muted);font-size:.92rem;margin:.15rem 0 0;}
-    .dash-tools{margin-bottom:1rem;}
+    .dash-row2{display:grid;grid-template-columns:1.6fr 1fr;gap:.85rem;align-items:stretch;}
+    .dash-chart-panel{display:flex;flex-direction:column;}
+    .dash-chart-box{position:relative;flex:1;min-height:210px;margin-top:.5rem;}
+    .dash-tools{display:flex;flex-direction:column;}
     .dash-tools-title{font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;}
-    .dash-tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;}
+    .dash-tools-list{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.7rem;}
+    .dash-add-btn{display:block;text-align:center;width:100%;}
+    #dash-alerts{margin-top:.7rem;display:flex;flex-direction:column;gap:.5rem;}
+    .dash-allclear{font-size:.83rem;color:var(--muted);background:var(--hover-bg);border:1px solid var(--glass-border);border-radius:10px;padding:.6rem .8rem;display:flex;align-items:center;gap:.5rem;}
+    @media (max-width:760px){ .dash-row2{grid-template-columns:1fr;} }
     .dash-tool{display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:10px;text-decoration:none;color:var(--fg);font-weight:500;font-size:.88rem;background:var(--hover-bg);border:1px solid var(--glass-border);transition:transform .12s,filter .12s;}
     .dash-tool:hover{filter:brightness(1.06);transform:translateY(-1px);text-decoration:none;}
     .dash-tool-ic{font-size:1.05rem;}
@@ -412,29 +420,32 @@
     <div class="stat-card"><div class="stat-label">Income</div><div class="stat-value" id="hero-income">$0</div></div>
     <div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-value" id="hero-expenses">$0</div></div>
   </div>
-  {% endif %}
 
-  <div class="glass-panel dash-tools">
-    <div class="dash-tools-title">Quick tools</div>
-    <div class="dash-tools-grid">
-      <a href="/expenses" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📊</span>Add expense</a>
-      <a href="/income" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">💰</span>Log income</a>
-      <a href="/subscriptions" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">🔄</span>Subscriptions</a>
-      <a href="/analytics" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📉</span>Analytics</a>
-      <a href="/interest" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📈</span>Interest</a>
-      <a href="/tax" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">🧾</span>Income tax</a>
-      <a href="/currency" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">💱</span>Currency</a>
-    </div>
-  </div>
-
-  {% if current_user %}
   <button class="dash-insights-toggle" id="insights-toggle" aria-expanded="false" aria-controls="snapshot-wrap">
     <span id="insights-toggle-label">Show insights</span> <span class="dash-toggle-caret" aria-hidden="true">▾</span>
   </button>
-  {% endif %}
-
   <div id="snapshot-wrap" style="display:none">
     <div id="snapshot-root"></div>
+  </div>
+  {% endif %}
+
+  <div class="dash-row2">
+    {% if current_user %}
+    <div class="glass-panel dash-chart-panel">
+      <div class="dash-tools-title">Income vs expenses</div>
+      <div class="dash-chart-box"><canvas id="dash-ive-chart" role="img" aria-label="Income versus expenses over recent months"></canvas></div>
+    </div>
+    {% endif %}
+    <div class="glass-panel dash-tools">
+      <div class="dash-tools-title">Quick tools</div>
+      <div class="dash-tools-list">
+        <a href="/interest" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📈</span>Interest</a>
+        <a href="/tax" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">🧾</span>Income tax</a>
+        <a href="/currency" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">💱</span>Currency</a>
+      </div>
+      <a href="/expenses" class="btn btn-gradient dash-add-btn">+ Add expense</a>
+      {% if current_user %}<div id="dash-alerts"><div id="snap-renewal-slot"></div><div id="snap-nudge-slot"></div></div>{% endif %}
+    </div>
   </div>
 {% endblock %}
 
@@ -617,10 +628,21 @@
     var prevTotals = combinedMonthTotals(exp, subs, [pmk]);
     var prevSpent = (prevTotals && prevTotals[pmk]) || 0;
     var prevNet = grossForMonth(pmk) - prevSpent;
-    var setT = function(id, v){ var e = document.getElementById(id); if(e) e.textContent = v; };
-    setT('hero-net', fmtMoney(net));
-    setT('hero-income', fmtMoney(gross));
-    setT('hero-expenses', fmtMoney(spent));
+    var _rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var countMoney = function(id, target){
+      var e = document.getElementById(id); if(!e) return;
+      if(_rm || !target){ e.textContent = fmtMoney(target); return; }
+      var s = performance.now(), d = 700;
+      (function tick(now){
+        var k = Math.min(1, (now - s) / d), ease = 1 - Math.pow(1 - k, 3);
+        e.textContent = fmtMoney(target * ease);
+        if(k < 1) requestAnimationFrame(tick); else e.textContent = fmtMoney(target);
+      })(performance.now());
+    };
+    heroEl.style.display = '';
+    countMoney('hero-net', net);
+    countMoney('hero-income', gross);
+    countMoney('hero-expenses', spent);
     var dEl = document.getElementById('hero-delta');
     if(dEl){
       if(prevNet !== 0){ var pct = Math.round((net - prevNet) / Math.abs(prevNet) * 100);
@@ -658,8 +680,7 @@
 
   var html = '';
 
-  // ─ Component 1: Renewal alert (populated in Phase 4b) ─
-  html += '<div id="snap-renewal-slot"></div>';
+  // Renewal alert + overspend nudge now render into #dash-alerts (quick-tools panel), not here.
 
   if(isStateD) {
     // ─ Component 2: Welcome back (State D) ─
@@ -734,9 +755,7 @@
       }
       html += '</div>';
 
-      // Overspend nudge — the one firm/trajectory signal (W6); shown before
-      // the gentler win-card so the actionable item surfaces first.
-      html += '<div id="snap-nudge-slot"></div>';
+      // Overspend nudge now renders into #dash-alerts (quick-tools panel), not here.
 
       // Component 5: Win card placeholder (Phase 4d will populate)
       html += '<div id="snap-win-slot"></div>';
@@ -825,7 +844,7 @@
     var first=renewals[0];
     var when=first.daysUntil===0?'today':first.daysUntil===1?'tomorrow':'in '+first.daysUntil+' days';
     var extra=renewals.length>1?' (+'+( renewals.length-1)+' more)':'';
-    slot.innerHTML='<div class="snap-renewal">⚠ <strong>'+escapeHtml(first.name)+'</strong> renews '+when+extra+' — <a href="/subscriptions" style="color:#92400e;font-weight:600">Review subscriptions →</a></div>';
+    slot.innerHTML='<div class="snap-renewal">⚠ <strong>'+escapeHtml(first.name)+'</strong> renews '+when+extra+'. <a href="/subscriptions" style="color:#92400e;font-weight:600">Review subscriptions →</a></div>';
   })();
 
   // W6: Overspend nudge — pace-vs-calendar projection for the live current
@@ -878,10 +897,10 @@
     if(localStorage.getItem(dismissKey(worst.scopeKey))) return;
 
     var msg = worst.scope === 'cat'
-      ? 'At this pace you\'ll spend ~' + fmtMoney(worst.projected) + ' on ' + escapeHtml(worst.name) + ' by month-end — ~' + fmtMoney(worst.overBy) + ' over your ' + fmtMoney(worst.limit) + ' goal.'
-      : 'At this pace you\'ll spend ~' + fmtMoney(worst.projected) + ' this month — ~' + fmtMoney(worst.overBy) + ' more than your ' + fmtMoney(worst.limit) + ' income.';
+      ? 'At this pace you\'ll spend ~' + fmtMoney(worst.projected) + ' on ' + escapeHtml(worst.name) + ' by month-end, about ' + fmtMoney(worst.overBy) + ' over your ' + fmtMoney(worst.limit) + ' goal.'
+      : 'At this pace you\'ll spend ~' + fmtMoney(worst.projected) + ' this month, about ' + fmtMoney(worst.overBy) + ' more than your ' + fmtMoney(worst.limit) + ' income.';
     var dismissLabel = worst.scope === 'cat' ? ('Dismiss overspend nudge for ' + worst.name + ' this month') : 'Dismiss overspend nudge for this month';
-    slot.innerHTML = '<div class="snap-nudge">⚠ <strong>Heads up —</strong> ' + msg +
+    slot.innerHTML = '<div class="snap-nudge">⚠ <strong>Heads up:</strong> ' + msg +
       ' <a href="/expenses" style="color:#991b1b;font-weight:700">Review →</a>' +
       ' <button type="button" class="snap-nudge-dismiss" aria-label="' + escapeHtml(dismissLabel) + '">Dismiss</button></div>';
     var dBtn = slot.querySelector('.snap-nudge-dismiss');
@@ -983,6 +1002,38 @@
 
     if(!wins.length) return;
     winSlot.innerHTML = '<div class="snap-win">' + wins.join(' ') + '</div>';
+  })();
+
+  // Income vs expenses chart (dashboard row 2)
+  (function(){
+    var cv = document.getElementById('dash-ive-chart'); if(!cv || typeof Chart === 'undefined') return;
+    var months = (typeof allSpendingMonths === 'function') ? allSpendingMonths(exp, subs) : [];
+    months = months.slice(-6);
+    if(!months.length) return;
+    var css = getComputedStyle(document.documentElement);
+    var incCol = css.getPropertyValue('--grad-to').trim() || '#22d3ee';
+    var expCol = css.getPropertyValue('--grad-from').trim() || '#a855f7';
+    var muted = css.getPropertyValue('--muted').trim();
+    var spendTotals = combinedMonthTotals(exp, subs, months);
+    var incData = months.map(function(m){ return Math.round(grossForMonth(m)); });
+    var expData = months.map(function(m){ return Math.round(spendTotals[m] || 0); });
+    var labels  = months.map(function(m){ return (typeof mkLabel === 'function') ? mkLabel(m) : m; });
+    if(cv._c) cv._c.destroy();
+    cv._c = new Chart(cv, {type:'bar',
+      data:{labels:labels, datasets:[
+        {label:'Income',  data:incData, backgroundColor:incCol, borderRadius:6},
+        {label:'Expenses',data:expData, backgroundColor:expCol, borderRadius:6}]},
+      options:{responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:true, labels:{boxWidth:10, font:{size:11}, color:muted}}},
+        scales:{y:{beginAtZero:true, ticks:{color:muted}}, x:{ticks:{color:muted}}}}});
+  })();
+
+  // Alerts: if no renewal/nudge landed in the dashboard alerts area, show an all-clear
+  (function(){
+    var a = document.getElementById('dash-alerts'); if(!a) return;
+    if(!a.querySelector('.snap-renewal') && !a.querySelector('.snap-nudge')){
+      a.innerHTML = '<div class="dash-allclear"><span aria-hidden="true">✓</span> You\'re all caught up. Nice work.</div>';
+    }
   })();
 
 })();
