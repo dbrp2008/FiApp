@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Subscription Tracker{% endblock %}
-{% block head_scripts %}<script src="/static/rates-utils.js"></script>
-<script src="/static/js/tracker-sync.js?v=20260608"></script>{% endblock %}
+{% block head_scripts %}<script src="/static/rates-utils.js?v={{ ASSET_V }}"></script>
+<script src="/static/js/tracker-sync.js?v={{ ASSET_V }}"></script>{% endblock %}
 {% block head_styles %}
 <style>
     
@@ -324,4 +324,4 @@
 
 <div class="sheet-wrap"><table class="sheet" id="sheet"></table></div>
 {% endblock %}
-{% block body_scripts %}<script src="/static/js/subscriptions.js?v=20260607"></script>{% endblock %}
+{% block body_scripts %}<script src="/static/js/subscriptions.js?v={{ ASSET_V }}"></script>{% endblock %}
