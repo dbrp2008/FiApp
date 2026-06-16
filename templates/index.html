@@ -463,8 +463,11 @@
   try{ if(typeof fiappCoreLoadRates==='function') await fiappCoreLoadRates(); }catch(e){}
 
   // Always fetch fresh server data so home page reflects current state.
-  // Home page is read-only — no local changes to protect, and save() in
-  // each tracker already syncs every edit to the server immediately.
+  // Home refreshes each tracker's cached blob from the server so the snapshot is current.
+  // save() in each tracker already syncs edits, so there's no local *data* to protect — but
+  // currentYear/currentMonth is per-device view state, so carry it over from the existing
+  // local blob (mirrors tracker-sync.js loadFromServer) or visiting Home would reset which
+  // month a tracker reopens on.
   // NOTE: API returns { data: { rows, cells, ... } } — unwrap .data before storing.
   async function _fetchFresh(key, apiPath) {
     try {
@@ -472,7 +475,13 @@
       if(!r.ok) return;
       var resp = await r.json();
       var d = resp && resp.data;
-      if(d && (d.rows || d.cells || d.rowsByMonth)) localStorage.setItem(key, JSON.stringify(d));
+      if(d && (d.rows || d.cells || d.rowsByMonth)) {
+        try {
+          var _ln = JSON.parse(localStorage.getItem(key) || 'null');
+          if(_ln && _ln.currentYear != null) { d.currentYear = _ln.currentYear; d.currentMonth = _ln.currentMonth; }
+        } catch(_) {}
+        localStorage.setItem(key, JSON.stringify(d));
+      }
     } catch(e) {}
   }
   try {
