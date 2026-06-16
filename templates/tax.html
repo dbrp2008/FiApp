@@ -9,6 +9,9 @@
 {% block head_styles %}
   <style>
     .app-canvas { max-width: 660px; }
+    /* Result card sits on the vivid gradient (white text); muted secondary text built in
+       JS uses color:var(--muted) which is dark/low-contrast there. Keep it light & readable. */
+    #result-box [style*="color:var(--muted)"] { color: rgba(255,255,255,.82) !important; }
     .tax-src-wrap {
       background: var(--panel-bg);
       border: 1px solid var(--panel-border);
