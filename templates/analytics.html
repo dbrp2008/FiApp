@@ -1182,9 +1182,12 @@ function reRenderCharts(){
         fetch('/api/load/subs'),
         fetch('/api/load/income')
       ]);
-      if(expRes.ok){const r=await expRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(EXP_KEY,JSON.stringify(d));}
-      if(subRes.ok){const r=await subRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(SUBS_KEY,JSON.stringify(d));}
-      if(incRes.ok){const r=await incRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(INC_KEY,JSON.stringify(d));}
+      // Keep each tracker's own last-viewed month (per-device view state) so visiting
+      // Analytics doesn't reset which month a tracker reopens on.
+      const _keepMonth=(key,d)=>{try{const _ln=JSON.parse(localStorage.getItem(key)||'null');if(_ln&&_ln.currentYear!=null){d.currentYear=_ln.currentYear;d.currentMonth=_ln.currentMonth;}}catch(_){}return d;};
+      if(expRes.ok){const r=await expRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(EXP_KEY,JSON.stringify(_keepMonth(EXP_KEY,d)));}
+      if(subRes.ok){const r=await subRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(SUBS_KEY,JSON.stringify(_keepMonth(SUBS_KEY,d)));}
+      if(incRes.ok){const r=await incRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(INC_KEY,JSON.stringify(_keepMonth(INC_KEY,d)));}
     }
 
     if(_wtActive && typeof window._wtSeedAnalytics==='function') window._wtSeedAnalytics();
