@@ -796,7 +796,9 @@ body{max-width:none;margin:0;padding:0;}
 .nav, .home-nav{align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:14px;
   background:var(--glass-bg);border:1px solid var(--glass-border);
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
-  margin-bottom:1.25rem;}
+  margin-bottom:1.25rem;position:relative;z-index:60;}
+/* Dropdowns must escape the glass-panel stacking contexts below the topbar */
+.acct-dropdown, .theme-dropdown{z-index:1000;}
 .topbar-help{font-weight:700;min-width:34px;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:.5rem;}
 .topbar-right .theme-menu-wrap{margin-left:0;}
@@ -837,3 +839,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 /* ── Wave B: tracker grid polish (CSS-only, render JS untouched) ── */
 .sheet tbody tr:hover td{ background:var(--hover-bg); }
 .sheet thead th{ border-bottom:2px solid var(--grad-from); }
+
+/* ── Wave E: flourishes ───────────────────────────────────────── */
+@media (min-width:900px){
+  .rail-link.rail-active{ position:relative; }
+  .rail-link.rail-active::before{ content:''; position:absolute; left:-2px; top:18%; bottom:18%;
+    width:3px; border-radius:0 3px 3px 0; background:linear-gradient(180deg,var(--grad-from),var(--grad-to)); }
+}
+@media (prefers-reduced-motion: no-preference){
+  .app-canvas{ animation:canvas-fade .26s ease; }
+  @keyframes canvas-fade{ from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:none;} }
+}
