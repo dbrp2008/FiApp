@@ -304,7 +304,7 @@ def serve_css():
 
 @app.route('/ping')
 def ping():
-    return '', 204
+    return {"status": "functioning!!!"}, 200
 
 @app.route('/')
 def home():
