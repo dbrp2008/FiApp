@@ -1256,6 +1256,7 @@ document.getElementById('tax-form').addEventListener('submit', async function(e)
   };
   _lastResultByCountry[_country] = _lastTaxResult;
   _updateApplyBtns();
+  _saveTaxUI();  // persist the freshly computed result so a later visit restores THIS one, not a stale earlier calc
 });
 
 
