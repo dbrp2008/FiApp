@@ -29,6 +29,7 @@
     window.removeEventListener('resize', o.reposition);
     window.removeEventListener('scroll', o.reposition, true);
     if(o.raf) cancelAnimationFrame(o.raf);
+    if(o.snapT) clearTimeout(o.snapT);
     o.overlay.remove();
     if(returnFocus && o.select) o.select.focus();
   }
@@ -104,23 +105,41 @@
       else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); commit(select, open.items[open.idx].dataset.value); close(true); }
     }
 
-    open = {select: select, overlay: overlay, wheel: wheel, list: list, items: items, idx: selIdx, onKey: onKey, reposition: reposition, raf: null};
+    // Index of the item whose centre is nearest the band at the current scroll position.
+    function nearestIdx(){
+      var centre = list.scrollTop + list.clientHeight / 2, best = 0, bestD = Infinity;
+      for(var i = 0; i < items.length; i++){
+        var c = items[i].offsetTop + items[i].offsetHeight / 2, d = Math.abs(c - centre);
+        if(d < bestD){ bestD = d; best = i; }
+      }
+      return best;
+    }
+    function centreNow(idx){ var it = items[idx]; if(it) list.scrollTop = it.offsetTop - (list.clientHeight / 2) + (it.offsetHeight / 2); }
+
+    open = {select: select, overlay: overlay, wheel: wheel, list: list, items: items, idx: selIdx, onKey: onKey, reposition: reposition, raf: null, snapT: null};
 
     // Highlight whichever item is nearest the centre band as the user free-scrolls.
     list.addEventListener('scroll', function(){
       if(!open || open.raf) return;
       open.raf = requestAnimationFrame(function(){
         open.raf = null;
-        var centre = list.scrollTop + list.clientHeight / 2;
-        var best = 0, bestD = Infinity;
-        for(var i = 0; i < items.length; i++){
-          var c = items[i].offsetTop + items[i].offsetHeight / 2;
-          var d = Math.abs(c - centre);
-          if(d < bestD){ bestD = d; best = i; }
-        }
+        var best = nearestIdx();
         if(best !== open.idx) markActive(best);
       });
     });
+
+    // Mouse-wheel / trackpad: scroll the list ourselves so it works uniformly wherever the
+    // cursor sits over the wheel. (Native scroll only moves the exact sub-element under the
+    // pointer, and mandatory snap kept re-anchoring to the cursor's item, so scrolling stalled
+    // until you nudged the pointer to another row.) Snap onto the nearest item once it settles.
+    wheel.addEventListener('wheel', function(e){
+      e.preventDefault();
+      var unit = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? list.clientHeight : 1);
+      list.scrollTop += e.deltaY * unit;
+      if(!open) return;
+      clearTimeout(open.snapT);
+      open.snapT = setTimeout(function(){ if(!open) return; var b = nearestIdx(); markActive(b); centreNow(b); }, 120);
+    }, {passive: false});
 
     reposition();
     markActive(selIdx);
