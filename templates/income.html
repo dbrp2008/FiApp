@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Income Tracker{% endblock %}
-{% block head_scripts %}<script src="/static/rates-utils.js"></script>
+{% block head_scripts %}<script src="/static/rates-utils.js?v={{ ASSET_V }}"></script>
 <script src="/static/js/vendor/chart.umd.min.js"></script>
-<script src="/static/js/tracker-sync.js?v=20260608"></script>{% endblock %}
+<script src="/static/js/tracker-sync.js?v={{ ASSET_V }}"></script>{% endblock %}
 {% block head_styles %}
 <style>
     .app-canvas { max-width: 880px; }
@@ -452,4 +452,4 @@
   </div>
 </div>
 {% endblock %}
-{% block body_scripts %}<script src="/static/js/income.js?v=20260607"></script><script src="/static/js/voice-input.js"></script><script nonce="{{ csp_nonce }}">VoiceInput && VoiceInput.init('income');</script>{% endblock %}
+{% block body_scripts %}<script src="/static/js/income.js?v={{ ASSET_V }}"></script><script src="/static/js/voice-input.js?v={{ ASSET_V }}"></script><script nonce="{{ csp_nonce }}">VoiceInput && VoiceInput.init('income');</script>{% endblock %}
