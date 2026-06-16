@@ -15,14 +15,17 @@
       margin-bottom: 1.25rem;
     }
     .stat-card {
+      position: relative;
       background: var(--panel-bg);
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
       border-radius: 14px;
-      padding: .9rem 1rem;
+      padding: .9rem 1rem .9rem 1.15rem;
+      overflow: hidden;
       backdrop-filter: blur(var(--glass-blur));
       -webkit-backdrop-filter: blur(var(--glass-blur));
     }
+    .stat-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,var(--grad-from),var(--grad-to)); }
     .stat-label  { font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:.3rem; }
     .stat-value  { font-size:1.45rem; font-weight:800; color:var(--fg); line-height:1.1; overflow-wrap:anywhere; word-break:break-word; }
     .stat-sub    { font-size:.75rem; color:var(--muted); margin-top:.2rem; }
