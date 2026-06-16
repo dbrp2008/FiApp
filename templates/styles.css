@@ -814,12 +814,12 @@ body{max-width:none;margin:0;padding:0;}
    so the FIRST and LAST items can scroll all the way to the centre band. box-sizing:border-box
    keeps height honest regardless of the page's default. */
 .gp-list{position:relative;box-sizing:border-box;height:200px;overflow-y:auto;
-  scroll-snap-type:y mandatory;padding:80px 0;scrollbar-width:thin;}
+  overscroll-behavior:contain;padding:80px 0;scrollbar-width:thin;}
 .gp-band{position:absolute;left:8px;right:8px;top:50%;height:40px;transform:translateY(-50%);
   border-radius:10px;background:var(--glass-bg);border:1px solid var(--glass-border);
   pointer-events:none;z-index:0;}
 .gp-item{position:relative;z-index:1;display:block;width:100%;height:40px;line-height:40px;
-  scroll-snap-align:center;border:none;background:none;cursor:pointer;color:var(--fg);
+  border:none;background:none;cursor:pointer;color:var(--fg);
   font:inherit;font-size:.95rem;text-align:center;opacity:.45;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:opacity .15s,transform .15s;}
 .gp-item:hover{opacity:.8;}
