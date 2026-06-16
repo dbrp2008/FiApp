@@ -1173,7 +1173,7 @@ function renderTableHeader(table){
   const _mob=window.innerWidth<640;
   const _vw=window.innerWidth;
   // Mobile: label ~43% vw, data cols 115px. Table scrolls ~30px to show Total — better than cramping.
-  const _hdrW=_mob?Math.max(150,Math.round(_vw*0.43)):state.headerColWidth||185;
+  const _hdrW=_mob?Math.max(150,Math.round(_vw*0.43)):state.headerColWidth||235;
   const _dataW=_mob?115:null;
   const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=_hdrW+'px';cg.appendChild(hc);
   getCols().forEach(col=>{const c=document.createElement('col');c.id='cg-'+col.id;c.style.width=(_mob?_dataW:col.width||120)+'px';cg.appendChild(c);});
