@@ -198,14 +198,8 @@ function loadState(){
       if(!Array.isArray(s.cols)) s.cols=freshState().cols;
       if(!s.rowsByMonth)    s.rowsByMonth={};
       if(!s.colsByMonth)    s.colsByMonth={};
-      // If the last-viewed month has slipped into the past (e.g. the calendar
-      // rolled over since the last visit), snap forward to the current month
-      // instead of reopening on a stale past month. Forward navigation into
-      // forecast months is preserved.
-      const now=new Date();
-      const nowMk=now.getFullYear()*12+now.getMonth();
-      const storedMk=s.currentYear*12+s.currentMonth;
-      if(!(storedMk>=nowMk)){ s.currentYear=now.getFullYear(); s.currentMonth=now.getMonth(); }
+      // The last-viewed month is per-device view state and persists across visits
+      // (matching the Expense tracker), so we keep s.currentYear/currentMonth as saved.
       return s;
     }
   }catch(e){ console.warn('FiApp: loadState failed, using fresh state -',e.message); }
