@@ -6,8 +6,8 @@
 
 {% block nav_extra %}{% endblock %}
 
-{% block head_scripts %}<script src="/static/rates-utils.js"></script>
-<script src="/static/js/analytics_core.js"></script>
+{% block head_scripts %}<script src="/static/rates-utils.js?v={{ ASSET_V }}"></script>
+<script src="/static/js/analytics_core.js?v={{ ASSET_V }}"></script>
 <script src="/static/js/vendor/chart.umd.min.js"></script>{% endblock %}
 
 {% block head_styles %}
