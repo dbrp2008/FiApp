@@ -3191,7 +3191,9 @@ document.getElementById('income-sync-badge').addEventListener('click',function(e
 });
 // CSP: bound here instead of inline attributes in expenses.html
 document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
-(function(){var b=document.getElementById('close-bar-btn');if(b)b.addEventListener('click',openCloseModal);})();
+// close-bar button's click is wired dynamically in updateCloseBar() (reopenMonth when the
+// month is locked, openCloseModal otherwise) — no static listener here, or clicking Reopen
+// would also fire openCloseModal and pop the close dialog.
 (function(){var b=document.getElementById('close-modal-cancel');if(b)b.addEventListener('click',cancelClose);})();
 (function(){var b=document.getElementById('close-modal-confirm');if(b)b.addEventListener('click',confirmClose);})();
 document.getElementById('inp-gross').addEventListener('input',onGrossInput);
