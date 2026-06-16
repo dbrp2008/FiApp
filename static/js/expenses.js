@@ -55,10 +55,10 @@ function freshState(){
   return {
     rows:[],
     cols:[
-      {id:uid(),label:'Week 1',width:110},
-      {id:uid(),label:'Week 2',width:110},
-      {id:uid(),label:'Week 3',width:110},
-      {id:uid(),label:'Week 4',width:110},
+      {id:uid(),label:'Week 1',width:120},
+      {id:uid(),label:'Week 2',width:120},
+      {id:uid(),label:'Week 3',width:120},
+      {id:uid(),label:'Week 4',width:120},
     ],
     headerColWidth:185, totalColWidth:110,
     cells:{}, cellTimes:{}, income:{}, collapsed:{},
@@ -102,6 +102,10 @@ function loadState(){
           s.rows.push({id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null,linked:'subscriptions'});
         }
       }
+      // Older defaults (100/110) clip the "Week N" header; widen never-resized data columns.
+      const _bumpCol=c=>{ if(c&&(c.width===100||c.width===110)) c.width=120; };
+      (s.cols||[]).forEach(_bumpCol);
+      Object.keys(s.colsByMonth||{}).forEach(mk2=>(s.colsByMonth[mk2]||[]).forEach(_bumpCol));
       return s;
     }
   }catch(e){ console.warn('FiApp: loadState failed, using fresh state -',e.message); }
@@ -194,6 +198,9 @@ async function loadSubsFromServer(){
     const resp=await res.json();
     const data=resp&&resp.data;
     if(data&&typeof data==='object'&&(Array.isArray(data.rows)||Array.isArray(data.cols)||data.cells)){
+      // Keep the Subscriptions tracker's own last-viewed month (per-device view state) so
+      // visiting Expenses doesn't reset which month Subscriptions reopens on.
+      try{const _ln=JSON.parse(localStorage.getItem(SUBS_KEY)||'null');if(_ln&&_ln.currentYear!=null){data.currentYear=_ln.currentYear;data.currentMonth=_ln.currentMonth;}}catch(_){}
       localStorage.setItem(SUBS_KEY,JSON.stringify(data));
     }
   }catch(e){}
@@ -1465,7 +1472,7 @@ function addCol(){
   const mk2=currentMK();
   if(getCols(mk2).length>=MAX_COLS){showToast('Maximum '+MAX_COLS+' columns per month.');return;}
   snapshot();
-  state.colsByMonth[mk2].push({id:uid(),label:'New Column',width:100});
+  state.colsByMonth[mk2].push({id:uid(),label:'New Column',width:120});
   save(); render();
 }
 function deleteRow(id){
@@ -1836,7 +1843,7 @@ function renderTableHeader(table){
   const _hdrW=_mob?Math.max(90,Math.round(_vw*0.30)):state.headerColWidth||185;
   const _dataW=_mob?90:null;
   const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=_hdrW+'px';cg.appendChild(hc);
-  getCols().forEach(col=>{const c=document.createElement('col');c.id='cg-'+col.id;c.style.width=(_mob?_dataW:col.width||100)+'px';cg.appendChild(c);});
+  getCols().forEach(col=>{const c=document.createElement('col');c.id='cg-'+col.id;c.style.width=(_mob?_dataW:col.width||120)+'px';cg.appendChild(c);});
   const tc=document.createElement('col');tc.style.width=(state.totalColWidth||110)+'px';cg.appendChild(tc);
   const dc=document.createElement('col');dc.style.width='32px';cg.appendChild(dc);
   table.appendChild(cg);
