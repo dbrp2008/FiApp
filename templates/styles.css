@@ -810,8 +810,11 @@ body{max-width:none;margin:0;padding:0;}
   border:1px solid var(--glass-border);
   backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);
   box-shadow:0 18px 50px rgba(0,0,0,.38);}
-.gp-list{position:relative;max-height:240px;overflow-y:auto;scroll-snap-type:y mandatory;
-  padding:100px 0;scrollbar-width:thin;}
+/* 5 visible rows of 40px = 200px window; padding must equal (clientHeight-itemHeight)/2 = 80px
+   so the FIRST and LAST items can scroll all the way to the centre band. box-sizing:border-box
+   keeps height honest regardless of the page's default. */
+.gp-list{position:relative;box-sizing:border-box;height:200px;overflow-y:auto;
+  scroll-snap-type:y mandatory;padding:80px 0;scrollbar-width:thin;}
 .gp-band{position:absolute;left:8px;right:8px;top:50%;height:40px;transform:translateY(-50%);
   border-radius:10px;background:var(--glass-bg);border:1px solid var(--glass-border);
   pointer-events:none;z-index:0;}
