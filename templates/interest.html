@@ -2,7 +2,17 @@
 
 {% block title %}Interest Calculator{% endblock %}
 
-{% block head_styles %}<style>.app-canvas{max-width:560px;}</style>{% endblock %}
+{% block head_scripts %}<script src="/static/js/vendor/chart.umd.min.js"></script>{% endblock %}
+
+{% block head_styles %}<style>
+.app-canvas{max-width:560px;}
+#interest-form{display:grid;grid-template-columns:1fr 1fr;gap:.7rem .9rem;}
+#interest-form .field{margin-bottom:0;}
+#interest-form .form-row:first-child,#periods-row{grid-column:1 / -1;}
+#interest-form > button{grid-column:1 / -1;margin-top:.2rem;}
+.res-total-big{font-size:1.9rem;font-weight:600;letter-spacing:-.02em;line-height:1.1;color:#fff;}
+#res-spark-wrap{position:relative;height:84px;margin-top:.65rem;}
+</style>{% endblock %}
 
 {% block content %}
   <div class="page-header">
@@ -42,9 +52,10 @@
   </div>
 
   <div class="gradient-card result" id="result-box" style="display:none;">
-    <h2 id="res-desc"></h2>
-    <p>Interest: $<span id="res-interest"></span></p>
-    <p>Total: $<span id="res-total"></span></p>
+    <h2 id="res-desc" style="font-size:.95rem;font-weight:500;opacity:.9;margin:0 0 .3rem;"></h2>
+    <div class="res-total-big">$<span id="res-total"></span></div>
+    <p style="opacity:.9;margin:.15rem 0 0;font-size:.9rem;">+ $<span id="res-interest"></span> interest earned</p>
+    <div id="res-spark-wrap"><canvas id="res-spark" role="img" aria-label="Projected growth of the investment over time"></canvas></div>
   </div>
 {% endblock %}
 
@@ -106,9 +117,41 @@
                             'Simple Interest (r='+r+'%, t='+t+' yr)';
 
     document.getElementById('res-desc').textContent=desc;
-    document.getElementById('res-interest').textContent=result.interest.toFixed(2);
-    document.getElementById('res-total').textContent=result.total.toFixed(2);
     document.getElementById('result-box').style.display='block';
+    countUp(document.getElementById('res-total'), result.total);
+    countUp(document.getElementById('res-interest'), result.interest);
+    drawSparkline(p, r, t, n, type);
   });
+
+  var _reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function countUp(el, target){
+    if(!el) return;
+    if(_reduce){ el.textContent=target.toFixed(2); return; }
+    var start=performance.now(), dur=650;
+    function step(now){
+      var k=Math.min(1,(now-start)/dur), e=1-Math.pow(1-k,3);
+      el.textContent=(target*e).toFixed(2);
+      if(k<1) requestAnimationFrame(step); else el.textContent=target.toFixed(2);
+    }
+    requestAnimationFrame(step);
+  }
+
+  var _spark=null;
+  function _valueAt(p,r,t,n,type,yr){
+    if(type==='compound')   return p*Math.pow(1+(r/100/n),n*yr);
+    if(type==='continuous') return p*Math.exp((r/100)*yr);
+    return p + p*(r/100)*yr;
+  }
+  function drawSparkline(p,r,t,n,type){
+    var cv=document.getElementById('res-spark'); if(!cv||typeof Chart==='undefined') return;
+    var steps=Math.max(2,Math.min(40,Math.ceil(t))), labels=[], data=[];
+    for(var i=0;i<=steps;i++){ var yr=t*i/steps; labels.push(yr.toFixed(1)); data.push(Math.round(_valueAt(p,r,t,n,type,yr))); }
+    if(_spark) _spark.destroy();
+    _spark=new Chart(cv,{type:'line',
+      data:{labels:labels,datasets:[{data:data,borderColor:'#fff',backgroundColor:'rgba(255,255,255,.18)',fill:true,tension:.35,pointRadius:0,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:!_reduce,
+        plugins:{legend:{display:false},tooltip:{enabled:false}},
+        scales:{x:{display:false},y:{display:false}}}});
+  }
 </script>
 {% endblock %}
