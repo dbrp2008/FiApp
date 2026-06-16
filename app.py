@@ -53,6 +53,25 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' and not app.debug
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # 1 hour — caches /static/ files per session
+
+# Cache-busting stamp appended to asset URLs as ?v=ASSET_V. Recomputed at startup from the
+# newest static/template file mtime, so each deploy yields a new value and browsers fetch the
+# updated JS/CSS instead of serving a stale cached copy (replaces hand-maintained ?v= dates).
+def _compute_asset_version():
+    latest = 0.0
+    for _base in (app.static_folder, os.path.join(app.root_path, app.template_folder or 'templates')):
+        if not _base:
+            continue
+        for _dp, _dirs, _fns in os.walk(_base):
+            for _fn in _fns:
+                try:
+                    latest = max(latest, os.path.getmtime(os.path.join(_dp, _fn)))
+                except OSError:
+                    pass
+    return str(int(latest)) if latest else 'dev'
+ASSET_V = _compute_asset_version()
+app.jinja_env.globals['ASSET_V'] = ASSET_V
+
 EXCHANGE_API_KEY = os.environ.get("EXCHANGE_API_KEY")
 if not EXCHANGE_API_KEY:
     app.logger.warning(
