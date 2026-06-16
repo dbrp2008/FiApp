@@ -165,7 +165,7 @@ function freshState(){
     cols:[
       {id:uid(),label:'Amount',width:160},
     ],
-    headerColWidth:185, totalColWidth:110,
+    headerColWidth:235, totalColWidth:110,
     cells:{}, cellTimes:{}, collapsed:{}, monthRowCurrencies:{},
     displayCurrency:'USD',
     currentYear:y, currentMonth:m,
@@ -198,6 +198,9 @@ function loadState(){
       if(!Array.isArray(s.cols)) s.cols=freshState().cols;
       if(!s.rowsByMonth)    s.rowsByMonth={};
       if(!s.colsByMonth)    s.colsByMonth={};
+      // The old default Source-column width (185) truncates the default category names;
+      // widen columns that were never manually resized so e.g. 'Other Income' shows in full.
+      if(s.headerColWidth===185) s.headerColWidth=235;
       // The last-viewed month is per-device view state and persists across visits
       // (matching the Expense tracker), so we keep s.currentYear/currentMonth as saved.
       return s;
