@@ -44,6 +44,7 @@
     var THEME_LABELS={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
   </script>
   <script src="/static/js/voice.js"></script>
+  <script src="/static/js/glass-picker.js"></script>
   {% block head_scripts %}{% endblock %}
   {% block head_styles %}{% endblock %}
   <style>
@@ -1276,7 +1277,7 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
         {id:'enh-exp-import', text:'Don\'t want to type everything by hand? Click <strong>📂 Import</strong> to bring in transactions from a bank export (.ofx/.qfx/.qif) or spreadsheet (.csv). FiApp walks you through mapping columns, groups transactions by merchant, and remembers which category you pick - so re-importing from the same bank next month is one click.', target:'[data-wt="expenses-import"]', emoji:'📂'}
       ],
       income:[
-        {id:'enh-inc-gross', text:'Your <strong>total gross income</strong> here automatically appears in the Expense Tracker\'s Budget panel and pre-fills the Tax Calculator. No manual copying needed.',                                                                                  target:'[data-wt="income-tax-link"]',   emoji:'🔗'},
+        {id:'enh-inc-gross', text:'Your <strong>total gross income</strong> here automatically appears in the Expense Tracker\'s Budget panel and pre-fills the Tax Calculator. No manual copying needed.',                                                                                  target:'#summary-bar',   emoji:'🔗'},
         {id:'enh-inc-curr',  text:'Each income source can have its <strong>own currency</strong>. FiApp converts everything to USD for comparisons - great for multi-currency earners.',                                                                                                     target:'[data-wt="income-currency"]',   emoji:'💱'},
         {id:'enh-inc-share', text:'You can <strong>share your income sheet</strong> with others. Use the Share button to generate a clean view without requiring a login, or export to CSV.',                                                                                               target:'[data-wt="income-share"]',      emoji:'📤'}
       ],
