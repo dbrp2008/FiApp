@@ -846,9 +846,11 @@ function onGrossInput(){
 }
 function onIncomeInput(){
   const gross=document.getElementById('inp-gross').value;
-  const tax  =document.getElementById('inp-tax').value;
-  const obj=monthIncomeObj(); obj.gross=gross; obj.tax=tax;
+  const taxEl=document.getElementById('inp-tax');
   const gNum=parseFloat(gross)||0;
+  if(gNum>0 && (parseFloat(taxEl.value)||0)>gNum) taxEl.value=gNum.toFixed(2);
+  const tax=taxEl.value;
+  const obj=monthIncomeObj(); obj.gross=gross; obj.tax=tax;
   if(gNum>0) localStorage.setItem(PREFILL_KEY,(gNum*12).toFixed(0));
   document.getElementById('apply-year-btn').style.display=(gross||tax)?'inline-block':'none';
   save(); updateIncomeSummary();
