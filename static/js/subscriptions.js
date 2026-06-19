@@ -1250,9 +1250,10 @@ function render(){
     lbl.addEventListener('blur',()=>{col.label=lbl.value.trim()||col.label;save();});
     lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
     inner.appendChild(lbl);
-    if(!col.locked){
-      const del=document.createElement('button');del.className='col-del';del.title='Delete column';del.textContent='×';del.addEventListener('click',()=>deleteCol(col.id));inner.appendChild(del);
-    }
+    const del=document.createElement('button');del.className='col-del';del.textContent='×';
+    if(col.locked){ del.style.visibility='hidden'; del.style.pointerEvents='none'; del.tabIndex=-1; }
+    else{ del.title='Delete column'; del.addEventListener('click',()=>deleteCol(col.id)); }
+    inner.appendChild(del);
     th.appendChild(inner);
     const cr=document.createElement('div');cr.className='col-resize';attachColResize(cr,col);th.appendChild(cr);
     htr.appendChild(th);
