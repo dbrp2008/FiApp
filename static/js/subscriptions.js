@@ -1123,8 +1123,8 @@ function makeCellEl(row,col){
   }
 
   if(ct==='status'){
-    const sel=document.createElement('select'); sel.className='c-sel';
-    STATUS_OPTS.forEach(o=>{const opt=document.createElement('option');opt.value=o;opt.textContent=o;if(v===o)opt.selected=true;sel.appendChild(opt);});
+    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='status';
+    STATUS_OPTS.forEach(o=>{const opt=document.createElement('option');opt.value=o;opt.textContent=o;opt.style.color=STATUS_CLR[o];if(v===o)opt.selected=true;sel.appendChild(opt);});
     if(!v) sel.value='Active';
     sel.style.color=STATUS_CLR[sel.value]||'inherit';
     sel.addEventListener('change',()=>{
@@ -1146,14 +1146,14 @@ function makeCellEl(row,col){
     return sel;
   }
   if(ct==='billing'){
-    const sel=document.createElement('select'); sel.className='c-sel';
+    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='billing';
     BILLING_OPTS.forEach(o=>{const opt=document.createElement('option');opt.value=o;opt.textContent=o;if(v===o)opt.selected=true;sel.appendChild(opt);});
     if(!v) sel.value='Monthly';
     sel.addEventListener('change',()=>{snapshot();setCell(row.id,col.id,sel.value);recalcTotals();renderChart();});
     return sel;
   }
   if(ct==='trial'){
-    const sel=document.createElement('select'); sel.className='c-sel';
+    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='trial';
     TRIAL_OPTS.forEach(o=>{const opt=document.createElement('option');opt.value=o.v;opt.textContent=o.l;if(v===o.v)opt.selected=true;sel.appendChild(opt);});
     if(!v) sel.value='none';
     sel.addEventListener('change',()=>{snapshot();setCell(row.id,col.id,sel.value);recalcTotals();renderChart();});
