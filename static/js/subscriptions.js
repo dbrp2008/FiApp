@@ -17,6 +17,7 @@ const STATUS_CLR  = {Active:'#15803d',Trial:'#0369a1',Paused:'#b45309',Cancelled
 const CELL_CURRENCIES = ['USD','EUR','GBP','AED','HKD','SGD','CAD','AUD','JPY','CNY','INR','CHF','MYR','THB','KRW','BRL','MXN'];
 const MEDALS = ['🥇','🥈','🥉'];
 const MEDAL_CLS = ['medal-gold','medal-silver','medal-bronze'];
+const _measureCtx = document.createElement('canvas').getContext('2d');
 
 function uid(){ return '_'+Math.random().toString(36).slice(2,9); }
 const msDay = 864e5;
@@ -1247,6 +1248,17 @@ function render(){
     });
     inner.appendChild(cdh);
     const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;
+    lbl.addEventListener('focus',()=>snapshot());
+    lbl.addEventListener('input',()=>{
+      _measureCtx.font=getComputedStyle(lbl).font;
+      const textW=_measureCtx.measureText(lbl.value).width;
+      const reserve=cdh.offsetWidth+del.offsetWidth+24;
+      const needed=Math.ceil(textW+reserve);
+      if(needed>(col.width||120)){
+        col.width=needed;
+        const cEl=document.getElementById('cg-'+col.id); if(cEl) cEl.style.width=col.width+'px';
+      }
+    });
     lbl.addEventListener('blur',()=>{col.label=lbl.value.trim()||col.label;save();});
     lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
     inner.appendChild(lbl);
