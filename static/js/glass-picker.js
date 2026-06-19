@@ -16,9 +16,10 @@
   // Desktop only. Touch devices fall through to their native OS picker.
   if(!(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches)) return;
 
-  // Month nav + currency selects, plus the subscriptions "add service" picker.
-  // (.c-sel in subscriptions is billing-cycle, excluded.)
-  var SELECTOR = 'select.month-jump, select.cell-curr-sel, select#curr-sel, select#currency_i, select#currency_o, select#sub-sel';
+  // Month nav + currency selects, the subscriptions "add service" picker, and the
+  // per-row Billing/Trial/Status selects (data-ctype distinguishes which despite all
+  // three sharing the .c-sel class).
+  var SELECTOR = 'select.month-jump, select.cell-curr-sel, select#curr-sel, select#currency_i, select#currency_o, select#sub-sel, select.c-sel[data-ctype="billing"], select.c-sel[data-ctype="trial"], select.c-sel[data-ctype="status"]';
   var _reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var open = null; // {select, overlay, wheel, list, items, idx, onKey, reposition, raf}
@@ -98,6 +99,9 @@
       it.type = 'button'; it.className = 'gp-item'; it.textContent = opt.textContent;
       it.setAttribute('role', 'option'); it.dataset.value = opt.value;
       if(opt.disabled) it.disabled = true;
+      // Carry over any colour the source <option> was given (e.g. status colour-coding)
+      // so the wheel mirrors it instead of falling back to the plain --fg colour.
+      if(opt.style.color) it.style.color = opt.style.color;
       it.addEventListener('click', function(){ commit(select, opt.value); close(true); });
       list.appendChild(it); items.push(it);
     });
