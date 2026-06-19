@@ -825,6 +825,10 @@ body{max-width:none;margin:0;padding:0;}
 .gp-item:hover{opacity:.8;}
 .gp-item.gp-active{opacity:1;font-weight:700;transform:scale(1.07);}
 .gp-item:disabled{opacity:.28;cursor:default;}
+.gp-sep{position:relative;z-index:1;display:block;width:100%;height:40px;line-height:40px;
+  font-weight:700;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;
+  text-align:center;color:var(--muted);opacity:.5;pointer-events:none;user-select:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 @media(prefers-reduced-motion:reduce){.gp-item{transition:none;}}
 .acct-avatar{width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;font-family:inherit;
   font-weight:600;font-size:.9rem;color:#fff;background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
