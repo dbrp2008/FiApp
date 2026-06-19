@@ -61,13 +61,13 @@ function freshState(){
   const now=new Date();
   return {
     rows:[], cols:[
-      {id:c1,label:'Service',    width:155,ctype:'text'},
-      {id:c2,label:'Cost',       width:130,ctype:'number'},
-      {id:c3,label:'Billing',    width:120,ctype:'billing'},
-      {id:c4,label:'Start Date', width:135,ctype:'date'},
-      {id:c5,label:'Cancel Date',width:135,ctype:'canceldate'},
-      {id:c6,label:'Trial',      width:145,ctype:'trial'},
-      {id:c7,label:'Status',     width:105,ctype:'status'},
+      {id:c1,label:'Service',    width:155,ctype:'text',  locked:true},
+      {id:c2,label:'Cost',       width:130,ctype:'number',locked:true},
+      {id:c3,label:'Billing',    width:120,ctype:'billing',   locked:true},
+      {id:c4,label:'Start Date', width:135,ctype:'date',      locked:true},
+      {id:c5,label:'Cancel Date',width:135,ctype:'canceldate',locked:true},
+      {id:c6,label:'Trial',      width:145,ctype:'trial',     locked:true},
+      {id:c7,label:'Status',     width:105,ctype:'status',    locked:true},
       {id:c8,label:'Notes',      width:185,ctype:'text'},
     ],
     cells:{}, cellTimes:{}, rowCurrencies:{},
@@ -83,6 +83,13 @@ function loadState(){
       const s=JSON.parse(r);
       if(!Array.isArray(s.rows)) s.rows=[];
       if(!Array.isArray(s.cols)) s.cols=freshState().cols;
+      const _lockedCtypes={billing:1,date:1,canceldate:1,trial:1,status:1};
+      s.cols.forEach(c=>{
+        if(c.locked!==undefined) return;
+        if(_lockedCtypes[c.ctype]) c.locked=true;
+        else if(c.ctype==='text'&&c.label==='Service') c.locked=true;
+        else if(c.ctype==='number'&&c.label==='Cost') c.locked=true;
+      });
       if(!s.cells)           s.cells={};
       if(!s.cellTimes)       s.cellTimes={};
       if(!s.displayCurrency) s.displayCurrency='USD';
@@ -1243,7 +1250,9 @@ function render(){
     lbl.addEventListener('blur',()=>{col.label=lbl.value.trim()||col.label;save();});
     lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
     inner.appendChild(lbl);
-    const del=document.createElement('button');del.className='col-del';del.title='Delete column';del.textContent='×';del.addEventListener('click',()=>deleteCol(col.id));inner.appendChild(del);
+    if(!col.locked){
+      const del=document.createElement('button');del.className='col-del';del.title='Delete column';del.textContent='×';del.addEventListener('click',()=>deleteCol(col.id));inner.appendChild(del);
+    }
     th.appendChild(inner);
     const cr=document.createElement('div');cr.className='col-resize';attachColResize(cr,col);th.appendChild(cr);
     htr.appendChild(th);
