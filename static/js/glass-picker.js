@@ -16,8 +16,9 @@
   // Desktop only. Touch devices fall through to their native OS picker.
   if(!(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches)) return;
 
-  // Month nav + currency selects only. (.c-sel in subscriptions is billing-cycle, excluded.)
-  var SELECTOR = 'select.month-jump, select.cell-curr-sel, select#curr-sel, select#currency_i, select#currency_o';
+  // Month nav + currency selects, plus the subscriptions "add service" picker.
+  // (.c-sel in subscriptions is billing-cycle, excluded.)
+  var SELECTOR = 'select.month-jump, select.cell-curr-sel, select#curr-sel, select#currency_i, select#currency_o, select#sub-sel';
   var _reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var open = null; // {select, overlay, wheel, list, items, idx, onKey, reposition, raf}
@@ -78,8 +79,21 @@
     var band = document.createElement('div'); band.className = 'gp-band'; wheel.appendChild(band);
     var list = document.createElement('div'); list.className = 'gp-list';
 
+    // Options grouped under an <optgroup> get a grayed-out, unselectable label row inserted
+    // before them. The label is appended to the scroll list but never pushed into `items`, so
+    // keyboard nav, wheel-scroll snapping, and click handling all skip straight over it.
     var items = [];
+    var lastGroup = null;
     Array.prototype.forEach.call(select.options, function(opt){
+      var group = (opt.parentElement && opt.parentElement.tagName === 'OPTGROUP') ? opt.parentElement.label : null;
+      if(group !== lastGroup){
+        lastGroup = group;
+        if(group){
+          var sep = document.createElement('div');
+          sep.className = 'gp-sep'; sep.textContent = group; sep.setAttribute('role', 'presentation');
+          list.appendChild(sep);
+        }
+      }
       var it = document.createElement('button');
       it.type = 'button'; it.className = 'gp-item'; it.textContent = opt.textContent;
       it.setAttribute('role', 'option'); it.dataset.value = opt.value;
