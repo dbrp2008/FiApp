@@ -1028,7 +1028,19 @@
     var incData = months.map(function(m){ return Math.round(grossForMonth(m)); });
     var expData = months.map(function(m){ return Math.round(spendTotals[m] || 0); });
     var labels  = months.map(function(m){ return (typeof mkLabel === 'function') ? mkLabel(m) : m; });
-    if(cv._c) cv._c.destroy();
+    if(cv._c){
+      // Update in place (no destroy/recreate) so a theme change just recolors the
+      // existing chart instead of replaying its entrance animation.
+      var c = cv._c;
+      c.data.labels = labels;
+      c.data.datasets[0].data = incData; c.data.datasets[0].backgroundColor = incCol;
+      c.data.datasets[1].data = expData; c.data.datasets[1].backgroundColor = expCol;
+      c.options.plugins.legend.labels.color = muted;
+      c.options.scales.y.ticks.color = muted;
+      c.options.scales.x.ticks.color = muted;
+      c.update();
+      return;
+    }
     cv._c = new Chart(cv, {type:'bar',
       data:{labels:labels, datasets:[
         {label:'Income',  data:incData, backgroundColor:incCol, borderRadius:6},
