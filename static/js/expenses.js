@@ -1606,7 +1606,6 @@ function renderChart(){
     data=topRows.map(r=>({label:r.label,value:rowTotal(r.id),color:r.color})).filter(d=>d.value>0).sort((a,b)=>b.value-a.value);
     topLabel='Top Expenses - '+MONTHS_SHORT[state.currentMonth]+' '+state.currentYear;
   }
-  if(chartInstance){chartInstance.destroy();chartInstance=null;}
   const _chartCanvas=document.getElementById('exp-chart');
   if(_chartCanvas){
     _chartCanvas.setAttribute('role','img');
@@ -1614,13 +1613,39 @@ function renderChart(){
       ? topLabel+'. Top: '+data.slice(0,3).map(d=>d.label+' $'+parseFloat(d.value.toFixed(2))).join(', ')+(data.length>3?', and '+(data.length-3)+' more':'')+'.'
       : topLabel+'. No data to display.');
   }
-  if(!data.length){renderTop3([],topLabel);return;}
+  if(!data.length){
+    if(chartInstance){chartInstance.destroy();chartInstance=null;}
+    renderTop3([],topLabel);return;
+  }
   const colors=data.map(d=>d.color||'#93c5fd');
   const vals=data.map(d=>parseFloat(d.value.toFixed(2)));
   const labels=data.map(d=>d.label);
   const isDark=document.documentElement.classList.contains('dark');
   const fgColor=isDark?'#e2e8f0':'#1f2937';
   const gridColor=isDark?'rgba(255,255,255,.1)':'rgba(0,0,0,.08)';
+  // Update in place when the chart type hasn't changed — a theme change or a data edit
+  // then just recolors/reflows the existing chart instead of replaying the entrance
+  // animation that a destroy+recreate would trigger.
+  if(chartInstance && chartInstance.config.type===chartType){
+    chartInstance.data.labels=labels;
+    const ds=chartInstance.data.datasets[0];
+    ds.data=vals; ds.backgroundColor=colors;
+    if(chartType==='doughnut'){
+      ds.borderColor=isDark?'#1e293b':'#fff';
+      chartInstance.options.plugins.legend.labels.color=fgColor;
+    } else {
+      chartInstance.options.scales.x.ticks.color=fgColor;
+      chartInstance.options.scales.x.grid.color=gridColor;
+      chartInstance.options.scales.x.border.color=gridColor;
+      chartInstance.options.scales.y.ticks.color=fgColor;
+      chartInstance.options.scales.y.grid.color=gridColor;
+      chartInstance.options.scales.y.border.color=gridColor;
+    }
+    chartInstance.update();
+    renderTop3(data,topLabel);
+    return;
+  }
+  if(chartInstance){chartInstance.destroy();chartInstance=null;}
   if(chartType==='doughnut'){
     chartInstance=new Chart(document.getElementById('exp-chart'),{
       type:'doughnut',
@@ -1629,7 +1654,7 @@ function renderChart(){
         responsive:true,maintainAspectRatio:true,
         plugins:{
           legend:{display:true,position:'right',labels:{color:fgColor,boxWidth:14,padding:10,font:{size:12}}},
-          tooltip:{callbacks:{label:ctx=>' '+ctx.label+': $'+ctx.parsed.toFixed(2)+' ('+(ctx.parsed/vals.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%)'}}
+          tooltip:{callbacks:{label:ctx=>' '+ctx.label+': $'+ctx.parsed.toFixed(2)+' ('+(ctx.parsed/ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%)'}}
         }
       }
     });
