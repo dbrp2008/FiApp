@@ -219,15 +219,19 @@ function themeColors(){
   };
 }
 function refreshChartsTheme(){
+  // In-place recolor of every live chart — no destroy/recreate, so a theme switch just
+  // swaps colours instead of replaying each chart's entrance animation.
   const tc=themeColors();
   Object.values(Chart.instances).forEach(function(chart){
     const scales=chart.options.scales||{};
     Object.values(scales).forEach(function(scale){
-      if(scale.ticks) scale.ticks.color=tc.muted;
+      if(scale.ticks) scale.ticks.color=tc.fg;
       if(scale.grid)  scale.grid.color=tc.grid;
     });
     if(chart.options.plugins&&chart.options.plugins.legend&&chart.options.plugins.legend.labels)
       chart.options.plugins.legend.labels.color=tc.fg;
+    if(chart.config.type==='doughnut'&&chart.data.datasets[0])
+      chart.data.datasets[0].borderColor=tc.panel;
     chart.update('none');
   });
 }
@@ -1205,9 +1209,10 @@ window.addEventListener('resize', ()=>{
   Object.values(charts).forEach(c=>{ if(c) c.resize(); });
 });
 
-// Re-render charts when theme class changes on <html>
+// Recolor charts in place when theme class changes on <html> (stat cards use CSS
+// variables already, so only the canvases need a JS-driven refresh).
 new MutationObserver(function(ms){
-  ms.forEach(function(m){ if(m.attributeName==='class') reRenderCharts(); });
+  ms.forEach(function(m){ if(m.attributeName==='class') refreshChartsTheme(); });
 }).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
 </script>
 {% endblock %}
