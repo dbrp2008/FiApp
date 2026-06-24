@@ -28,6 +28,13 @@ _rates_ts: dict = {}
 RATES_TTL = 3600
 RATES_TTL_DB = 7 * 24 * 3600
 
+# In-memory only (per-Gunicorn-worker, like _rates_cache above) — light-touch cache so
+# repeat (income, status) lookups against the same income/status don't re-hit
+# api.taxapi.net every time. No DB tier: tax results are cheap to recompute and this
+# dependency is staying as-is rather than being unified into a local calculator.
+_tax_cache: dict = {}
+TAX_TTL = 3600
+
 # Row/column/subscription limits — enforced server-side (via _within_limits) and client-side.
 MAX_SUBS = 100
 MAX_ROWS = 20
@@ -236,6 +243,7 @@ def init_db():
                     -- migrate to a versioned migration tool (e.g. Alembic) if the schema grows.
                     ALTER TABLE user_data ADD COLUMN IF NOT EXISTS income_data JSONB;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'light';
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT 'balanced';
                     CREATE TABLE IF NOT EXISTS exchange_rates (
                         base TEXT PRIMARY KEY,
                         rates JSONB NOT NULL,
@@ -302,6 +310,7 @@ def _ctx():
         # Auto-generate a token for sessions that pre-date CSRF being added.
         "csrf_token": session.get('csrf_token') or _new_csrf(),
         "theme": session.get('theme', 'light'),
+        "personality": session.get('personality', 'balanced'),
     }
 
 # Constant-time guard: comparing against a real hash when the user is absent
@@ -538,6 +547,7 @@ def register():
         session['user_id'] = user_id
         session['username'] = username
         session['theme'] = 'light'
+        session['personality'] = 'balanced'
         return jsonify({"ok": True, "username": username, "csrf_token": _new_csrf()})
     except psycopg2.errors.UniqueViolation:
         return jsonify({"error": "Username already taken"}), 409
@@ -554,7 +564,7 @@ def auth_login():
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, password_hash, theme FROM users WHERE username=%s", (username,))
+                cur.execute("SELECT id, password_hash, theme, personality FROM users WHERE username=%s", (username,))
                 row = cur.fetchone()
         if not row:
             check_password_hash(_DUMMY_PWHASH, password)  # equalize timing
@@ -565,6 +575,7 @@ def auth_login():
         session['user_id'] = row[0]
         session['username'] = username
         session['theme'] = row[2] or 'light'
+        session['personality'] = row[3] or 'balanced'
         return jsonify({"ok": True, "username": username, "csrf_token": _new_csrf()})
     finally:
         release_db(conn)
@@ -922,10 +933,17 @@ def compound_interest(principal, rate, years, periods):
 
 def fetch_tax(income, status):
     # income is a validated finite float — :g renders 50000.0 as 50000
+    key = (status, f"{income:g}")
+    cached = _tax_cache.get(key)
+    if cached and time.time() - cached[1] < TAX_TTL:
+        return cached[0]
+
     url = f"https://api.taxapi.net/income/{status}/{income:g}"
     response = requests.get(url, timeout=8)
     response.raise_for_status()
-    return round(response.json(), 2)
+    tax_amount = round(response.json(), 2)
+    _tax_cache[key] = (tax_amount, time.time())
+    return tax_amount
 
 def fetch(currency_i: str, force: bool = False) -> tuple:
     """Return (rates_dict, fetched_at_utc). Three-tier: memory → DB → API.
@@ -956,7 +974,10 @@ def fetch(currency_i: str, force: bool = False) -> tuple:
             finally:
                 release_db(conn)
         except Exception:
-            pass
+            # Degrade to the live API below — a DB hiccup here shouldn't fail the
+            # request, but it should be visible in logs rather than silently identical
+            # to a normal cache miss.
+            app.logger.exception("Exchange rate DB cache read failed (base=%s)", key)
 
     url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/latest/{key}"
     response = requests.get(url, timeout=8)
@@ -982,7 +1003,10 @@ def fetch(currency_i: str, force: bool = False) -> tuple:
         finally:
             release_db(conn)
     except Exception:
-        pass
+        # The fresh rates are already cached in-memory above, so the request still
+        # succeeds — but a failure to persist the cross-worker DB cache is worth knowing
+        # about (it means every worker will re-hit the upstream API independently).
+        app.logger.exception("Exchange rate DB cache write failed (base=%s)", key)
 
     return rates, fetched_at
 
@@ -991,16 +1015,31 @@ def fetch(currency_i: str, force: bool = False) -> tuple:
 @csrf_required
 def save_prefs():
     data = request.get_json(silent=True) or {}
-    theme = (data.get('theme') or '').strip()
-    allowed = {'light', 'dark', 'ocean', 'forest', 'sunset', 'midnight', 'rose', 'purple', 'indigo'}
-    if theme not in allowed:
-        return jsonify({"error": "Invalid theme"}), 400
+    set_clauses, params = [], []
+
+    if 'theme' in data:
+        theme = (data.get('theme') or '').strip()
+        allowed_themes = {'light', 'dark', 'ocean', 'forest', 'sunset', 'midnight', 'rose', 'purple', 'indigo'}
+        if theme not in allowed_themes:
+            return jsonify({"error": "Invalid theme"}), 400
+        set_clauses.append("theme=%s"); params.append(theme)
+
+    if 'personality' in data:
+        personality = (data.get('personality') or '').strip()
+        if personality not in {'playful', 'balanced', 'quiet'}:
+            return jsonify({"error": "Invalid personality"}), 400
+        set_clauses.append("personality=%s"); params.append(personality)
+
+    if not set_clauses:
+        return jsonify({"error": "No valid fields to update"}), 400
+
     conn = get_db()
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("UPDATE users SET theme=%s WHERE id=%s", (theme, session['user_id']))
-        session['theme'] = theme
+                cur.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE id=%s", (*params, session['user_id']))
+        if 'theme' in data: session['theme'] = theme
+        if 'personality' in data: session['personality'] = personality
         return jsonify({"ok": True})
     finally:
         release_db(conn)
