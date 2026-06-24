@@ -19,6 +19,8 @@
       var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';
       if(t==='dark') document.documentElement.classList.add('dark');
       else if(t!=='light') document.documentElement.classList.add('theme-'+t);
+      var p=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
+      if(p==='quiet') document.documentElement.classList.add('personality-quiet');
     })();
   </script>
   <script nonce="{{ csp_nonce }}">
@@ -93,6 +95,7 @@
       .wt-exiting,#wt-bubble.wt-exiting{animation:none;}
       .wt-avatar-pop,#wt-avatar.wt-avatar-pop{animation:none!important;}
     }
+    html.personality-quiet #wt-avatar{animation:none;}
   </style>
 </head>
 <body>
@@ -145,6 +148,22 @@
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
     }
   })();
+  (function(){
+    var _lsP=localStorage.getItem('fiapp_personality');
+    var _srvP='{{ personality|default("balanced") }}';
+    if(_CSRF&&!_lsP){
+      localStorage.setItem('fiapp_personality',_srvP);
+    } else if(_CSRF&&_lsP&&_lsP!==_srvP){
+      fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({personality:_lsP})}).catch(function(){});
+    }
+  })();
+  // balanced/playful both keep today's behavior; only quiet changes anything (suppresses
+  // the walkthrough avatar's idle bob, confetti, and the home carousel auto-advance).
+  function setPersonality(name){
+    document.documentElement.classList.toggle('personality-quiet', name==='quiet');
+    localStorage.setItem('fiapp_personality',name);
+    if(_CSRF){ fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({personality:name})}).catch(function(){}); }
+  }
   function setTheme(name){
     document.documentElement.classList.remove('dark','theme-ocean','theme-forest',
       'theme-sunset','theme-midnight','theme-rose','theme-purple','theme-indigo');
@@ -956,7 +975,7 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
       }
       if(step.type==='wait'){
         _setupWait(step.waitFor,function(){
-          if(step.onMet==='confetti')_fireConfetti();
+          if(step.onMet==='confetti'&&!document.documentElement.classList.contains('personality-quiet'))_fireConfetti();
           setTimeout(function(){
             var st=_ld()||_def();
             if(!st.active) return;
