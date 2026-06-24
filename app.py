@@ -84,8 +84,20 @@ _CCY_RE = re.compile(r'^[A-Z]{3}$')
 
 
 if _limiter_available:
-    limiter = Limiter(get_remote_address, app=app, default_limits=[],
+    # default_limits is a global per-IP backstop so every route — including the data API
+    # and any route without an explicit @_rl — has a ceiling against single-source floods.
+    # (Real volumetric DDoS is an infra-layer concern; this only bounds app-level abuse.)
+    limiter = Limiter(get_remote_address, app=app,
+        default_limits=["600 per hour", "120 per minute"],
         storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"))
+
+    @limiter.request_filter
+    def _limiter_exempt_infra():
+        # Don't count static assets, the CSS route, or the health check against any limit:
+        # one page load pulls many static files and Render polls /ping, so leaving these in
+        # would exhaust a per-IP minute budget on legitimate traffic.
+        return request.endpoint in ('static', 'serve_css', 'ping')
+
     def _rl(*limits, **kwargs):
         """Apply rate limits only when Flask-Limiter is available."""
         return limiter.limit("; ".join(limits), **kwargs)
@@ -398,6 +410,7 @@ def currency():
     return render_template('currency.html', currency_i='', currency_o='', currency_a='', **_ctx())
 
 @app.route('/interest', methods=['GET', 'POST'])
+@_rl("20 per minute", "200 per hour", methods=["POST"])
 def interest():
     if request.method == 'POST':
         interest_type = request.form.get('type')
