@@ -76,6 +76,9 @@
       border: 1px solid var(--success-border, #86efac);
       color: var(--success-fg, #166534);
     }
+    #personality-slider { width: 100%; accent-color: var(--accent); }
+    .personality-labels { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-top: .35rem; }
+    .personality-labels span.active { color: var(--accent); font-weight: 700; }
 
     .pw-checklist {
       list-style: none;
@@ -262,6 +265,35 @@
     var wt=null;try{wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');}catch{}
     var btn=document.getElementById('wt-acct-btn');
     if(btn&&wt&&wt.mainCompleted) btn.textContent=(wt.seen&&wt.seen.length>0)?'Continue Walkthrough':'Restart Walkthrough';
+  })();
+  </script>
+
+  <div class="glass-panel">
+    <h2>🎭 App Personality</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Tone and motion only - no functionality changes. Default is exactly how FiApp behaves today.</p>
+    <input type="range" id="personality-slider" min="0" max="2" step="1" value="1" aria-label="App personality">
+    <div class="personality-labels">
+      <span data-v="0">Playful</span>
+      <span data-v="1">Default</span>
+      <span data-v="2">Quiet</span>
+    </div>
+  </div>
+  <script nonce="{{ csp_nonce }}">
+  (function(){
+    var PMAP=['playful','balanced','quiet'];
+    var slider=document.getElementById('personality-slider');
+    if(!slider) return;
+    var current=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
+    var idx=PMAP.indexOf(current); if(idx<0) idx=1;
+    slider.value=idx;
+    function syncLabels(){
+      document.querySelectorAll('.personality-labels span').forEach(function(s){
+        s.classList.toggle('active', s.dataset.v===slider.value);
+      });
+    }
+    syncLabels();
+    slider.addEventListener('input', syncLabels);
+    slider.addEventListener('change', function(){ setPersonality(PMAP[slider.value]); });
   })();
   </script>
 
