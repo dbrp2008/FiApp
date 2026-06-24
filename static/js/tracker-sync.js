@@ -144,6 +144,29 @@ function _mergeTrackerBlobs(localBlob, serverBlob) {
   return merged;
 }
 
+// Per-month row/column reconstruction, shared by the expenses and income trackers (their
+// getRows/getCols were previously byte-identical copies). Returns the month's own forked
+// rows/cols if that month has been forked, else falls back to the global rows/cols.
+// A forked-but-empty month is returned as-is (truthy check) — that's the trackers' current
+// behavior; note analytics_core's expRows uses a length>0 check instead, an intentional
+// difference left untouched here.
+function effectiveRowsForMonth(state, mk) {
+  return (state && state.rowsByMonth && state.rowsByMonth[mk]) ? state.rowsByMonth[mk] : (state && state.rows) || [];
+}
+function effectiveColsForMonth(state, mk) {
+  return (state && state.colsByMonth && state.colsByMonth[mk]) ? state.colsByMonth[mk] : (state && state.cols) || [];
+}
+
+// Is the onboarding walkthrough currently active? Centralizes the localStorage read +
+// JSON parse + guard the trackers previously inlined at ~19 call sites (each with its own
+// try/catch). Returns false on any parse error, matching the inlined behavior.
+function isWalkthroughActive() {
+  try {
+    var w = JSON.parse(localStorage.getItem('fiapp_walkthrough_v1') || 'null');
+    return !!(w && w.active);
+  } catch (e) { return false; }
+}
+
 function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   opts = opts || {};
 
@@ -159,6 +182,18 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     if (!el) return;
     el.textContent = msg; el.className = cls || '';
   }
+
+  // Surface the existing revision-history safety net (server keeps the last
+  // _REVISION_KEEP=20 versions per tracker, app.py) next to the save status —
+  // trust signal, not a transient status message, so it's a separate static element.
+  (function() {
+    var statusEl = document.getElementById('sync-status');
+    if (!statusEl || document.getElementById('sync-revision-note')) return;
+    var note = document.createElement('span');
+    note.id = 'sync-revision-note';
+    note.textContent = 'Autosaved · last 20 versions kept';
+    statusEl.insertAdjacentElement('afterend', note);
+  })();
 
   function _buildSavePayload() {
     var blob = null;
