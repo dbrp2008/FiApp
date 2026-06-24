@@ -77,7 +77,7 @@ function freshState(){
   };
 }
 function loadState(){
-  try{ const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null'); if(_wt&&_wt.active) return freshState(); }catch(_){}
+  if(isWalkthroughActive()) return freshState();
   try{
     const r=localStorage.getItem(STORAGE_KEY);
     if(r){
@@ -646,7 +646,7 @@ function addSubscription(){
   snapshot();
   const rowId=uid(); state.rows.push({id:rowId,height:36});
   // Notify walkthrough validator that a new row was added this session
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)window._wtSubsHasNewRow=true;}catch(_){}
+  if(isWalkthroughActive())window._wtSubsHasNewRow=true;
   state.rowCurrencies[rowId]='USD';
   const svc=colByType('text'),status=colByType('status'),bill=colByType('billing');
   if(svc)    setCell(rowId,svc.id,name);
@@ -659,7 +659,7 @@ function addSubscription(){
 
 function addCol(){ snapshot(); state.cols.push({id:uid(),label:'New Column',width:120,ctype:'number'}); save(); render(); }
 function deleteRow(id){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   snapshot(); state.rows=state.rows.filter(r=>r.id!==id);
   Object.keys(state.cells).filter(k=>k.startsWith(id+'|')).forEach(k=>delete state.cells[k]);
   if(state.rowCurrencies) delete state.rowCurrencies[id];
@@ -759,6 +759,10 @@ function showCellCurrencyOther(wrap, sel, row){
 function pad(s,n){ s=String(s); return s.length>=n?s:s+' '.repeat(n-s.length); }
 function csvEsc(v){
   v=v==null?'':String(v);
+  // Formula-injection guard: a leading quote neutralizes spreadsheet formula triggers
+  // (=,+,-,@, tab, CR) in free-text cells. Skipped when the cell is a genuine number
+  // (e.g. "-50.00") so legitimate negative amounts aren't corrupted.
+  if(/^[=+\-@\t\r]/.test(v)&&isNaN(Number(v))) v="'"+v;
   if(/[",\n]/.test(v)) return '"'+v.replace(/"/g,'""')+'"';
   return v;
 }
@@ -972,7 +976,7 @@ function lazyLoadXlsx(){
   if(_xlsxLoading) return _xlsxLoading;
   _xlsxLoading=new Promise((resolve,reject)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.src='/static/js/vendor/xlsx.full.min.js';
     s.onload=()=>resolve(window.XLSX);
     s.onerror=()=>reject(new Error('Failed to load XLSX library'));
     document.head.appendChild(s);
@@ -1026,7 +1030,7 @@ async function shareSheet(){
   const title='FiApp Subscriptions - '+MONTHS_SHORT[state.currentMonth]+' '+state.currentYear;
   const isMobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   if(isMobile && navigator.share){
-    try{ await navigator.share({title,text}); return; }catch{}
+    try{ await navigator.share({title,text}); return; }catch(e){ if(e.name==='AbortError') return; }
   }
   showShareModal(title,text);
 }
