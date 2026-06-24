@@ -174,8 +174,7 @@ function freshState(){
 }
 function loadState(){
   try{
-    const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');
-    if(_wt&&_wt.active){
+    if(isWalkthroughActive()){
       // If the user already saved income this walkthrough session, show it so that
       // navigating Back doesn't wipe their entry. Session flag set by save(), cleared by _restore().
       if(localStorage.getItem('fiapp_income_wt_session')==='1'){
@@ -212,8 +211,8 @@ let state=loadState();
 
 const MAX_ROWS=20;
 const MAX_COLS=12;
-function getRows(mk2){ mk2=mk2||currentMK(); return (state.rowsByMonth&&state.rowsByMonth[mk2])?state.rowsByMonth[mk2]:(state.rows||[]); }
-function getCols(mk2){ mk2=mk2||currentMK(); return (state.colsByMonth&&state.colsByMonth[mk2])?state.colsByMonth[mk2]:(state.cols||[]); }
+function getRows(mk2){ return effectiveRowsForMonth(state, mk2||currentMK()); }
+function getCols(mk2){ return effectiveColsForMonth(state, mk2||currentMK()); }
 function forkCurrentMonth(){
   const mk2=currentMK();
   if(!state.rowsByMonth) state.rowsByMonth={};
@@ -393,7 +392,7 @@ function save(){
   _stampCellTimes();
   saveLocal();
   // Mark that income was saved this walkthrough session so loadState() can restore it on Back.
-  try{const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active)localStorage.setItem('fiapp_income_wt_session','1');}catch(_){}
+  if(isWalkthroughActive())localStorage.setItem('fiapp_income_wt_session','1');
   try{ localStorage.setItem(PUSH_KEY, JSON.stringify({mk:currentMK(),total:grandTotal(),ts:Date.now()})); }catch{}
   syncToServer();
   document.dispatchEvent(new CustomEvent('fiapp-income-saved'));
@@ -872,7 +871,7 @@ function renderOtherForm(menu, row){
 }
 
 function showSubMenu(btn, row){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   closeMenu();
   let subs=[];
@@ -918,7 +917,7 @@ function showSubMenu(btn, row){
 
 
 function addRow(){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
@@ -943,7 +942,7 @@ function addSubRow(parentRow, subLabel){
   save(); render();
 }
 function addCol(){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
@@ -953,7 +952,7 @@ function addCol(){
   save(); render();
 }
 function deleteRow(id){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
@@ -977,7 +976,7 @@ function deleteRow(id){
   showToast('Row deleted.', false, 5000, undo);
 }
 function deleteCol(id){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
@@ -1360,7 +1359,7 @@ function renderTableBody(table){
         codes.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; if(c===cur) o.selected=true; sel.appendChild(o); });
         const otherOpt=document.createElement('option'); otherOpt.value='__other__'; otherOpt.textContent='Other…'; sel.appendChild(otherOpt);
         sel.addEventListener('mousedown',e=>{
-          try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){e.preventDefault();sel.blur();showToast('🧭 Finish or skip the walkthrough to use this.');}}catch{}
+          if(isWalkthroughActive()){e.preventDefault();sel.blur();showToast('🧭 Finish or skip the walkthrough to use this.');}
         });
         sel.addEventListener('change',()=>{
           if(sel.value==='__other__'){ showCellCurrencyOther(wrap,sel,row); return; }
@@ -1670,7 +1669,11 @@ window.addEventListener('resize',()=>{
 
 function expPad(s,n){ s=String(s); return s.length>=n?s:s+' '.repeat(n-s.length); }
 function expCsvEsc(v){
-  const s=String(v==null?'':v);
+  let s=String(v==null?'':v);
+  // Formula-injection guard: a leading quote neutralizes spreadsheet formula triggers
+  // (=,+,-,@, tab, CR) in free-text cells. Skipped when the cell is a genuine number
+  // (e.g. "-50.00") so legitimate negative amounts aren't corrupted.
+  if(/^[=+\-@\t\r]/.test(s)&&isNaN(Number(s))) s="'"+s;
   return /[,"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
 }
 
@@ -2047,7 +2050,7 @@ function lazyLoadXlsx(){
   if(_xlsxLoading) return _xlsxLoading;
   _xlsxLoading=new Promise((res,rej)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.src='/static/js/vendor/xlsx.full.min.js';
     s.onload=()=>{_xlsxLoaded=true;res();};
     s.onerror=()=>rej(new Error('Failed to load XLSX library'));
     document.head.appendChild(s);
