@@ -1055,7 +1055,10 @@
   (function(){
     var a = document.getElementById('dash-alerts'); if(!a) return;
     if(!a.querySelector('.snap-renewal') && !a.querySelector('.snap-nudge')){
-      a.innerHTML = '<div class="dash-allclear"><span aria-hidden="true">✓</span> You\'re all caught up. Nice work.</div>';
+      var allClearMsg = document.documentElement.classList.contains('personality-quiet')
+        ? 'You\'re all caught up.'
+        : 'You\'re all caught up. Nice work.';
+      a.innerHTML = '<div class="dash-allclear"><span aria-hidden="true">✓</span> '+allClearMsg+'</div>';
     }
   })();
 
@@ -1083,7 +1086,9 @@
     cards.forEach((c,i)=>c.classList.toggle('deck-active', i===idx));
     [...dotsWrap.children].forEach((d,i)=>d.classList.toggle('active', i===idx));
     clearInterval(timer);
-    timer = setInterval(()=>show(idx+1), 5000);
+    if(!document.documentElement.classList.contains('personality-quiet')){
+      timer = setInterval(()=>show(idx+1), 5000);
+    }
   }
   prevBtn.onclick = ()=>show(idx-1);
   nextBtn.onclick = ()=>show(idx+1);
