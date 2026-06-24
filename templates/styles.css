@@ -448,6 +448,12 @@ h1, h2, h3, h4 { color: var(--fg); }
 }
 #sync-status.synced { color: #15803d; }
 #sync-status.failed { color: #dc2626; }
+#sync-revision-note {
+  font-size: .75rem;
+  color: var(--muted);
+  margin-left: 4px;
+  opacity: .75;
+}
 .btn-ghost {
   background: none;
   border: 1px solid var(--panel-border);
