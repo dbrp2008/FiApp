@@ -326,6 +326,7 @@ function clearError(id){
 
 async function submitLogin(){
   clearError('login-error');
+  _resetPwVisibility();
   const username=document.getElementById('login-username').value.trim();
   const password=document.getElementById('login-password').value;
   if(!username||!password){ showError('login-error','Please fill in all fields.'); return; }
@@ -376,6 +377,7 @@ function updatePwChecklist(listEl, pw){
 
 async function submitRegister(){
   clearError('register-error');
+  _resetPwVisibility();
   const username=document.getElementById('reg-username').value.trim();
   const password=document.getElementById('reg-password').value;
   const confirm=document.getElementById('reg-password-confirm').value;
@@ -427,6 +429,15 @@ if(_themeBtn) _themeBtn.addEventListener('click',function(e){toggleThemeMenu(e.c
 document.querySelectorAll('.theme-opt').forEach(function(btn){
   btn.addEventListener('click',function(){setTheme(btn.dataset.theme);});
 });
+function _resetPwVisibility(){
+  document.querySelectorAll('.pw-toggle').forEach(function(btn){
+    var inp=document.getElementById(btn.dataset.for); if(!inp) return;
+    inp.type='password';
+    btn.setAttribute('aria-label','Show password');
+    var eo=btn.querySelector('.eye-open'), ec=btn.querySelector('.eye-closed');
+    if(eo) eo.style.display=''; if(ec) ec.style.display='none';
+  });
+}
 document.querySelectorAll('.pw-toggle').forEach(function(btn){
   btn.addEventListener('click',function(){
     var inp=document.getElementById(btn.dataset.for);
