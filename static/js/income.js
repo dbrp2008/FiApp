@@ -554,7 +554,7 @@ function openCloseModal(){
     else { (state.cols||[]).forEach(col=>{ total+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); }
   });
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
-  document.getElementById('close-modal-body').innerHTML='<strong>'+label+'</strong><br>Income logged: $'+total.toFixed(2);
+  document.getElementById('close-modal-body').innerHTML='<strong>'+escapeHtml(label)+'</strong><br>Income logged: $'+total.toFixed(2);
   const overlay=document.getElementById('close-modal-overlay');
   if(!overlay) return;
   overlay.style.display='flex';
