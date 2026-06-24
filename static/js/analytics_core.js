@@ -33,12 +33,36 @@ function _coreToUSD(cost, currency) {
   return rate ? cost / rate : cost;
 }
 
+// Analytics-wide display currency. All analytics/snapshot totals are USD-normalized
+// internally (via _coreToUSD above); this only changes how fmtMoney* presents them.
+var _anaCcy = (function() {
+  try { return localStorage.getItem('fiapp_analytics_currency') || 'USD'; } catch (e) { return 'USD'; }
+})();
+function getAnalyticsCurrency() { return _anaCcy; }
+function setAnalyticsCurrency(code) {
+  _anaCcy = code;
+  try { localStorage.setItem('fiapp_analytics_currency', code); } catch (e) {}
+}
+function _anaRate() { return _anaCcy === 'USD' ? 1 : (_coreRatesCache[_anaCcy] || 1); }
+function _anaPrefix() { return _anaCcy === 'USD' ? '$' : _anaCcy + ' '; }
+
 // ---------------------------------------------------------------------------
 // Constants & formatters
 // ---------------------------------------------------------------------------
 var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function mk(y, m) { return y + '-' + String(m + 1).padStart(2, '0'); }
+// new Date('YYYY-MM-DD') parses as UTC midnight, which can land on the previous local
+// calendar day west of UTC, drifting subscription charge dates across month boundaries.
+// Parse the components explicitly so the result is local-midnight, matching monthStart/
+// monthEnd below (also built with new Date(year, month, day)).
+function _coreParseDate(s) {
+  if (!s) return null;
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  var d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
 function todayMK() { var n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); }
 function prevMK(mkStr) {
   var parts = mkStr.split('-').map(Number);
@@ -47,9 +71,9 @@ function prevMK(mkStr) {
   return y + '-' + String(m).padStart(2, '0');
 }
 
-function fmtMoney(v) { return '$' + Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-function fmtMoneyShort(v) { if (v >= 1000) return '$' + (v / 1000).toFixed(1) + 'k'; return '$' + Number(v).toFixed(0); }
-function fmtMoneyCard(v) { if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M'; if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'K'; if (v >= 1000) return '$' + (v / 1000).toFixed(1) + 'K'; return '$' + Number(v).toFixed(2); }
+function fmtMoney(v) { return _anaPrefix() + (Number(v) * _anaRate()).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtMoneyShort(v) { var n = Number(v) * _anaRate(); if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'k'; return _anaPrefix() + n.toFixed(0); }
+function fmtMoneyCard(v) { var n = Number(v) * _anaRate(); if (n >= 1e6) return _anaPrefix() + (n / 1e6).toFixed(1) + 'M'; if (n >= 10000) return _anaPrefix() + (n / 1000).toFixed(0) + 'K'; if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'K'; return _anaPrefix() + n.toFixed(2); }
 function fmtPct(v) { return Number(v).toFixed(1) + '%'; }
 function mkLabel(mkStr) { var parts = mkStr.split('-'); return MONTHS_SHORT[parseInt(parts[1]) - 1] + " '" + parts[0].slice(2); }
 
@@ -89,7 +113,8 @@ function allSpendingMonths(exp, subs) {
       (subs.rows || []).forEach(function(r) {
         var dateStr = (subs.cells || {})[r.id + '|' + startCol.id] || '';
         if (!dateStr) return;
-        var first = new Date(dateStr);
+        var first = _coreParseDate(dateStr);
+        if (!first) return;
         var y = first.getFullYear(), m = first.getMonth();
         while (y * 12 + m <= now.getFullYear() * 12 + now.getMonth()) {
           mks.add(mk(y, m)); m++; if (m === 12) { m = 0; y++; }
@@ -141,8 +166,8 @@ function calcSubCostForMonth(row, subs, year, month) {
   var monthStart = new Date(year, month, 1);
   var monthEnd   = new Date(year, month + 1, 0);
 
-  if (startStr) { var sd = new Date(startStr); if (sd > monthEnd) return 0; }
-  if (status === 'Cancelled' && cancelStr) { var cd = new Date(cancelStr); if (cd < monthStart) return 0; }
+  if (startStr) { var sd = _coreParseDate(startStr); if (sd && sd > monthEnd) return 0; }
+  if (status === 'Cancelled' && cancelStr) { var cd = _coreParseDate(cancelStr); if (cd && cd < monthStart) return 0; }
 
   if (billing === 'Monthly')   return cost;
   if (billing === 'Yearly')    return cost / 12;
@@ -151,15 +176,17 @@ function calcSubCostForMonth(row, subs, year, month) {
   if ((billing === 'Weekly' || billing === 'Bi-Weekly') && startStr) {
     var msDay = 86400000;
     var itvMs = (billing === 'Weekly' ? 7 : 14) * msDay;
-    var start = new Date(startStr);
+    var start = _coreParseDate(startStr);
+    if (!start) return cost;
     var ev = new Date(start.getTime());
     if (ev < monthStart) {
       var ahead = Math.ceil((monthStart - ev) / itvMs);
       ev = new Date(start.getTime() + ahead * itvMs);
     }
+    var cancelDate = cancelStr ? _coreParseDate(cancelStr) : null;
     var count = 0;
     while (ev <= monthEnd) {
-      if (!cancelStr || ev <= new Date(cancelStr)) count++;
+      if (!cancelDate || ev <= cancelDate) count++;
       ev = new Date(ev.getTime() + itvMs);
     }
     return cost * count;
