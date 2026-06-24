@@ -76,8 +76,33 @@
       border: 1px solid var(--success-border, #86efac);
       color: var(--success-fg, #166534);
     }
-    #personality-slider { width: 100%; accent-color: var(--accent); }
-    .personality-labels { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-top: .35rem; }
+    /* Custom-styled range: a uniform full-width track (no value-proportional fill, which
+       made the bar look empty at the leftmost stop) with a clear thumb. Suits a discrete
+       3-way choice rather than a magnitude. Track is styled via the track pseudo-elements;
+       the input box itself is transparent so it doesn't render as a thick bar. */
+    #personality-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 16px; margin: 10px 0 0;
+      background: transparent; outline: none; cursor: pointer;
+    }
+    #personality-slider::-webkit-slider-runnable-track {
+      height: 6px; border-radius: 999px; background: var(--panel-border);
+    }
+    #personality-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; margin-top: -5px;
+      width: 16px; height: 16px; border-radius: 50%; background: var(--accent); cursor: pointer;
+      box-shadow: 0 0 0 2px var(--panel-bg), 0 1px 4px rgba(0,0,0,.25);
+    }
+    #personality-slider::-moz-range-track {
+      height: 6px; border-radius: 999px; background: var(--panel-border);
+    }
+    #personality-slider::-moz-range-thumb {
+      width: 16px; height: 16px; border: none; border-radius: 50%; background: var(--accent); cursor: pointer;
+      box-shadow: 0 0 0 2px var(--panel-bg), 0 1px 4px rgba(0,0,0,.25);
+    }
+    #personality-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .personality-labels { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-top: .45rem; }
+    .personality-labels span { cursor: pointer; }
     .personality-labels span.active { color: var(--accent); font-weight: 700; }
 
     .pw-checklist {
@@ -294,6 +319,12 @@
     syncLabels();
     slider.addEventListener('input', syncLabels);
     slider.addEventListener('change', function(){ setPersonality(PMAP[slider.value]); });
+    // Clicking a label jumps the slider to that stop (easier than dragging to an exact detent).
+    document.querySelectorAll('.personality-labels span').forEach(function(s){
+      s.addEventListener('click', function(){
+        slider.value = s.dataset.v; syncLabels(); setPersonality(PMAP[slider.value]);
+      });
+    });
   })();
   </script>
 
