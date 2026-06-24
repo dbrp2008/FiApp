@@ -70,8 +70,7 @@ function freshState(){
 }
 function loadState(){
   try{
-    const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');
-    if(_wt&&_wt.active){
+    if(isWalkthroughActive()){
       const fs=freshState();
       fs.rows=[
         {id:uid(),label:'Groceries',    color:'#bbf7d0',textColor:'#1f2937',height:36,parentId:null},
@@ -115,8 +114,8 @@ let state=loadState();
 
 const MAX_ROWS=20;
 const MAX_COLS=12;
-function getRows(mk2){ mk2=mk2||currentMK(); return (state.rowsByMonth&&state.rowsByMonth[mk2])?state.rowsByMonth[mk2]:(state.rows||[]); }
-function getCols(mk2){ mk2=mk2||currentMK(); return (state.colsByMonth&&state.colsByMonth[mk2])?state.colsByMonth[mk2]:(state.cols||[]); }
+function getRows(mk2){ return effectiveRowsForMonth(state, mk2||currentMK()); }
+function getCols(mk2){ return effectiveColsForMonth(state, mk2||currentMK()); }
 function forkCurrentMonth(){
   const mk2=currentMK();
   if(!state.rowsByMonth) state.rowsByMonth={};
@@ -191,7 +190,7 @@ async function loadSubsFromServer(){
 
 
   if(!window.__currentUser) return;
-  try{var _wtr2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtr2&&_wtr2.active)return;}catch{}
+  if(isWalkthroughActive())return;
   try{
     const res=await fetch('/api/load/subs');
     if(!res.ok) return;
@@ -1001,7 +1000,7 @@ function _fmtMkLabel(mk2){
 }
 function loadTaxCarryover(){
   try{
-    const _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active) return;
+    if(isWalkthroughActive()) return;
     const t=JSON.parse(localStorage.getItem(TAX_KEY)); if(!t) return;
     const isFresh = t.consumed===false || (t.ts && t.ts>(state.lastTaxTs||0));
     if(!isFresh) return;
@@ -1059,7 +1058,7 @@ async function syncFromIncomeTracker(mk2){
   const badge=document.getElementById('income-sync-badge'); if(!badge) return;
   // During walkthrough, fiapp_income_v1 may still hold real pre-tour data (user hasn't
   // saved income yet this session). Skip auto-fill so budget stays clean.
-  try{const _wtS=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtS&&_wtS.active){badge.innerHTML='';return;}}catch(_){}
+  if(isWalkthroughActive()){badge.innerHTML='';return;}
   try{
     const incomeState=JSON.parse(localStorage.getItem(INCOME_KEY));
     if(!incomeState||!incomeState.rows){badge.innerHTML='';return;}
@@ -1210,7 +1209,7 @@ function renderOtherForm(menu, row){
 }
 
 function showSubMenu(btn, row){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   closeMenu();
   let subs=[];
@@ -1443,7 +1442,7 @@ function dismissTemplatePrompt(){
 }
 
 function addRow(){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
@@ -1468,7 +1467,7 @@ function addSubRow(parentRow, subLabel){
   save(); render();
 }
 function addCol(){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   const mk2=currentMK();
@@ -1478,7 +1477,7 @@ function addCol(){
   save(); render();
 }
 function deleteRow(id){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
@@ -1505,7 +1504,7 @@ function deleteRow(id){
   showToast('Row deleted.', false, 5000, undo);
 }
 function deleteCol(id){
-  try{var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wt&&_wt.active){showToast('🧭 Finish or skip the walkthrough to use this.');return;}}catch{}
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   forkCurrentMonth();
   snapshot();
@@ -1753,7 +1752,7 @@ function attachRowResize(handle,row,tr){
 }
 
 
-function loadSubsState(){ try{ var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null'); if(_wt&&_wt.active) return null; return JSON.parse(localStorage.getItem(SUBS_KEY))||null; }catch{ return null; } }
+function loadSubsState(){ if(isWalkthroughActive()) return null; try{ return JSON.parse(localStorage.getItem(SUBS_KEY))||null; }catch{ return null; } }
 
 function calcSubMonthCostInExp(r, subs, yr, mo){
   const costCol=subs.cols.find(c=>c.ctype==='number');
@@ -2484,7 +2483,11 @@ window.addEventListener('resize',()=>{
 
 function expPad(s,n){ s=String(s); return s.length>=n?s:s+' '.repeat(n-s.length); }
 function expCsvEsc(v){
-  const s=String(v==null?'':v);
+  let s=String(v==null?'':v);
+  // Formula-injection guard: a leading quote neutralizes spreadsheet formula triggers
+  // (=,+,-,@, tab, CR) in free-text cells. Skipped when the cell is a genuine number
+  // (e.g. "-50.00") so legitimate negative amounts aren't corrupted.
+  if(/^[=+\-@\t\r]/.test(s)&&isNaN(Number(s))) s="'"+s;
   return /[,"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
 }
 
@@ -2961,7 +2964,7 @@ function lazyLoadXlsx(){
   if(_xlsxLoading) return _xlsxLoading;
   _xlsxLoading=new Promise((res,rej)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.src='/static/js/vendor/xlsx.full.min.js';
     s.onload=()=>{_xlsxLoaded=true;res();};
     s.onerror=()=>rej(new Error('Failed to load XLSX library'));
     document.head.appendChild(s);
