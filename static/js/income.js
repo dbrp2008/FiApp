@@ -1647,11 +1647,14 @@ function renderMobileCards(){
 
 
 function adjustBodyWidth(){
-  const naturalWidth=(state.headerColWidth||185)
-    +getCols().reduce((s,c)=>s+(c.width||120),0)
-    +(state.totalColWidth||110)+32;
+  // Size the page to the table so it centres with padding on both sides. Measure the ACTUAL
+  // rendered table (offsetWidth) — the old estimate (summing column widths) undercounted and
+  // capped the body narrower than the real table, so it overflowed off the right instead of
+  // centring. +100 clears the .app-canvas horizontal padding plus ~18px breathing room.
+  const _t=document.getElementById('sheet');
+  const naturalWidth=_t?_t.offsetWidth:0;
   const cap=Math.min(window.innerWidth*0.95,1500);
-  document.body.style.maxWidth=naturalWidth>900?Math.min(naturalWidth+60,cap)+'px':'';
+  document.body.style.maxWidth=naturalWidth>900?Math.min(naturalWidth+100,cap)+'px':'';
 }
 window.addEventListener('resize',adjustBodyWidth);
 let _resizeRenderTimer=null;
