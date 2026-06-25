@@ -58,7 +58,10 @@
     .c-num{flex:1;min-width:0;}
     .cell-curr-sel{flex-shrink:0;font-size:.82rem;padding:2px 3px;border:1px solid var(--input-border);border-radius:3px;background:var(--input-bg);color:var(--fg);max-width:62px;}
     
-    .sheet-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:fit-content;max-width:100%;margin:0 auto;}
+    /* Full-width horizontal-scroll box; the table centres itself via margin-inline (below)
+       when it fits and scrolls left↔right when wider than the screen. Do NOT use
+       width:fit-content — it makes a wide table shift left instead of scrolling. */
+    .sheet-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;margin:.5rem 0 0;}
 
     
     .chart-section{display:none;margin-bottom:1rem;padding:.75rem 1rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;}
@@ -99,7 +102,7 @@
     tr.tr-dragging{opacity:.3;}
     tr.tr-drop-before>td{border-top:2px solid #065f46!important;}
     tr.tr-drop-after>td{border-bottom:2px solid #065f46!important;}
-    table.sheet{border-collapse:collapse;table-layout:fixed;min-width:max-content;}
+    table.sheet{border-collapse:collapse;table-layout:fixed;min-width:max-content;margin-inline:auto;}
     table.sheet th,table.sheet td{border:1px solid var(--input-border);position:relative;overflow:hidden;padding:0;}
     table.sheet th{background:var(--th-bg);color:var(--fg);user-select:none;}
     .th-inner{display:flex;align-items:center;justify-content:center;padding:5px 6px;gap:4px;min-height:32px;}
