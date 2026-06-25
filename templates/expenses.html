@@ -45,6 +45,9 @@
     .income-panel h3{margin:0 0 .6rem;font-size:.9rem;color:var(--total-fg);}
     .income-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:.5rem .75rem;}
     .income-field label{font-size:.75rem;font-weight:600;color:var(--fg);display:block;margin-bottom:2px;}
+    /* Keep the synced-from-income (i) badge on the same line as its label text rather than
+       wrapping below. Scoped via :has so the longer budget labels can still wrap normally. */
+    .income-field label:has(.help-btn){white-space:nowrap;}
     .income-field input[type="number"]{width:100%;padding:5px 7px;border:1px solid var(--input-border);border-radius:5px;font-size:.88rem;box-sizing:border-box;background:var(--input-bg);color:var(--fg);}
     .income-computed{display:block;padding:5px 7px;border:1px solid var(--panel-border);border-radius:5px;font-size:.88rem;background:var(--panel-bg);font-weight:700;color:var(--fg);}
     .tax-banner{grid-column:1/-1;font-size:.78rem;padding:.35rem .6rem;background:var(--total-bg);border:1px solid var(--success-border);border-radius:5px;color:var(--total-fg);}
