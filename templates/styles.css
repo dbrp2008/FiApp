@@ -798,6 +798,10 @@ body{max-width:none;margin:0;padding:0;}
   .hamburger-btn{display:none;}
   body:has(.app-rail){padding-left:230px;}
   .app-canvas{margin:0 auto;max-width:960px;padding:1.5rem 2rem 4rem;}
+  /* Trackers hold wide data tables, so they opt into a wider content column (via the
+     canvas-wide modifier on the <main>) so a normal multi-column month fits and centres
+     instead of overflowing. Higher specificity than the rule above, so it wins. */
+  .app-canvas.canvas-wide{max-width:1280px;}
 }
 .nav, .home-nav{align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:14px;
   background:var(--glass-bg);border:1px solid var(--glass-border);
