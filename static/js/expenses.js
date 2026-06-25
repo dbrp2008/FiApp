@@ -3006,7 +3006,10 @@ function showExportMenu(ev){
     btn.addEventListener('click',e=>{e.stopPropagation();closeExportMenu();f.fn();});
     menu.appendChild(btn);
   });
-  const rect=ev.currentTarget.getBoundingClientRect();
+  // Anchor to the always-visible "Share ▾" toggle, not the Export button: the Export
+  // button lives inside the Share dropdown, which closes on click, so anchoring to it
+  // left the menu floating detached in the gap the closed dropdown left behind.
+  const rect=(document.getElementById('dd-share-toggle')||ev.currentTarget).getBoundingClientRect();
   menu.style.top=(rect.bottom+4)+'px';
   menu.style.left=rect.left+'px';
   document.body.appendChild(menu);
