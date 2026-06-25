@@ -2399,15 +2399,13 @@ function renderMobileCards(){
 }
 
 function adjustBodyWidth(){
-  // Size the page to the table so it centres with padding on both sides. Measure the ACTUAL
-  // rendered table (offsetWidth) — the old estimate (summing column widths) undercounted
-  // (table borders, header/total cells, the forked "Imported" column), so it capped the body
-  // narrower than the real table and the table overflowed off the right instead of centring.
-  // +100 clears the .app-canvas horizontal padding (2rem each side) plus ~18px breathing room.
-  const _t=document.getElementById('sheet');
-  const naturalWidth=_t?_t.offsetWidth:0;
-  const cap=Math.min(window.innerWidth*0.95,1500);
-  document.body.style.maxWidth=naturalWidth>900?Math.min(naturalWidth+100,cap)+'px':'';
+  // Centring is handled in CSS: the wider .app-canvas.canvas-wide column is centred in the
+  // viewport (margin:0 auto) and the table is centred inside it (margin-inline:auto), and the
+  // .sheet-wrap scrolls horizontally when the table is genuinely wider than that column.
+  // We no longer shrink-wrap the <body> to the table — because the body sits to the right of
+  // the fixed sidebar (margin:0), sizing it to the table jammed the whole block to the left
+  // with dead space on the right, and capped tables couldn't scroll. Clear any stale inline cap.
+  document.body.style.maxWidth='';
 }
 window.addEventListener('resize',adjustBodyWidth);
 
