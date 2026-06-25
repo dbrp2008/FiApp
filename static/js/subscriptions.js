@@ -1000,7 +1000,9 @@ document.addEventListener('click',e=>{ if(_exportMenuEl && !e.target.closest('#e
 function showExportMenu(ev){
   if(_exportMenuEl){ closeExportMenu(); return; }
   ev.stopPropagation();
-  const btn=ev.currentTarget||document.getElementById('export-btn');
+  // Anchor to the always-visible "Share ▾" toggle, not the Export button (which sits inside
+  // the Share dropdown that closes on click, leaving the menu floating detached).
+  const btn=document.getElementById('dd-share-toggle')||ev.currentTarget||document.getElementById('export-btn');
   const base='subscriptions-'+state.currentYear+'-'+String(state.currentMonth+1).padStart(2,'0');
   const menu=document.createElement('div'); menu.className='export-menu';
   const formats=[
