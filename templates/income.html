@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Income Tracker{% endblock %}
+{% block canvas_class %}canvas-wide{% endblock %}
 {% block head_scripts %}<script src="/static/rates-utils.js?v={{ ASSET_V }}"></script>
 <script src="/static/js/vendor/chart.umd.min.js"></script>
 <script src="/static/js/tracker-sync.js?v={{ ASSET_V }}"></script>{% endblock %}
