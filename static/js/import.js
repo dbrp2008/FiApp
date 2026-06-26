@@ -775,6 +775,11 @@
     _wiz.applied={ count:imported+ir.imported, rowsCreated:rowsCreated+ir.rowsCreated, colsCreated:colsCreated+ir.colsCreated, monthsCapped:monthsCapped+ir.monthsCapped, lockedMonths:lockedMonths, months:months.length, incomeMonths:ir.months };
     _wiz.step='done';
     renderWizStep();
+    // B (Playful): celebrate a finished import. No-op for Default/Quiet (gated inside fiappCelebrate).
+    if(window.fiappCelebrate){
+      var _n=(_wiz.applied&&_wiz.applied.count)||0;
+      fiappCelebrate({confetti:true, mascot:'Import done'+(_n?', '+_n+' added':'')+'.'});
+    }
   }
 
   // Write income transaction buckets directly into the income tracker's localStorage blob,
