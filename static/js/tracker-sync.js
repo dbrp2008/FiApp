@@ -180,6 +180,8 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   function setSyncStatus(msg, cls) {
     var el = document.getElementById('sync-status');
     if (!el) return;
+    // C4 (Playful): a small sparkle on the saved confirmation. Default/Quiet unchanged.
+    if (cls === 'synced' && msg && window.fiappPersonality && fiappPersonality() === 'playful') msg += ' ✨';
     el.textContent = msg; el.className = cls || '';
   }
 
