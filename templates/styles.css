@@ -774,6 +774,53 @@ h1, h2, h3, h4 { color: var(--fg); }
   .gradient-card,.glass-panel,.stat-card{transition:transform .15s ease, box-shadow .15s ease;}
   .stat-card:hover,.glass-panel:hover{transform:translateY(-2px);}
 }
+
+/* ───────────────────────────────────────────────────────────────
+   Playful personality (slider → Playful). Everything here is scoped to
+   html.personality-playful, so Default and Quiet are completely unaffected.
+   Motion sits inside prefers-reduced-motion:no-preference so reduced-motion
+   users opt out. The app already ships hover-lifts and a hero count-up for
+   everyone; these are the *extra* touches Playful layers on top.
+   (Cluster E flourish rules are appended to this section.)
+   ─────────────────────────────────────────────────────────────── */
+@keyframes fi-card-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion: no-preference){
+  /* A1 — livelier mascot bob (the shared bob is 2.4s for everyone). */
+  html.personality-playful #wt-avatar{animation-duration:1.5s;}
+  /* A3 — tactile button press. */
+  html.personality-playful .btn:active{transform:scale(.96);}
+  /* A8 — dashboard tiles fade-and-rise in on load. .app-card is the logged-out marketing
+     grid; .dash-tool is what a logged-in user (the only one who can set Playful) actually
+     sees on the dashboard ("Quick tools" list). Desktop only, so it does not replay as the
+     mobile card-carousel toggles .app-card's display. */
+  @media (min-width:641px){
+    html.personality-playful .app-card,
+    html.personality-playful .dash-tool{animation:fi-card-in .5s both;}
+    html.personality-playful .app-card:nth-child(2),
+    html.personality-playful .dash-tool:nth-child(2){animation-delay:.05s;}
+    html.personality-playful .app-card:nth-child(3),
+    html.personality-playful .dash-tool:nth-child(3){animation-delay:.10s;}
+    html.personality-playful .app-card:nth-child(4){animation-delay:.15s;}
+    html.personality-playful .app-card:nth-child(5){animation-delay:.20s;}
+    html.personality-playful .app-card:nth-child(6){animation-delay:.25s;}
+    html.personality-playful .app-card:nth-child(7){animation-delay:.30s;}
+  }
+}
+/* E2 — Playful rounds corners a touch more (always) and, when motion is allowed, springs
+   the dashboard tiles a little higher on hover than the shared baseline (-3px on .app-card,
+   -1px on .dash-tool). E1 flourish is carried by Playful's copy emoji (the greeting wave,
+   the saved sparkle, the mascot); E3 theme-matched confetti lives in celebrate.js. */
+html.personality-playful .app-card,
+html.personality-playful .glass-panel,
+html.personality-playful .stat-card,
+html.personality-playful .gradient-card,
+html.personality-playful .hero-net-card{border-radius:20px;}
+html.personality-playful .dash-tool{border-radius:14px;}
+html.personality-playful .btn{border-radius:12px;}
+@media (prefers-reduced-motion: no-preference){
+  html.personality-playful .dash-tool:hover{transform:translateY(-3px);}
+  html.personality-playful .app-card:hover{transform:translateY(-5px);}
+}
 /* ── App shell ──────────────────────────────────────────────── */
 body{max-width:none;margin:0;padding:0;}
 .app-rail{display:none;}
