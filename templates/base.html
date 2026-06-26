@@ -394,10 +394,13 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
         // specific to one step, so it's always allowed rather than requiring every select step to
         // list it in allowSelectors.
         var inPicker=!!t.closest('.gp-overlay');
-        if(!inBubble&&!inTarget&&!inToast&&!inAllowed&&!inPicker){
-          console.log('[WT-DEBUG] blocked',e.type,'target=',t.tagName,t.id||'(no id)',t.className||'(no class)','closestSelect=',(t.closest&&t.closest('select')||{}).id||'(none)');
-          e.stopPropagation();e.preventDefault();_guardToast();
-        }
+        // Opening the glass picker calls preventDefault() on the select's mousedown to suppress
+        // the native dropdown - that disrupts the browser's click-target tracking for the same
+        // gesture, so the click event that follows often resolves to <body>/<html> rather than
+        // the select, slipping past inTarget/inPicker above. Only exempt that while a wheel is
+        // actually open, so a real outside click is still blocked everywhere else.
+        var inStrayPickerClick=e.type==='click'&&(t===document.body||t===document.documentElement)&&!!document.querySelector('.gp-overlay');
+        if(!inBubble&&!inTarget&&!inToast&&!inAllowed&&!inPicker&&!inStrayPickerClick){e.stopPropagation();e.preventDefault();_guardToast();}
       }
 
 
