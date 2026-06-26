@@ -1046,6 +1046,8 @@
         {label:'Income',  data:incData, backgroundColor:incCol, borderRadius:6},
         {label:'Expenses',data:expData, backgroundColor:expCol, borderRadius:6}]},
       options:{responsive:true, maintainAspectRatio:false,
+        // A7: Playful grows the bars in slowly; Default/Quiet keep Chart.js defaults (undefined).
+        animation:(window.fiappPersonality&&fiappPersonality()==='playful')?{duration:(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)?0:1100,easing:'easeOutQuart'}:undefined,
         plugins:{legend:{display:true, labels:{boxWidth:10, font:{size:11}, color:muted}}},
         scales:{y:{beginAtZero:true, ticks:{color:muted}}, x:{ticks:{color:muted}}}}});
   };
@@ -1055,9 +1057,11 @@
   (function(){
     var a = document.getElementById('dash-alerts'); if(!a) return;
     if(!a.querySelector('.snap-renewal') && !a.querySelector('.snap-nudge')){
+      var _plClear = document.documentElement.classList.contains('personality-playful');
       var allClearMsg = document.documentElement.classList.contains('personality-quiet')
         ? 'You\'re all caught up.'
-        : 'You\'re all caught up. Nice work.';
+        : _plClear ? 'You\'re all caught up. You\'re on a roll.'
+                   : 'You\'re all caught up. Nice work.';
       a.innerHTML = '<div class="dash-allclear"><span aria-hidden="true">✓</span> '+allClearMsg+'</div>';
     }
   })();
@@ -1144,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var h=new Date().getHours();
     var greet=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
     var gEl=document.getElementById('dash-greeting');
-    if(gEl) gEl.textContent=greet+', '+_u;
+    if(gEl) gEl.textContent=greet+', '+_u+(document.documentElement.classList.contains('personality-playful')?' 👋':'');
     var sEl=document.getElementById('dash-sub');
     if(sEl){ try{ sEl.textContent=new Date().toLocaleDateString(undefined,{month:'long',year:'numeric'})+' overview'; }catch(_){} }
   }
