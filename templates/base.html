@@ -21,6 +21,7 @@
       else if(t!=='light') document.documentElement.classList.add('theme-'+t);
       var p=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
       if(p==='quiet') document.documentElement.classList.add('personality-quiet');
+      else if(p==='playful') document.documentElement.classList.add('personality-playful');
     })();
   </script>
   <script nonce="{{ csp_nonce }}">
@@ -47,6 +48,7 @@
   </script>
   <script src="/static/js/voice.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/glass-picker.js?v={{ ASSET_V }}"></script>
+  <script src="/static/js/celebrate.js?v={{ ASSET_V }}"></script>
   {% block head_scripts %}{% endblock %}
   {% block head_styles %}{% endblock %}
   <style>
@@ -157,10 +159,11 @@
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({personality:_lsP})}).catch(function(){});
     }
   })();
-  // balanced/playful both keep today's behavior; only quiet changes anything (suppresses
-  // the walkthrough avatar's idle bob, confetti, and the home carousel auto-advance).
+  // quiet strips motion/celebration; playful adds extra motion, celebration, mascot
+  // presence and warmer copy; balanced (default) is exactly today's behavior.
   function setPersonality(name){
     document.documentElement.classList.toggle('personality-quiet', name==='quiet');
+    document.documentElement.classList.toggle('personality-playful', name==='playful');
     localStorage.setItem('fiapp_personality',name);
     if(_CSRF){ fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({personality:name})}).catch(function(){}); }
   }
