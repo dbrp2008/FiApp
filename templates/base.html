@@ -34,7 +34,7 @@
          'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
          'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
          'fiapp_tax_result','fiapp_prefill_income',
-         'fiapp_walkthrough_v1'].forEach(function(k){localStorage.removeItem(k);});
+         'fiapp_walkthrough_v1','fiapp_analytics_currency'].forEach(function(k){localStorage.removeItem(k);});
         localStorage.removeItem('fiapp_auth_user');
       }
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
@@ -1139,7 +1139,13 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
       }
       if(step){
         var dotIdx=vs.findIndex(function(s){return s.id===step.id;});
-        _startGuard(null);
+        // Mirror _showStep's own guard registration (below) instead of always blocking with a
+        // null target: this call is live for the full 600ms until _showStep re-registers it, so
+        // for an allowInteract/wait step whose target is already in the DOM (most are, since
+        // it's static per-page markup), resolving it immediately closes a 600ms window where the
+        // very first click - e.g. opening the glass-picker select this step is pointing at - was
+        // wrongly treated as outside the target and blocked with the guard toast.
+        _startGuard(step.type==='wait'||step.allowInteract ? (step.target?document.querySelector(step.target):null) : null, step.allowSelectors||null);
         setTimeout(async function(){
           var _chk=_ld();if(!_chk||!_chk.active) return;
           if(_page==='/'&&!localStorage.getItem(WT_BK_KEY)&&(_chk.seen||[]).length===0){
