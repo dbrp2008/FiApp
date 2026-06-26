@@ -111,6 +111,10 @@ function loadState(){
   return freshState();
 }
 let state=loadState();
+// B (Playful first-entry): months that already had data when this session started, so a
+// later edit to an already-populated month is never mistaken for "first entry of a new
+// month". Populated from the server-synced state once startup finishes (see below).
+let _monthsWithDataAtLoad=null;
 
 const MAX_ROWS=20;
 const MAX_COLS=12;
@@ -227,6 +231,7 @@ function save(){
   syncToServer();
   checkSpendTrend();
   detectRecurring();
+  try{ _maybeCelebrateFirstEntry(currentMK()); }catch(_){}
 }
 
 // ── Phase 4a: Spend Trend Message ────────────────────────────────────────
@@ -478,6 +483,19 @@ function updateMonthContextNote(){
 function _hasDataForMonth(mk2){
   return Object.keys(state.cells||{}).some(k=>k.startsWith(mk2+'|')&&parseFloat(state.cells[k])>0);
 }
+// B (Playful): the first time a fresh month gains data in this browser session, fire a
+// one-off celebration. The personality gate makes this a near-instant no-op for Default/
+// Quiet (it never reaches the cell scan), and the sessionStorage flag makes it idempotent
+// per month/session. Wrapped in try/catch by the caller so it can never break save().
+function _maybeCelebrateFirstEntry(mk2){
+  if(!window.fiappCelebrate || (window.fiappPersonality&&fiappPersonality()!=='playful')) return;
+  if(_monthsWithDataAtLoad&&_monthsWithDataAtLoad.has(mk2)) return; // already had data before this session
+  var key='fiapp_firstentry_exp_'+mk2;
+  try{ if(sessionStorage.getItem(key)) return; }catch(_){ return; }
+  if(!_hasDataForMonth(mk2)) return;
+  try{ sessionStorage.setItem(key,'1'); }catch(_){}
+  fiappCelebrate({confetti:true, mascot:'First entry logged. Off to a good start.'});
+}
 function _isPastMonth(){
   const now=new Date();
   const nowMk=mk(now.getFullYear(),now.getMonth());
@@ -554,6 +572,16 @@ function confirmClose(){
   updateCloseBar();
   // Update month nav dropdown to show lock badge
   populateMonthJump();
+  // B (Playful): celebrate closing a month, with a bigger burst + warmer line if it
+  // closed in surplus (income recorded and more than what was spent).
+  if(window.fiappCelebrate){
+    let _spent=0;
+    const _cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+    getRows(mk2).forEach(row=>{ _cols.forEach(col=>{ _spent+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); });
+    const _gross=parseFloat((state.income&&state.income[mk2]&&state.income[mk2].gross)||0)||0;
+    const _surplus=_gross>0&&(_gross-_spent)>0;
+    fiappCelebrate({confetti:true, big:_surplus, mascot:_surplus?'Month closed in the black. Nice.':'Month closed.'});
+  }
 }
 function cancelClose(){
   _closeModalOverlay();
@@ -3171,12 +3199,17 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
   try{ await loadFromServer(); }catch(e){ console.warn('FiApp: loadFromServer failed',e); }
   try{ await loadSubsFromServer(); }catch(e){ console.warn('FiApp: loadSubsFromServer failed',e); }
   try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
+  try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
   try{ loadHistory(); }catch(e){}
   try{ loadTaxCarryover(); }catch(e){}
   try{ updateHistBtns(); }catch(e){}
   try{ updateMonthNav(); }catch(e){ console.error('FiApp: updateMonthNav failed',e); }
   try{ syncIncomeInputs(); }catch(e){}
   try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
+
+  // D (Playful): a one-off, dismissable orientation tip, once per session. No-op for
+  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: each month keeps its own categories and columns. Use the month picker up top to switch.','exp-tip'); }catch(_){}
 
   fetchExpRates().then(()=>{ if(getRows().some(r=>r.linked==='subscriptions')) render(); }).catch(()=>{});
 
