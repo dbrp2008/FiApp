@@ -1586,6 +1586,9 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
   recalcTotals();
   updateHistBtns();
   preloadRates();
+  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
+  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: FiApp warns you before a subscription renews. Add your recurring ones here.','subs-tip'); }catch(_){}
 })();
 
 // Static toolbar event wiring (replaces onclick= attributes)
