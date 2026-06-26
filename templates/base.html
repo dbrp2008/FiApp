@@ -394,7 +394,10 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
         // specific to one step, so it's always allowed rather than requiring every select step to
         // list it in allowSelectors.
         var inPicker=!!t.closest('.gp-overlay');
-        if(!inBubble&&!inTarget&&!inToast&&!inAllowed&&!inPicker){e.stopPropagation();e.preventDefault();_guardToast();}
+        if(!inBubble&&!inTarget&&!inToast&&!inAllowed&&!inPicker){
+          console.log('[WT-DEBUG] blocked',e.type,'target=',t.tagName,t.id||'(no id)',t.className||'(no class)','closestSelect=',(t.closest&&t.closest('select')||{}).id||'(none)');
+          e.stopPropagation();e.preventDefault();_guardToast();
+        }
       }
 
 
