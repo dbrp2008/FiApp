@@ -208,6 +208,10 @@ function loadState(){
   return freshState();
 }
 let state=loadState();
+// B (Playful first-entry): months that already had data when this session started, so a
+// later edit to an already-populated month is never mistaken for "first entry of a new
+// month". Populated from the server-synced state once startup finishes (see below).
+let _monthsWithDataAtLoad=null;
 
 const MAX_ROWS=20;
 const MAX_COLS=12;
@@ -396,6 +400,7 @@ function save(){
   try{ localStorage.setItem(PUSH_KEY, JSON.stringify({mk:currentMK(),total:grandTotal(),ts:Date.now()})); }catch{}
   syncToServer();
   document.dispatchEvent(new CustomEvent('fiapp-income-saved'));
+  try{ _maybeCelebrateFirstEntry(currentMK()); }catch(_){}
 }
 function showSaveQuotaWarning(){
   if(document.getElementById('quota-warn')) return;
@@ -515,6 +520,18 @@ function updateMonthContextNote(){
 // ── Monthly Close Flow ────────────────────────────────────────────────────
 function _hasDataForMonth(mk2){
   return Object.keys(state.cells||{}).some(k=>k.startsWith(mk2+'|')&&parseFloat(state.cells[k])>0);
+}
+// B (Playful): first time a fresh month gains income data this session, fire a one-off
+// celebration. Personality-gated (near-instant no-op for Default/Quiet) and idempotent per
+// month/session via sessionStorage. Caller wraps in try/catch so it can never break save().
+function _maybeCelebrateFirstEntry(mk2){
+  if(!window.fiappCelebrate || (window.fiappPersonality&&fiappPersonality()!=='playful')) return;
+  if(_monthsWithDataAtLoad&&_monthsWithDataAtLoad.has(mk2)) return; // already had data before this session
+  var key='fiapp_firstentry_inc_'+mk2;
+  try{ if(sessionStorage.getItem(key)) return; }catch(_){ return; }
+  if(!_hasDataForMonth(mk2)) return;
+  try{ sessionStorage.setItem(key,'1'); }catch(_){}
+  fiappCelebrate({confetti:true, mascot:'First income logged. Nice.'});
 }
 function _isPastMonth(){
   const now=new Date();
@@ -2227,6 +2244,7 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
   if(!window.__currentUser) setSyncStatus('Offline','');
   try{ await loadFromServer(); }catch(e){ console.warn('FiApp: loadFromServer failed',e); }
   try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
+  try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
   try{ loadHistory(); }catch(e){}
   try{ updateHistBtns(); }catch(e){}
   try{ updateMonthNav(); }catch(e){ console.error('FiApp: updateMonthNav failed',e); }
@@ -2254,6 +2272,9 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
     if(usedCurs.length) await fetchAndCacheUSDRates();
   }catch(e){}
   try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
+  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
+  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: income is tracked per month too. Use the month picker up top to switch.','inc-tip'); }catch(_){}
 })();
 
 function openHelp(){ document.getElementById('help-modal').style.display='flex'; }
