@@ -861,7 +861,10 @@ body{max-width:none;margin:0;padding:0;}
 .topbar-right .theme-menu-wrap{margin-left:0;}
 
 /* Glass scroll-wheel picker (desktop-only; built by /static/js/glass-picker.js) */
-.gp-overlay{position:fixed;inset:0;z-index:3000;background:transparent;}
+/* z-index well above every other fixed overlay in the app (walkthrough highlight/bubble,
+   confetti, modals all top out under 10001) - an open native-select replacement should always
+   render on top, the same way the browser's own select popup would. */
+.gp-overlay{position:fixed;inset:0;z-index:20000;background:transparent;}
 .gp-wheel{position:fixed;min-width:172px;max-width:280px;border-radius:16px;overflow:hidden;
   background:color-mix(in srgb, var(--panel-bg) 86%, transparent);
   border:1px solid var(--glass-border);
