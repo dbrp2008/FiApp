@@ -872,8 +872,11 @@ function onGrossInput(){
   document.getElementById('income-sync-badge').innerHTML='';
 }
 function onIncomeInput(){
-  const gross=document.getElementById('inp-gross').value;
+  const grossEl=document.getElementById('inp-gross');
+  if(parseFloat(grossEl.value)<0) grossEl.value='0';
+  const gross=grossEl.value;
   const taxEl=document.getElementById('inp-tax');
+  if(parseFloat(taxEl.value)<0) taxEl.value='0';
   const gNum=parseFloat(gross)||0;
   if(gNum>0 && (parseFloat(taxEl.value)||0)>gNum) taxEl.value=gNum.toFixed(2);
   const tax=taxEl.value;
