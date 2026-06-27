@@ -35,6 +35,15 @@ const CATEGORIES = {
   'Utilities':    ['Electricity','Water','Natural Gas','Internet','Phone','Cable TV'],
   'Shopping':     ['Clothing','Electronics','Home & Garden','Personal Care','Gifts'],
   'Education':    ['Tuition','Books & Supplies','Online Courses','Student Loans'],
+  'Rent':         ['Monthly Rent','Security Deposit','Renters Insurance','Utilities Split'],
+  'Food':         ['Groceries','Restaurants','Fast Food','Coffee Shops','Food Delivery','Snacks & Candy'],
+  'Misc':         ['Personal Care','Gifts','Donations','Bank Fees','Laundry','Other'],
+  'Equipment':    ['Computer & Laptop','Office Furniture','Tools & Machinery','Phone & Accessories','Repairs & Maintenance','Office Supplies'],
+  'Software':     ['Design Tools','Productivity Apps','Cloud Storage','Accounting Software','Website & Hosting','Project Management'],
+  'Marketing':    ['Social Media Ads','Website & SEO','Print Materials','Networking Events','Email Marketing','Branding & Design'],
+  'Tax Set-Aside':['Federal Tax Reserve','State Tax Reserve','Self-Employment Tax','Quarterly Payments','Accountant Fees'],
+  'Childcare':    ['Daycare','Babysitting','School Tuition','After-School Programs','Diapers & Supplies','Toys & Activities'],
+  'Insurance':    ['Health Insurance','Life Insurance','Auto Insurance','Home Insurance','Disability Insurance','Umbrella Policy'],
 };
 const CAT_KEYS = Object.keys(CATEGORIES);
 const CAT_COLORS = {
@@ -1273,6 +1282,10 @@ function showSubMenu(btn, row){
   if(mRect.right > window.innerWidth - 8){
     menu.style.left=Math.max(4, window.innerWidth - mRect.width - 8)+'px';
   }
+  // position:fixed is set once from btn's rect above - if the page (or an inner
+  // scroll container) scrolls afterward, the button moves but the menu doesn't,
+  // so it visually detaches from its anchor. Close it instead of tracking it.
+  document.addEventListener('scroll',closeMenu,{capture:true,once:true});
 }
 
 
