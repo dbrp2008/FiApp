@@ -171,9 +171,13 @@
   }
 
   // Intercept mouse opening of a matching select; preventDefault stops the native popup.
+  // window._wtSelAllowed, when set, is the walkthrough's guard asking us to back off for a
+  // select it isn't currently letting the user touch - skip opening and let its own click
+  // handler take the event instead, so a disallowed select's wheel never appears at all.
   document.addEventListener('mousedown', function(e){
     var sel = e.target.closest && e.target.closest(SELECTOR);
     if(!sel || sel.disabled) return;
+    if(window._wtSelAllowed && !window._wtSelAllowed(sel)) return;
     e.preventDefault();
     if(open && open.select === sel){ close(true); return; }
     sel.focus();
@@ -185,6 +189,7 @@
     if(open) return;
     var sel = e.target.closest && e.target.closest(SELECTOR);
     if(!sel || sel.disabled) return;
+    if(window._wtSelAllowed && !window._wtSelAllowed(sel)) return;
     if(e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openFor(sel); }
   }, true);
 })();
