@@ -377,6 +377,11 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
 
     function _startGuard(targetEl,allowSelectors){
       if(_guardOff){_guardOff();_guardOff=null;}
+      // Exposed so glass-picker.js can ask before ever opening a select's wheel (see its
+      // mousedown/keydown listeners) - a disallowed select's wheel then never appears at all,
+      // instead of opening and needing to be neutralized after the fact. Cleared in _guardOff.
+      function _selAllowed(sel){return !!sel&&((targetEl&&targetEl.contains(sel))||(allowSelectors&&allowSelectors.some(function(s){return !!sel.closest(s);})));}
+      window._wtSelAllowed=_selAllowed;
       function guard(e){
         var t=e.target||(e.touches&&e.touches[0]&&e.touches[0].target);
         if(!t) return;
@@ -389,21 +394,16 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
         var inAllowed=allowSelectors&&allowSelectors.some(function(sel){return !!t.closest(sel);});
         // The glass scroll-wheel picker (static/js/glass-picker.js) renders its open wheel as a
         // direct child of <body>, outside any step's targetEl, so its clicks were never inTarget/
-        // inAllowed and got swallowed here before the picker's own handler could run - the wheel
-        // looked open but selecting an option silently did nothing. glass-picker.js stamps the
-        // open overlay with the select it belongs to (_gpSelect): re-run the same inTarget/
-        // inAllowed test against THAT select instead of blanket-allowing any open overlay,
-        // otherwise an unrelated glass-picker select (e.g. the month-jump dropdown) becomes
-        // freely operable through the same overlay class while a step targets something else.
-        function _selAllowed(sel){return !!sel&&((targetEl&&targetEl.contains(sel))||(allowSelectors&&allowSelectors.some(function(s){return !!sel.closest(s);})));}
+        // inAllowed - glass-picker.js now checks _wtSelAllowed above before opening at all, so
+        // this is just a backstop: re-run the same allowance test against the select the overlay
+        // is stamped with (_gpSelect), in case that primary gate is ever missed.
         var pickerOverlay=t.closest('.gp-overlay');
         var inPicker=_selAllowed(pickerOverlay&&pickerOverlay._gpSelect);
         // Opening the glass picker calls preventDefault() on the select's mousedown to suppress
         // the native dropdown - that disrupts the browser's click-target tracking for the same
         // gesture, so the click event that follows often resolves to <body>/<html> rather than
         // the select, slipping past inTarget/inPicker above. Only exempt that while the currently
-        // open wheel belongs to an allowed select, so a real outside click (or a different
-        // select's wheel) is still blocked everywhere else.
+        // open wheel belongs to an allowed select, so a real outside click is still blocked.
         var strayOverlay=document.querySelector('.gp-overlay');
         var inStrayPickerClick=e.type==='click'&&(t===document.body||t===document.documentElement)&&_selAllowed(strayOverlay&&strayOverlay._gpSelect);
         if(!inBubble&&!inTarget&&!inToast&&!inAllowed&&!inPicker&&!inStrayPickerClick){e.stopPropagation();e.preventDefault();_guardToast();}
@@ -420,6 +420,7 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
         document.removeEventListener('click',guard,true);
         document.removeEventListener('mousedown',guard,true);
         document.removeEventListener('touchend',guard,touchEndOpts);
+        window._wtSelAllowed=null;
       };
     }
     function _stopGuard(){if(_guardOff){_guardOff();_guardOff=null;}}
