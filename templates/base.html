@@ -390,16 +390,22 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
         // The glass scroll-wheel picker (static/js/glass-picker.js) renders its open wheel as a
         // direct child of <body>, outside any step's targetEl, so its clicks were never inTarget/
         // inAllowed and got swallowed here before the picker's own handler could run - the wheel
-        // looked open but selecting an option silently did nothing. It's a global control, not
-        // specific to one step, so it's always allowed rather than requiring every select step to
-        // list it in allowSelectors.
-        var inPicker=!!t.closest('.gp-overlay');
+        // looked open but selecting an option silently did nothing. glass-picker.js stamps the
+        // open overlay with the select it belongs to (_gpSelect): re-run the same inTarget/
+        // inAllowed test against THAT select instead of blanket-allowing any open overlay,
+        // otherwise an unrelated glass-picker select (e.g. the month-jump dropdown) becomes
+        // freely operable through the same overlay class while a step targets something else.
+        function _selAllowed(sel){return !!sel&&((targetEl&&targetEl.contains(sel))||(allowSelectors&&allowSelectors.some(function(s){return !!sel.closest(s);})));}
+        var pickerOverlay=t.closest('.gp-overlay');
+        var inPicker=_selAllowed(pickerOverlay&&pickerOverlay._gpSelect);
         // Opening the glass picker calls preventDefault() on the select's mousedown to suppress
         // the native dropdown - that disrupts the browser's click-target tracking for the same
         // gesture, so the click event that follows often resolves to <body>/<html> rather than
-        // the select, slipping past inTarget/inPicker above. Only exempt that while a wheel is
-        // actually open, so a real outside click is still blocked everywhere else.
-        var inStrayPickerClick=e.type==='click'&&(t===document.body||t===document.documentElement)&&!!document.querySelector('.gp-overlay');
+        // the select, slipping past inTarget/inPicker above. Only exempt that while the currently
+        // open wheel belongs to an allowed select, so a real outside click (or a different
+        // select's wheel) is still blocked everywhere else.
+        var strayOverlay=document.querySelector('.gp-overlay');
+        var inStrayPickerClick=e.type==='click'&&(t===document.body||t===document.documentElement)&&_selAllowed(strayOverlay&&strayOverlay._gpSelect);
         if(!inBubble&&!inTarget&&!inToast&&!inAllowed&&!inPicker&&!inStrayPickerClick){e.stopPropagation();e.preventDefault();_guardToast();}
       }
 
