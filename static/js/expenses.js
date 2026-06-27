@@ -1255,15 +1255,6 @@ function showSubMenu(btn, row){
       item.addEventListener('click',e=>{e.stopPropagation();addSubRow(row,s);closeMenu();});
       menu.appendChild(item);
     });
-  } else if(!mainCat) {
-    CAT_KEYS.forEach(cat=>{
-      const g=document.createElement('div'); g.className='sub-menu-group'; g.textContent=cat; menu.appendChild(g);
-      CATEGORIES[cat].forEach(s=>{
-        const item=document.createElement('button'); item.className='sub-menu-item'; item.textContent=s;
-        item.addEventListener('click',e=>{e.stopPropagation();addSubRow(row,s);closeMenu();});
-        menu.appendChild(item);
-      });
-    });
   }
 
   const other=document.createElement('button'); other.className='sub-menu-item sub-other'; other.textContent='+ Other (custom)…';
