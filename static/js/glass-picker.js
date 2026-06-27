@@ -75,7 +75,7 @@
   function openFor(select){
     close(false);
 
-    var overlay = document.createElement('div'); overlay.className = 'gp-overlay';
+    var overlay = document.createElement('div'); overlay.className = 'gp-overlay'; overlay._gpSelect = select;
     var wheel = document.createElement('div'); wheel.className = 'gp-wheel'; wheel.setAttribute('role', 'listbox');
     var band = document.createElement('div'); band.className = 'gp-band'; wheel.appendChild(band);
     var list = document.createElement('div'); list.className = 'gp-list';
