@@ -1,940 +1,1066 @@
-@font-face{
-  font-family:'Inter';
-  font-style:normal;
-  font-weight:100 900;
-  font-display:swap;
-  src:url('/static/fonts/inter-variable.woff2') format('woff2');
-}
-:root{
-  --bg:#ffffff;
-  --fg:#1f2937;
-  --muted:#5b616b;
-  --panel-bg:#f9fafb;
-  --panel-border:#e5e7eb;
-  --input-bg:#ffffff;
-  --input-border:#d1d5db;
-  --input-focus:#eff6ff;
-  --row-header-bg:#f3f4f6;
-  --row-header-fg:#374151;
-  --total-bg:#dcfce7;
-  --total-fg:#166534;
-  --total-soft:#f0fdf4;
-  --accent:#7c3aed;
-  --accent-strong:#6d28d9;
-  --link:#0366d6;
-  --link-text:#6d28d9;
-  --error-bg:#fee2e2;
-  --error-fg:#991b1b;
-  --error-border:#fca5a5;
-  --success-bg:#dcfce7;
-  --success-fg:#15803d;
-  --success-border:#86efac;
-  --tooltip-bg:#1f2937;
-  --tooltip-fg:#ffffff;
-  --result-bg:#f0f7ff;
-  --result-border:#cccccc;
-  --shadow:0 4px 16px rgba(0,0,0,.15);
-  --shadow-soft:0 2px 8px rgba(0,0,0,.08);
-  --overlay:rgba(0,0,0,.45);
-  --th-bg:#f3f4f6;
-  --th-fg:#374151;
-  --hover-bg:#f3f4f6;
-  --secondary-bg:#e5e7eb;
-  --secondary-fg:#374151;
-  --secondary-hover:#d1d5db;
-  --grad-from:#7c3aed; --grad-to:#0891b2;
-  --glow-1:rgba(124,58,237,.20); --glow-2:rgba(8,145,178,.16);
-  --glass-bg:rgba(255,255,255,.62); --glass-border:rgba(17,24,39,.08); --glass-blur:12px;
-  --shell-rail-bg:rgba(255,255,255,.72);
-}
-
-html.dark{
-  --bg:#0f172a;
-  --fg:#e2e8f0;
-  --muted:#94a3b8;
-  --panel-bg:#1e293b;
-  --panel-border:#334155;
-  --input-bg:#1e293b;
-  --input-border:#475569;
-  --input-focus:#1e3a8a;
-  --row-header-bg:#1e293b;
-  --row-header-fg:#cbd5e1;
-  --total-bg:#064e3b;
-  --total-fg:#a7f3d0;
-  --total-soft:#022c22;
-  --accent:#a78bfa;
-  --accent-strong:#7c3aed;
-  --link:#60a5fa;
-  --link-text:#c4b5fd;
-  --error-bg:#7f1d1d;
-  --error-fg:#fecaca;
-  --error-border:#991b1b;
-  --success-bg:#064e3b;
-  --success-fg:#86efac;
-  --success-border:#065f46;
-  --tooltip-bg:#f1f5f9;
-  --tooltip-fg:#0f172a;
-  --result-bg:#1e293b;
-  --result-border:#334155;
-  --shadow:0 4px 16px rgba(0,0,0,.45);
-  --shadow-soft:0 2px 8px rgba(0,0,0,.3);
-  --overlay:rgba(0,0,0,.7);
-  --th-bg:#1e293b;
-  --th-fg:#cbd5e1;
-  --hover-bg:#334155;
-  --secondary-bg:#334155;
-  --secondary-fg:#e2e8f0;
-  --secondary-hover:#475569;
-  --grad-from:#a855f7; --grad-to:#22d3ee;
-  --glow-1:rgba(168,85,247,.30); --glow-2:rgba(34,211,238,.22);
-  --glass-bg:rgba(255,255,255,.06); --glass-border:rgba(255,255,255,.12); --glass-blur:12px;
-  --shell-rail-bg:rgba(13,13,22,.85);
-}
-
-/* ── Extra colour themes ────────────────────────────────────────────────── */
-html.theme-ocean{
-  --accent:#0891b2;
-  --accent-strong:#0e7490;
-  --link:#0891b2;
-  --link-text:#0e7490;
-  --bg:#f0f9ff;
-  --panel-bg:#e0f2fe;
-  --panel-border:#bae6fd;
-  --hover-bg:#e0f2fe;
-  --input-focus:#e0f2fe;
-  --total-bg:#cffafe;
-  --total-fg:#164e63;
-  --total-soft:#ecfeff;
-  --th-bg:#e0f2fe;
-  --th-fg:#0c4a6e;
-  --row-header-bg:#e0f2fe;
-  --row-header-fg:#0c4a6e;
-  --secondary-bg:#bae6fd;
-  --secondary-fg:#0c4a6e;
-  --secondary-hover:#7dd3fc;
-  --result-bg:#e0f2fe;
-  --grad-from:#0891b2; --grad-to:#22d3ee;
-  --glow-1:rgba(8,145,178,.22); --glow-2:rgba(34,211,238,.18);
-  --glass-bg:rgba(255,255,255,.60); --glass-border:rgba(12,74,110,.10); --glass-blur:12px;
-  --shell-rail-bg:rgba(224,242,254,.78);
-}
-html.theme-forest{
-  --accent:#059669;
-  --accent-strong:#047857;
-  --link:#059669;
-  --link-text:#047857;
-  --bg:#f0fdf4;
-  --panel-bg:#dcfce7;
-  --panel-border:#bbf7d0;
-  --hover-bg:#dcfce7;
-  --input-focus:#dcfce7;
-  --total-bg:#bbf7d0;
-  --total-fg:#14532d;
-  --total-soft:#f0fdf4;
-  --th-bg:#dcfce7;
-  --th-fg:#14532d;
-  --row-header-bg:#dcfce7;
-  --row-header-fg:#14532d;
-  --secondary-bg:#bbf7d0;
-  --secondary-fg:#14532d;
-  --secondary-hover:#86efac;
-  --result-bg:#dcfce7;
-  --grad-from:#059669; --grad-to:#34d399;
-  --glow-1:rgba(5,150,105,.22); --glow-2:rgba(52,211,153,.18);
-  --glass-bg:rgba(255,255,255,.60); --glass-border:rgba(20,83,45,.10); --glass-blur:12px;
-  --shell-rail-bg:rgba(220,252,231,.78);
-}
-html.theme-sunset{
-  --accent:#ea580c;
-  --accent-strong:#c2410c;
-  --link:#ea580c;
-  --link-text:#c2410c;
-  --bg:#fff7ed;
-  --panel-bg:#ffedd5;
-  --panel-border:#fed7aa;
-  --hover-bg:#ffedd5;
-  --input-focus:#ffedd5;
-  --total-bg:#fef3c7;
-  --total-fg:#78350f;
-  --total-soft:#fff7ed;
-  --th-bg:#ffedd5;
-  --th-fg:#78350f;
-  --row-header-bg:#ffedd5;
-  --row-header-fg:#78350f;
-  --secondary-bg:#fed7aa;
-  --secondary-fg:#78350f;
-  --secondary-hover:#fdba74;
-  --result-bg:#ffedd5;
-  --grad-from:#ea580c; --grad-to:#f59e0b;
-  --glow-1:rgba(234,88,12,.22); --glow-2:rgba(245,158,11,.18);
-  --glass-bg:rgba(255,255,255,.58); --glass-border:rgba(120,53,15,.10); --glass-blur:12px;
-  --shell-rail-bg:rgba(255,237,213,.80);
-}
-html.theme-midnight{
-  --bg:#000000;
-  --fg:#e2e8f0;
-  --muted:#94a3b8;
-  --panel-bg:#0f172a;
-  --panel-border:#1e293b;
-  --input-bg:#0f172a;
-  --input-border:#334155;
-  --input-focus:#1e3a8a;
-  --row-header-bg:#0f172a;
-  --row-header-fg:#cbd5e1;
-  --total-bg:#1e3a8a;
-  --total-fg:#93c5fd;
-  --total-soft:#0f172a;
-  --accent:#3b82f6;
-  --accent-strong:#1d4ed8;
-  --link:#60a5fa;
-  --link-text:#60a5fa;
-  --hover-bg:#1e293b;
-  --th-bg:#0f172a;
-  --th-fg:#cbd5e1;
-  --secondary-bg:#1e293b;
-  --secondary-fg:#e2e8f0;
-  --secondary-hover:#334155;
-  --overlay:rgba(0,0,0,.85);
-  --shadow:0 4px 16px rgba(0,0,0,.7);
-  --tooltip-bg:#f1f5f9;
-  --tooltip-fg:#0f172a;
-  --result-bg:#0f172a;
-  --error-bg:#450a0a;
-  --error-fg:#fca5a5;
-  --error-border:#7f1d1d;
-  --success-bg:#052e16;
-  --success-fg:#86efac;
-  --success-border:#065f46;
-  --grad-from:#3b82f6; --grad-to:#22d3ee;
-  --glow-1:rgba(59,130,246,.28); --glow-2:rgba(34,211,238,.20);
-  --glass-bg:rgba(255,255,255,.05); --glass-border:rgba(255,255,255,.10); --glass-blur:12px;
-  --shell-rail-bg:rgba(15,23,42,.88);
-}
-html.theme-rose{
-  --accent:#e11d48;
-  --accent-strong:#be123c;
-  --link:#e11d48;
-  --link-text:#be123c;
-  --bg:#fff1f2;
-  --panel-bg:#ffe4e6;
-  --panel-border:#fecdd3;
-  --hover-bg:#ffe4e6;
-  --input-focus:#ffe4e6;
-  --total-bg:#fecdd3;
-  --total-fg:#881337;
-  --total-soft:#fff1f2;
-  --th-bg:#ffe4e6;
-  --th-fg:#881337;
-  --row-header-bg:#ffe4e6;
-  --row-header-fg:#881337;
-  --secondary-bg:#fecdd3;
-  --secondary-fg:#881337;
-  --secondary-hover:#fda4af;
-  --result-bg:#ffe4e6;
-  --grad-from:#e11d48; --grad-to:#fb7185;
-  --glow-1:rgba(225,29,72,.20); --glow-2:rgba(251,113,133,.16);
-  --glass-bg:rgba(255,255,255,.60); --glass-border:rgba(136,19,55,.10); --glass-blur:12px;
-  --shell-rail-bg:rgba(255,228,230,.80);
-}
-html.theme-purple{
-  --accent:#9333ea;
-  --accent-strong:#7e22ce;
-  --link:#9333ea;
-  --link-text:#7e22ce;
-  --bg:#faf5ff;
-  --panel-bg:#f3e8ff;
-  --panel-border:#e9d5ff;
-  --hover-bg:#f3e8ff;
-  --input-focus:#f3e8ff;
-  --total-bg:#e9d5ff;
-  --total-fg:#581c87;
-  --total-soft:#faf5ff;
-  --th-bg:#f3e8ff;
-  --th-fg:#581c87;
-  --row-header-bg:#f3e8ff;
-  --row-header-fg:#581c87;
-  --secondary-bg:#e9d5ff;
-  --secondary-fg:#581c87;
-  --secondary-hover:#d8b4fe;
-  --result-bg:#f3e8ff;
-  --grad-from:#9333ea; --grad-to:#c084fc;
-  --glow-1:rgba(147,51,234,.22); --glow-2:rgba(192,132,252,.16);
-  --glass-bg:rgba(255,255,255,.60); --glass-border:rgba(88,28,135,.10); --glass-blur:12px;
-  --shell-rail-bg:rgba(243,232,255,.80);
-}
-html.theme-indigo{
-  --accent:#4f46e5;
-  --accent-strong:#4338ca;
-  --link:#4f46e5;
-  --link-text:#4338ca;
-  --bg:#eef2ff;
-  --panel-bg:#e0e7ff;
-  --panel-border:#c7d2fe;
-  --hover-bg:#e0e7ff;
-  --input-focus:#e0e7ff;
-  --total-bg:#c7d2fe;
-  --total-fg:#312e81;
-  --total-soft:#eef2ff;
-  --th-bg:#e0e7ff;
-  --th-fg:#312e81;
-  --row-header-bg:#e0e7ff;
-  --row-header-fg:#312e81;
-  --secondary-bg:#c7d2fe;
-  --secondary-fg:#312e81;
-  --secondary-hover:#a5b4fc;
-  --result-bg:#e0e7ff;
-  --grad-from:#4f46e5; --grad-to:#818cf8;
-  --glow-1:rgba(79,70,229,.22); --glow-2:rgba(129,140,248,.16);
-  --glass-bg:rgba(255,255,255,.60); --glass-border:rgba(49,46,129,.10); --glass-blur:12px;
-  --shell-rail-bg:rgba(224,231,255,.80);
-}
-
-body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  max-width: 800px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  background: var(--bg);
-  color: var(--fg);
-  transition: background .2s, color .2s;
-}
-
-.error {
-  background: var(--error-bg);
-  padding: 0.75rem;
-  border: 1px solid var(--error-border);
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  color: var(--error-fg);
-}
-
-.success {
-  background: var(--success-bg);
-  padding: 0.75rem;
-  border: 1px solid var(--success-border);
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  color: var(--success-fg);
-}
-
-.result {
-  margin-top: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  background: var(--result-bg);
-  color: var(--fg);
-}
-
-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 4px;
-  color: var(--fg);
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--input-border);
-  border-radius: 4px;
-  background: var(--input-bg);
-  color: var(--fg);
-  font-family: inherit;
-  box-sizing: border-box;
-}
-
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent);
-}
-
-.btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--accent);
-}
-
-.btn{
-  background: var(--accent-strong);
-  color: #fff;
-  padding: 0.6rem 1rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  display: inline-block;
-  font-family: inherit;
-  font-size: .95rem;
-  text-decoration: none;
-}
-.btn:hover{ filter: brightness(1.08); }
-
-.btn.btn-tax     { background: #d97706; }
-.btn.btn-currency{ background: #02cc05; }
-.btn.btn-expenses{ background: #7c3aed; }
-.btn.btn-subs    { background: #0891b2; }
-
-.btn.btn-reset {
-  background: transparent;
-  color: #dc2626;
-  border: 1.5px solid #dc2626;
-  margin-left: auto;
-}
-.btn.btn-reset:hover { background: rgba(220,38,38,0.08); filter: none; }
-.btn.btn-reset.armed {
-  background: #991b1b;
-  color: #fff;
-  border-color: #991b1b;
-  animation: reset-warn 0.4s ease;
-}
-@keyframes reset-warn {
-  0%   { transform: translateX(0);    box-shadow: 0 0 0 0   rgba(220,38,38,.7); }
-  20%  { transform: translateX(-5px); box-shadow: 0 0 0 6px rgba(220,38,38,.35); }
-  40%  { transform: translateX(5px);  box-shadow: 0 0 0 10px rgba(220,38,38,0); }
-  60%  { transform: translateX(-3px); }
-  80%  { transform: translateX(3px);  }
-  100% { transform: translateX(0);    }
-}
-@media (prefers-reduced-motion: reduce) {
-  .btn.btn-reset.armed { animation: none; }
-}
-
-.nav {
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-
-a {
-  color: var(--link-text);
-  text-decoration: none;
-}
-a:hover { text-decoration: underline; }
-
-h1, h2, h3, h4 { color: var(--fg); }
+import os
+import re
+import json
+import math
+import time
+import hmac
+import secrets
+from datetime import datetime, timezone
+import psycopg2
+import psycopg2.extras
+from psycopg2 import sql as _sql
+from psycopg2 import pool as _pgpool
+from flask import (Flask, render_template, request, flash,
+    session, jsonify, redirect, url_for, send_from_directory, abort, g)
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+import requests
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _limiter_available = True
+except ImportError:
+    _limiter_available = False
 
 
-.theme-toggle {
-  background: var(--secondary-bg);
-  color: var(--secondary-fg);
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  cursor: pointer;
-  padding: .35rem .6rem;
-  font-size: .95rem;
-  margin-left: auto;
-  font-family: inherit;
-  transition: background .2s;
-}
-.theme-toggle:hover { background: var(--secondary-hover); }
+_rates_cache: dict = {}
+_rates_ts: dict = {}
+RATES_TTL = 3600
+RATES_TTL_DB = 7 * 24 * 3600
 
+# In-memory only (per-Gunicorn-worker, like _rates_cache above) — light-touch cache so
+# repeat (income, status) lookups against the same income/status don't re-hit
+# api.taxapi.net every time. No DB tier: tax results are cheap to recompute and this
+# dependency is staying as-is rather than being unified into a local calculator.
+_tax_cache: dict = {}
+TAX_TTL = 3600
 
-.auth-badge {
-  font-size: .82rem;
-  font-weight: 600;
-  color: var(--fg);
-  padding: .25rem .5rem;
-}
-#sync-status {
-  font-size: .75rem;
-  color: var(--muted);
-  margin-left: 4px;
-  transition: color .2s;
-}
-#sync-status.synced { color: #15803d; }
-#sync-status.failed { color: #dc2626; }
-#sync-revision-note {
-  font-size: .75rem;
-  color: var(--muted);
-  margin-left: 4px;
-  opacity: .75;
-}
-.btn-ghost {
-  background: none;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  color: var(--fg);
-  font-size: .82rem;
-  font-weight: 600;
-  padding: .3rem .65rem;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-  font-family: inherit;
-  transition: background .15s;
-}
-.btn-ghost:hover { background: var(--hover-bg); text-decoration: none; }
-.btn-ghost.btn-sm { font-size: .78rem; padding: .25rem .55rem; }
+# Row/column/subscription limits — enforced server-side (via _within_limits) and client-side.
+MAX_SUBS = 100
+MAX_ROWS = 20
+MAX_COLS = 12
 
-.acct-menu-wrap { position:relative; display:inline-flex; align-items:center; }
-.acct-dropdown { display:none; flex-direction:column; position:absolute; top:calc(100% + 6px); left:0; background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15); z-index:9999; min-width:175px; padding:.35rem; }
-.acct-dropdown.open { display:flex; }
-.acct-item { display:block; width:100%; text-align:left; padding:.55rem .85rem; border-radius:7px; font-size:.87rem; color:var(--fg); background:none; border:none; cursor:pointer; font-family:inherit; font-weight:600; text-decoration:none; white-space:nowrap; box-sizing:border-box; transition:background .12s, color .12s; }
-.acct-item:hover { background:var(--hover-bg) !important; text-decoration:none; color:var(--fg); }
-.acct-logout { color:var(--fg); }
-.acct-logout:hover { background:#dc2626 !important; color:#fff !important; }
+# Sync conflict detection (W3): how many revisions to retain per (user, tracker).
+_REVISION_KEEP = 20
 
-.theme-menu-wrap { position:relative; display:inline-flex; align-items:center; margin-left:auto; }
-.theme-dropdown { display:none; flex-direction:column; position:absolute; top:calc(100% + 6px); right:0; background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15); z-index:9999; min-width:155px; padding:.35rem; }
-.theme-dropdown.open { display:flex; }
-.theme-opt { display:block; width:100%; text-align:left; padding:.5rem .85rem; border-radius:7px; font-size:.87rem; color:var(--fg); background:none; border:none; cursor:pointer; font-family:inherit; font-weight:600; white-space:nowrap; box-sizing:border-box; transition:background .12s; }
-.theme-opt:hover { background:var(--hover-bg); }
-.theme-opt.active { background:var(--accent-strong); color:#fff; }
-
-
-* { touch-action: manipulation; }
-
-
-.income-sync-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  font-size: .75rem;
-  font-weight: 600;
-  color: var(--total-fg);
-  background: var(--total-bg);
-  border: 1px solid var(--success-border);
-  border-radius: 5px;
-  padding: .2rem .5rem;
-}
-.income-sync-badge--override {
-  color: var(--muted);
-  background: var(--secondary-bg);
-  border-color: var(--panel-border);
-}
-.income-sync-update {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: .72rem;
-  font-weight: 700;
-  padding: .15rem .45rem;
-  cursor: pointer;
-  font-family: inherit;
-}
-.income-sync-update:hover { filter: brightness(1.1); }
-.income-sync-link {
-  font-size: .75rem;
-  color: var(--link-text);
-  font-weight: 600;
-  text-decoration: none;
-}
-.income-sync-link:hover { text-decoration: underline; }
-
-
-.tip-host { position: relative; }
-
-.tip-host:hover::after, .tip-host.tip-visible::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--tooltip-bg);
-  color: var(--tooltip-fg);
-  padding: .35rem .6rem;
-  border-radius: 6px;
-  font-size: .72rem;
-  font-weight: 600;
-  white-space: nowrap;
-  z-index: 10001;
-  box-shadow: var(--shadow);
-  pointer-events: none;
-}
-.tip-host:hover::before, .tip-host.tip-visible::before {
-  content: "";
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: var(--tooltip-bg);
-  z-index: 10001;
-  pointer-events: none;
+# Maps each tracker's API name to its JSONB blob column and version-counter column.
+# Used by _save_tracker_versioned/_load_tracker_versioned to build identifier-safe SQL.
+_TRACKER_COLUMNS = {
+    'expenses': ('expenses_data', 'expenses_version'),
+    'subs':     ('subs_data',     'subs_version'),
+    'income':   ('income_data',   'income_version'),
 }
 
-/* ── Sticky first column (all trackers) ─────────────────────── */
-.sheet td:first-child,
-.sheet th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  background: var(--panel-bg);
-}
+app = Flask(__name__, template_folder='templates')
+app.secret_key = os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY environment variable is required")
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' and not app.debug
+app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # 1 hour — caches /static/ files per session
 
-/* ── iOS auto-zoom prevention (inputs must be ≥16px on mobile) ─ */
-@media (max-width: 640px) {
-  input, select, textarea { font-size: max(16px, 1rem); }
-}
+# Cache-busting stamp appended to asset URLs as ?v=ASSET_V. Recomputed at startup from the
+# newest static/template file mtime, so each deploy yields a new value and browsers fetch the
+# updated JS/CSS instead of serving a stale cached copy (replaces hand-maintained ?v= dates).
+def _compute_asset_version():
+    latest = 0.0
+    for _base in (app.static_folder, os.path.join(app.root_path, app.template_folder or 'templates')):
+        if not _base:
+            continue
+        for _dp, _dirs, _fns in os.walk(_base):
+            for _fn in _fns:
+                try:
+                    latest = max(latest, os.path.getmtime(os.path.join(_dp, _fn)))
+                except OSError:
+                    pass
+    return str(int(latest)) if latest else 'dev'
+ASSET_V = _compute_asset_version()
+app.jinja_env.globals['ASSET_V'] = ASSET_V
 
-/* ── Hamburger 44×44 touch target ───────────────────────────── */
-.hamburger-btn {
-  min-width: 44px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
+EXCHANGE_API_KEY = os.environ.get("EXCHANGE_API_KEY")
+if not EXCHANGE_API_KEY:
+    app.logger.warning(
+        "EXCHANGE_API_KEY is not set — live exchange-rate fetches will fail "
+        "(cached/DB rates still work).")
 
-/* ── Voice Input ─────────────────────────────────────────────── */
+# Currency codes are ISO-4217 three-letter uppercase. Validating before building
+# the upstream URL prevents control-char/path injection into the exchange API call.
+_CCY_RE = re.compile(r'^[A-Z]{3}$')
 
-.voice-fab {
-  display: none;
-  position: fixed;
-  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
-  right: 1.25rem;
-  width: 56px; height: 56px; border-radius: 50%;
-  background: var(--accent); color: #fff; border: none;
-  font-size: 1.5rem; cursor: pointer; z-index: 9997;
-  align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(0,0,0,.25);
-  -webkit-tap-highlight-color: transparent;
-  touch-action: none;
-  transition: transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
-}
-@media (max-width: 640px) { .voice-fab { display: flex; } #voice-settings-card { display: block !important; } }
-.voice-fab.listening { animation: voice-pulse 1.2s ease-in-out infinite; }
-@keyframes voice-pulse {
-  0%,100% { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 0 rgba(0,0,0,.3); }
-  50%     { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 18px rgba(0,0,0,0); }
-}
-.voice-fab.drag-ready,
-.voice-fab.dragging {
-  transform: scale(1.18);
-  filter: brightness(1.4);
-  opacity: 0.85;
-  box-shadow: 0 8px 28px rgba(0,0,0,.45);
-}
-.voice-fab.dragging { will-change: transform; }
-.voice-fab.wt-disabled { opacity: 0.4; cursor: not-allowed; }
 
-.voice-listening-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.55); z-index: 9998;
-  flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;
-}
-.voice-listening-overlay.active { display: flex; }
-.voice-pulse-ring {
-  width: 80px; height: 80px; border-radius: 50%;
-  border: 4px solid var(--accent);
-  animation: voice-ring 1.2s ease-in-out infinite;
-}
-@keyframes voice-ring {
-  0%,100% { transform: scale(1); opacity: 1; }
-  50%     { transform: scale(1.35); opacity: .4; }
-}
-.voice-live-transcript {
-  color: #fff; font-size: 1rem; font-weight: 600;
-  text-align: center; max-width: 80vw; margin: 0;
-}
+if _limiter_available:
+    # default_limits is a global per-IP backstop so every route — including the data API
+    # and any route without an explicit @_rl — has a ceiling against single-source floods.
+    # (Real volumetric DDoS is an infra-layer concern; this only bounds app-level abuse.)
+    _ratelimit_storage = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    limiter = Limiter(get_remote_address, app=app,
+        default_limits=["600 per hour", "120 per minute"],
+        storage_uri=_ratelimit_storage,
+        storage_options={"socket_connect_timeout": 2},
+        # If the storage backend (e.g. Redis) is unreachable, fail OPEN — serve the
+        # request rather than 500 every route. Limits lapse during the outage; that's
+        # the right trade for availability on a personal-finance app.
+        swallow_errors=True)
+    # memory:// keeps counters per-process, so on multi-worker Gunicorn the effective
+    # limit is ~N× looser than configured. Surface that in prod so a deploy without a
+    # shared store (Redis) is visible rather than silently weakened.
+    if not app.debug and _ratelimit_storage.startswith("memory://"):
+        app.logger.warning(
+            "RATELIMIT_STORAGE_URI is memory:// — per-worker limits only; "
+            "set it to your Redis URL for limits that hold across all workers.")
 
-.voice-confirm-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
-  background: var(--panel-bg); border-top: 1px solid var(--panel-border);
-  border-radius: 18px 18px 0 0;
-  padding: 1rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
-  transform: translateY(100%); transition: transform .28s cubic-bezier(.4,0,.2,1);
-  box-shadow: 0 -4px 24px rgba(0,0,0,.2);
-}
-.voice-confirm-sheet.active { transform: translateY(0); }
+    @limiter.request_filter
+    def _limiter_exempt_infra():
+        # Don't count static assets, the CSS route, or the health check against any limit:
+        # one page load pulls many static files and Render polls /ping, so leaving these in
+        # would exhaust a per-IP minute budget on legitimate traffic.
+        return request.endpoint in ('static', 'serve_css', 'ping')
 
-.voice-tts-row {
-  display: flex; align-items: center; gap: .4rem;
-  padding: .4rem .65rem; margin-bottom: .5rem;
-  background: rgba(0,0,0,.04); border: 1px solid var(--panel-border);
-  border-radius: 6px; font-size: .78rem; color: var(--accent); font-style: italic;
-}
-.voice-heard {
-  font-size: .78rem; color: var(--muted); font-style: italic; margin-bottom: .55rem;
-}
-.voice-warning { font-size: .78rem; color: #ef4444; margin-bottom: .5rem; }
-.voice-forecast-note { font-size: .78rem; color: var(--muted); margin-bottom: .5rem; }
-.voice-sub-label { font-size: .8rem; font-weight: 600; color: var(--fg); margin-bottom: .35rem; }
-.voice-sub-chips { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .6rem; }
-.voice-sub-chip {
-  padding: .35rem .75rem; border: 1.5px solid var(--panel-border);
-  border-radius: 10px; background: none; color: var(--fg);
-  font-size: .82rem; cursor: pointer; font-family: inherit;
-}
-.voice-sub-chip.selected {
-  border-color: var(--accent); color: var(--accent);
-  background: rgba(0,0,0,.04);
-}
+    def _rl(*limits, **kwargs):
+        """Apply rate limits only when Flask-Limiter is available."""
+        return limiter.limit("; ".join(limits), **kwargs)
+else:
+    app.logger.warning(
+        "Flask-Limiter is NOT installed — rate limiting is DISABLED. "
+        "Install Flask-Limiter before deploying to production.")
+    class _NoopDecorator:
+        def __call__(self, f): return f
+    def _rl(*limits, **kwargs):
+        return _NoopDecorator()
 
-.voice-chips { display: flex; gap: .5rem; flex-wrap: wrap; margin: .5rem 0 .85rem; }
-.voice-chip {
-  padding: .4rem .85rem; border: 2px solid var(--accent);
-  border-radius: 20px; background: var(--panel-bg); color: var(--accent);
-  font-size: .88rem; font-weight: 700; cursor: pointer; font-family: inherit;
-}
-.voice-chip.voice-chip-unset { border-color: #ef4444; color: #ef4444; }
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({"error": "Too many attempts. Please wait before trying again."}), 429
 
-.voice-sheet-actions { display: flex; gap: .5rem; margin-top: .25rem; }
-.voice-btn-confirm {
-  flex: 2; padding: .75rem; border: none; border-radius: 10px;
-  background: #16a34a; color: #fff; font-size: .95rem; font-weight: 700;
-  cursor: pointer; font-family: inherit;
-}
-.voice-btn-confirm:disabled { opacity: .4; cursor: not-allowed; }
-.voice-btn-cancel {
-  flex: 1; padding: .75rem; border: 1px solid var(--panel-border); border-radius: 10px;
-  background: none; color: var(--fg); font-size: .95rem; cursor: pointer; font-family: inherit;
-}
-.voice-create-cat {
-  display: block; width: 100%; margin-top: .75rem; padding: .5rem;
-  background: none; border: 1px dashed var(--muted); border-radius: 8px;
-  color: var(--muted); font-size: .85rem; cursor: pointer; font-family: inherit;
-}
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Not found"}), 404
+    return render_template('404.html', **_ctx()), 404
 
-.voice-cat-picker {
-  display: none; position: fixed; inset: 0; z-index: 10000;
-  background: var(--panel-bg); flex-direction: column;
-}
-.voice-cat-picker.active { display: flex; }
-.voice-cat-picker-header {
-  display: flex; align-items: center; gap: .5rem;
-  padding: 1rem; border-bottom: 1px solid var(--panel-border);
-}
-.voice-cat-picker-header input[type="search"] {
-  flex: 1; padding: .5rem .75rem; border: 1px solid var(--panel-border);
-  border-radius: 8px; font-size: 16px;
-  background: var(--panel-bg); color: var(--fg);
-}
-.voice-cat-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
-.voice-cat-item {
-  padding: .85rem 1.25rem; border-bottom: 1px solid var(--panel-border);
-  color: var(--fg); cursor: pointer;
-}
-.voice-cat-item:active { background: rgba(0,0,0,.05); }
+@app.errorhandler(500)
+def server_error(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Server error"}), 500
+    # _ctx() may itself raise if the session/DB is in a bad state — guard against that.
+    try:
+        ctx = _ctx()
+    except Exception:
+        ctx = {}
+    return render_template('500.html', **ctx), 500
 
-.voice-toast {
-  position: fixed; bottom: calc(5.5rem + env(safe-area-inset-bottom,0px));
-  left: 50%; transform: translateX(-50%); z-index: 99999;
-  background: var(--panel-bg); border: 1px solid var(--panel-border);
-  border-radius: 8px; padding: .55rem 1rem; font-size: .85rem; color: var(--fg);
-  box-shadow: 0 4px 16px rgba(0,0,0,.15); white-space: nowrap;
-  max-width: 90vw; text-align: center; pointer-events: none;
-}
+@app.errorhandler(503)
+def service_unavailable(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Service temporarily unavailable"}), 503
+    try:
+        ctx = _ctx()
+    except Exception:
+        ctx = {}
+    return render_template('500.html', **ctx), 503
 
-/* Voice toggle (account page) */
-.voice-toggle-label {
-  position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;
-}
-.voice-toggle-label input { opacity: 0; width: 0; height: 0; position: absolute; }
-.voice-toggle-track {
-  position: absolute; inset: 0; border-radius: 12px;
-  background: var(--panel-border); transition: background .2s;
-}
-.voice-toggle-track::after {
-  content: ''; position: absolute; top: 3px; left: 3px;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: #fff; transition: transform .2s;
-}
-.voice-toggle-label input:checked + .voice-toggle-track { background: var(--accent); }
-.voice-toggle-label input:checked + .voice-toggle-track::after { transform: translateX(20px); }
-/* ── Redesign component layer ───────────────────────────────── */
-.gradient-card{
-  background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
-  color:#fff;border-radius:16px;padding:1.1rem 1.25rem;border:none;
-}
-.glass-panel{
-  background:var(--panel-bg);              /* opaque fallback first */
-  background:var(--glass-bg);
-  border:1px solid var(--glass-border);
-  border-radius:16px;padding:1.1rem 1.25rem;
-  backdrop-filter:blur(var(--glass-blur));
-  -webkit-backdrop-filter:blur(var(--glass-blur));
-}
-.stat-card{
-  background:var(--glass-bg);border:1px solid var(--glass-border);
-  border-radius:14px;padding:.9rem 1rem;backdrop-filter:blur(var(--glass-blur));
-  -webkit-backdrop-filter:blur(var(--glass-blur));
-}
-.stat-label{font-size:.72rem;color:var(--muted);margin:0 0 .15rem;}
-.stat-value{font-size:1.6rem;font-weight:500;letter-spacing:-.02em;color:var(--fg);
-  font-variant-numeric:tabular-nums;line-height:1.1;}
-.page-header{display:flex;align-items:center;justify-content:space-between;
-  gap:1rem;margin:0 0 1.25rem;flex-wrap:wrap;}
-.page-header h1{font-size:1.5rem;font-weight:500;letter-spacing:-.01em;margin:0;}
-.field{margin-bottom:1rem;}
-.btn.btn-gradient{background:linear-gradient(135deg,var(--grad-from),var(--grad-to));border:none;}
-.btn.btn-glass{background:var(--glass-bg);border:1px solid var(--glass-border);color:var(--fg);
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
-.aurora-bg{position:relative;}
-.aurora-bg::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
-  background:radial-gradient(420px 280px at 12% -5%,var(--glow-1),transparent),
-             radial-gradient(420px 280px at 100% 8%,var(--glow-2),transparent);}
-@media (prefers-reduced-motion: no-preference){
-  .gradient-card,.glass-panel,.stat-card{transition:transform .15s ease, box-shadow .15s ease;}
-  .stat-card:hover,.glass-panel:hover{transform:translateY(-2px);}
-}
+@app.before_request
+def set_csp_nonce():
+    g.csp_nonce = secrets.token_urlsafe(16)
 
-/* ───────────────────────────────────────────────────────────────
-   Playful personality (slider → Playful). Everything here is scoped to
-   html.personality-playful, so Default and Quiet are completely unaffected.
-   Motion sits inside prefers-reduced-motion:no-preference so reduced-motion
-   users opt out. The app already ships hover-lifts and a hero count-up for
-   everyone; these are the *extra* touches Playful layers on top.
-   (Cluster E flourish rules are appended to this section.)
-   ─────────────────────────────────────────────────────────────── */
-@keyframes fi-card-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
-@media (prefers-reduced-motion: no-preference){
-  /* A1 — livelier mascot bob (the shared bob is 2.4s for everyone). */
-  html.personality-playful #wt-avatar{animation-duration:1.5s;}
-  /* A3 — tactile button press. */
-  html.personality-playful .btn:active{transform:scale(.96);}
-  /* A8 — dashboard tiles fade-and-rise in on load. .app-card is the logged-out marketing
-     grid; .dash-tool is what a logged-in user (the only one who can set Playful) actually
-     sees on the dashboard ("Quick tools" list). Desktop only, so it does not replay as the
-     mobile card-carousel toggles .app-card's display. */
-  @media (min-width:641px){
-    html.personality-playful .app-card,
-    html.personality-playful .dash-tool{animation:fi-card-in .5s both;}
-    html.personality-playful .app-card:nth-child(2),
-    html.personality-playful .dash-tool:nth-child(2){animation-delay:.05s;}
-    html.personality-playful .app-card:nth-child(3),
-    html.personality-playful .dash-tool:nth-child(3){animation-delay:.10s;}
-    html.personality-playful .app-card:nth-child(4){animation-delay:.15s;}
-    html.personality-playful .app-card:nth-child(5){animation-delay:.20s;}
-    html.personality-playful .app-card:nth-child(6){animation-delay:.25s;}
-    html.personality-playful .app-card:nth-child(7){animation-delay:.30s;}
-  }
-}
-/* E2 — Playful rounds corners a touch more (always) and, when motion is allowed, springs
-   the dashboard tiles a little higher on hover than the shared baseline (-3px on .app-card,
-   -1px on .dash-tool). E1 flourish is carried by Playful's copy emoji (the greeting wave,
-   the saved sparkle, the mascot); E3 theme-matched confetti lives in celebrate.js. */
-html.personality-playful .app-card,
-html.personality-playful .glass-panel,
-html.personality-playful .stat-card,
-html.personality-playful .gradient-card,
-html.personality-playful .hero-net-card{border-radius:20px;}
-html.personality-playful .dash-tool{border-radius:14px;}
-html.personality-playful .btn{border-radius:12px;}
-@media (prefers-reduced-motion: no-preference){
-  html.personality-playful .dash-tool:hover{transform:translateY(-3px);}
-  html.personality-playful .app-card:hover{transform:translateY(-5px);}
-}
-/* ── App shell ──────────────────────────────────────────────── */
-body{max-width:none;margin:0;padding:0;}
-.app-rail{display:none;}
-.app-canvas{max-width:1080px;margin:0 auto;padding:1.25rem 1.25rem 4rem;}
-@media (min-width:900px){
-  .app-rail{display:flex;flex-direction:column;gap:.2rem;position:fixed;top:0;left:0;bottom:0;
-    width:230px;padding:1.1rem .8rem;background:var(--shell-rail-bg);
-    border-right:1px solid var(--panel-border);backdrop-filter:blur(var(--glass-blur));
-    -webkit-backdrop-filter:blur(var(--glass-blur));overflow-y:auto;z-index:50;}
-  .rail-brand{display:flex;align-items:center;gap:.55rem;padding:.3rem .6rem 1rem;text-decoration:none;}
-  .rail-logo{width:26px;height:26px;border-radius:9px;background:linear-gradient(135deg,var(--grad-from),var(--grad-to));}
-  .rail-wordmark{font-size:1.15rem;font-weight:500;color:var(--fg);}
-  .rail-nav{display:flex;flex-direction:column;gap:.15rem;}
-  .rail-link{display:flex;align-items:center;gap:.65rem;padding:.55rem .7rem;border-radius:10px;
-    text-decoration:none;color:var(--muted);font-size:.9rem;font-weight:500;}
-  .rail-link:hover{background:var(--hover-bg);color:var(--fg);text-decoration:none;}
-  .rail-link.rail-active{color:var(--fg);
-    background:linear-gradient(135deg,var(--glow-1),var(--glow-2));
-    border:1px solid var(--glass-border);}
-  .rail-account{margin-top:auto;}
-  .rail-ico{font-size:1.05rem;width:1.3rem;text-align:center;}
-  .hamburger-btn{display:none;}
-  body:has(.app-rail){padding-left:230px;}
-  .app-canvas{margin:0 auto;max-width:960px;padding:1.5rem 2rem 4rem;}
-  /* Trackers hold wide data tables, so they opt into a wider content column (via the
-     canvas-wide modifier on the <main>) so a normal multi-column month fits and centres
-     instead of overflowing. Higher specificity than the rule above, so it wins. */
-  .app-canvas.canvas-wide{max-width:1280px;}
-}
-.nav, .home-nav{align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:14px;
-  background:var(--glass-bg);border:1px solid var(--glass-border);
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
-  margin-bottom:1.25rem;position:relative;z-index:60;}
-/* Dropdowns must escape the glass-panel stacking contexts below the topbar */
-.acct-dropdown, .theme-dropdown{z-index:1000;}
-.topbar-help{font-weight:700;min-width:34px;}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:.5rem;}
-.topbar-right .theme-menu-wrap{margin-left:0;}
+@app.context_processor
+def inject_csp_nonce():
+    return {"csp_nonce": getattr(g, 'csp_nonce', '')}
 
-/* Glass scroll-wheel picker (desktop-only; built by /static/js/glass-picker.js) */
-/* z-index well above every other fixed overlay in the app (walkthrough highlight/bubble,
-   confetti, modals all top out under 10001) - an open native-select replacement should always
-   render on top, the same way the browser's own select popup would. */
-.gp-overlay{position:fixed;inset:0;z-index:20000;background:transparent;}
-.gp-wheel{position:fixed;min-width:172px;max-width:280px;border-radius:16px;overflow:hidden;
-  background:color-mix(in srgb, var(--panel-bg) 86%, transparent);
-  border:1px solid var(--glass-border);
-  backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);
-  box-shadow:0 18px 50px rgba(0,0,0,.38);}
-/* 5 visible rows of 40px = 200px window; padding must equal (clientHeight-itemHeight)/2 = 80px
-   so the FIRST and LAST items can scroll all the way to the centre band. box-sizing:border-box
-   keeps height honest regardless of the page's default. */
-.gp-list{position:relative;box-sizing:border-box;height:200px;overflow-y:auto;
-  overscroll-behavior:contain;padding:80px 0;scrollbar-width:thin;}
-.gp-band{position:absolute;left:8px;right:8px;top:50%;height:40px;transform:translateY(-50%);
-  border-radius:10px;background:var(--glass-bg);border:1px solid var(--glass-border);
-  pointer-events:none;z-index:0;}
-.gp-item{position:relative;z-index:1;display:block;width:100%;height:40px;line-height:40px;
-  border:none;background:none;cursor:pointer;color:var(--fg);
-  font:inherit;font-size:.95rem;text-align:center;opacity:.45;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;transition:opacity .15s,transform .15s;}
-.gp-item:hover{opacity:.8;}
-.gp-item.gp-active{opacity:1;font-weight:700;transform:scale(1.07);}
-.gp-item:disabled{opacity:.28;cursor:default;}
-.gp-sep{position:relative;z-index:1;display:block;width:100%;height:40px;line-height:40px;
-  font-weight:700;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;
-  text-align:center;color:var(--muted);opacity:.5;pointer-events:none;user-select:none;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-@media(prefers-reduced-motion:reduce){.gp-item{transition:none;}}
-.acct-avatar{width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;font-family:inherit;
-  font-weight:600;font-size:.9rem;color:#fff;background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
-  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
-.acct-dropdown-right{right:0;left:auto;}
-@media (min-width:900px){ .nav, .home-nav{margin-top:.25rem;} }
+@app.after_request
+def set_security_headers(resp):
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    resp.headers['Referrer-Policy'] = 'no-referrer'
+    nonce = getattr(g, 'csp_nonce', '')
+    resp.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        f"script-src 'self' 'nonce-{nonce}'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'; "
+        "object-src 'none'"
+    )
+    if not app.debug:
+        resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return resp
 
-/* ── Wave A: global control & surface polish ──────────────────── */
-/* Buttons — give ghost/glass real definition + responsive hover/press */
-.btn-ghost, .btn-glass{
-  background:var(--secondary-bg);
-  border:1px solid var(--panel-border);
-  transition:background .14s ease, border-color .14s ease, transform .1s ease, filter .14s ease;
-}
-.btn-ghost:hover, .btn-glass:hover{ background:var(--hover-bg); border-color:var(--accent); color:var(--fg); }
-.btn-ghost:active, .btn-glass:active{ transform:translateY(1px); }
-.btn{ transition:filter .14s ease, transform .1s ease; }
-.btn:active{ transform:translateY(1px); }
 
-/* Inputs — softer radius + theme-tinted focus ring (replaces the hard accent ring) */
-input, select, textarea{ border-radius:10px; transition:border-color .14s ease, box-shadow .14s ease; }
-input:focus-visible, select:focus-visible, textarea:focus-visible{
-  outline:none; border-color:var(--grad-from); box-shadow:0 0 0 3px var(--glow-1);
-}
+_db_pool = None
 
-/* Themed slim scrollbars */
-*{ scrollbar-width:thin; scrollbar-color:var(--panel-border) transparent; }
-*::-webkit-scrollbar{ width:10px; height:10px; }
-*::-webkit-scrollbar-track{ background:transparent; }
-*::-webkit-scrollbar-thumb{ background:var(--panel-border); border-radius:6px; border:2px solid transparent; background-clip:content-box; }
-*::-webkit-scrollbar-thumb:hover{ background:var(--secondary-hover); }
+def init_pool():
+    global _db_pool
+    _db_pool = _pgpool.ThreadedConnectionPool(
+        2, 10, os.environ["DATABASE_URL"],
+        keepalives=1, keepalives_idle=30, keepalives_interval=5, keepalives_count=3
+    )
 
-/* Reusable uppercase section label */
-.section-label{ font-size:.72rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin:0 0 .5rem; }
+def get_db():
+    for _ in range(2):
+        try:
+            conn = _db_pool.getconn()
+        except _pgpool.PoolError:
+            abort(503, "Database connection pool exhausted")
+        if conn.closed:
+            try:
+                _db_pool.putconn(conn, close=True)
+            except Exception:
+                pass
+            continue
+        try:
+            # Probe the connection to detect stale SSL sessions before the caller uses it.
+            # conn.closed only catches explicitly-closed connections; a server-side SSL drop
+            # won't be detected until the first execute() otherwise.
+            conn.cursor().execute('SELECT 1')
+            conn.rollback()  # clean up the implicit transaction started by the probe
+        except psycopg2.OperationalError:
+            try:
+                _db_pool.putconn(conn, close=True)
+            except Exception:
+                pass
+            continue
+        return conn
+    abort(503, "Database connection unavailable")
 
-/* ── Wave B: tracker grid polish (CSS-only, render JS untouched) ── */
-.sheet tbody tr:hover td{ background:var(--hover-bg); }
-.sheet thead th{ border-bottom:2px solid var(--grad-from); }
+def release_db(conn):
+    if conn and _db_pool:
+        _db_pool.putconn(conn)
 
-/* ── Wave E: flourishes ───────────────────────────────────────── */
-@media (min-width:900px){
-  .rail-link.rail-active{ position:relative; }
-  .rail-link.rail-active::before{ content:''; position:absolute; left:-2px; top:18%; bottom:18%;
-    width:3px; border-radius:0 3px 3px 0; background:linear-gradient(180deg,var(--grad-from),var(--grad-to)); }
-}
-@media (prefers-reduced-motion: no-preference){
-  .app-canvas{ animation:canvas-fade .26s ease; }
-  @keyframes canvas-fade{ from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:none;} }
-}
+def init_db():
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT NOW()
+                    );
+                    CREATE TABLE IF NOT EXISTS user_data (
+                        user_id INTEGER REFERENCES users(id) PRIMARY KEY,
+                        expenses_data JSONB,
+                        subs_data JSONB,
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    );
+                    -- Incremental column additions: each ALTER is idempotent (IF NOT EXISTS).
+                    -- When adding a new tracker, append a new ALTER here rather than
+                    -- modifying existing ones. This pattern works for small schemas;
+                    -- migrate to a versioned migration tool (e.g. Alembic) if the schema grows.
+                    ALTER TABLE user_data ADD COLUMN IF NOT EXISTS income_data JSONB;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'light';
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT 'balanced';
+                    CREATE TABLE IF NOT EXISTS exchange_rates (
+                        base TEXT PRIMARY KEY,
+                        rates JSONB NOT NULL,
+                        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    -- Optimistic-concurrency version counters: bumped on every successful save;
+                    -- a save whose base_version no longer matches is rejected with 409 (see W3).
+                    ALTER TABLE user_data ADD COLUMN IF NOT EXISTS expenses_version INTEGER NOT NULL DEFAULT 0;
+                    ALTER TABLE user_data ADD COLUMN IF NOT EXISTS subs_version INTEGER NOT NULL DEFAULT 0;
+                    ALTER TABLE user_data ADD COLUMN IF NOT EXISTS income_version INTEGER NOT NULL DEFAULT 0;
+                    -- Revision history: one row per successful save, pruned to the most recent
+                    -- _REVISION_KEEP per (user, tracker). Powers the account-page "restore a
+                    -- previous version" safety net. No ON DELETE CASCADE — delete_account()
+                    -- removes these rows explicitly, mirroring how it handles user_data.
+                    CREATE TABLE IF NOT EXISTS data_revisions (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        tracker TEXT NOT NULL,
+                        version INTEGER NOT NULL,
+                        blob JSONB NOT NULL,
+                        saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_data_revisions_lookup
+                        ON data_revisions(user_id, tracker, version DESC);
+                """)
+    finally:
+        release_db(conn)
+
+# Guard against import-time DB connections in test/REPL contexts.
+if os.environ.get('DATABASE_URL'):
+    with app.app_context():
+        init_pool()
+        init_db()
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({"error": "Not logged in"}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+def csrf_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('X-CSRF-Token', '')
+        if not token or not hmac.compare_digest(token, session.get('csrf_token') or ''):
+            return jsonify({"error": "Invalid CSRF token"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+def _new_csrf():
+    """Generate and store a fresh CSRF token in the session."""
+    token = secrets.token_hex(32)
+    session['csrf_token'] = token
+    return token
+
+def _ctx():
+    """Return Jinja2 template context with current user info."""
+    return {
+        "current_user": session.get('username'),
+        "current_user_id": session.get('user_id'),
+        # Auto-generate a token for sessions that pre-date CSRF being added.
+        "csrf_token": session.get('csrf_token') or _new_csrf(),
+        "theme": session.get('theme', 'light'),
+        "personality": session.get('personality', 'balanced'),
+    }
+
+# Constant-time guard: comparing against a real hash when the user is absent
+# keeps the "no such user" path as slow as the "wrong password" path.
+_DUMMY_PWHASH = generate_password_hash('timing-equalizer')
+
+def _within_limits(data):
+    """Server-side mirror of the client MAX_ROWS/MAX_COLS caps."""
+    rows = data.get('rows')
+    if not isinstance(rows, list) or len(rows) > MAX_ROWS:
+        return False
+    cols = data.get('cols')
+    if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
+        return False
+    for arr in (data.get('rowsByMonth') or {}).values():
+        if isinstance(arr, list) and len(arr) > MAX_ROWS:
+            return False
+    for arr in (data.get('colsByMonth') or {}).values():
+        if isinstance(arr, list) and len(arr) > MAX_COLS:
+            return False
+    return True
+
+
+@app.route('/styles.css')
+def serve_css():
+    resp = send_from_directory('templates', 'styles.css', mimetype='text/css')
+    resp.cache_control.max_age = 3600
+    resp.cache_control.public = True
+    return resp
+
+
+@app.route('/ping')
+def ping():
+    return {"status": "functioning!!!"}, 200
+
+@app.route('/')
+def home():
+    return render_template('index.html', **_ctx())
+
+@app.route('/login', methods=['GET'])
+def login_page():
+    if 'user_id' in session:
+        return redirect(url_for('home'))
+    return render_template('login.html', **_ctx())
+
+@app.route('/expenses')
+def expenses():
+    return render_template('expenses.html', **_ctx())
+
+@app.route('/subscriptions')
+def subscriptions_page():
+    return render_template('subscriptions.html', **_ctx())
+
+@app.route('/analytics')
+def analytics():
+    return render_template('analytics.html', **_ctx())
+
+@app.route('/income')
+def income():
+    return render_template('income.html', **_ctx())
+
+@app.route('/account')
+def account():
+    if 'user_id' not in session:
+        return redirect(url_for('login_page'))
+    return render_template('account.html', **_ctx())
+
+@app.route('/currency', methods=['GET', 'POST'])
+@_rl("20 per minute", "200 per hour", methods=["POST"])
+def currency():
+    if request.method == 'POST':
+        currency_i = request.form.get('currency_i', '').upper()
+        currency_o = request.form.get('currency_o', '').upper()
+        currency_a_raw = request.form.get('currency_a')
+
+        if not currency_a_raw:
+            flash('Please enter a valid number for amount.', 'error')
+            return render_template('currency.html', currency_i=currency_i,
+                currency_o=currency_o, currency_a='', **_ctx())
+        try:
+            currency_a = float(currency_a_raw)
+            if currency_a < 0:
+                flash('Amount cannot be negative.', 'error')
+                return render_template('currency.html', currency_i=currency_i,
+                    currency_o=currency_o, currency_a=currency_a_raw, **_ctx())
+
+            converted_amount = round(convert(currency_i, currency_a, currency_o), 2)
+            flash('Currency converted successfully.', 'success')
+            return render_template('currency.html', result=True,
+                converted=converted_amount, currency_i=currency_i,
+                currency_o=currency_o, currency_a=currency_a_raw, **_ctx())
+        except ValueError:
+            flash('Please enter a valid number for amount.', 'error')
+            return render_template('currency.html', currency_i=currency_i,
+                currency_o=currency_o, currency_a=currency_a_raw, **_ctx())
+        except KeyError:
+            flash('Invalid currency code.', 'error')
+            return render_template('currency.html', currency_i=currency_i,
+                currency_o=currency_o, currency_a=currency_a_raw, **_ctx())
+        except requests.exceptions.RequestException:
+            flash("Please check your 'from currency' input. If it is correct, "
+                "there has been a problem connecting to the exchange rate API.", 'error')
+            return render_template('currency.html', currency_i=currency_i,
+                currency_o=currency_o, currency_a=currency_a_raw, **_ctx())
+
+    return render_template('currency.html', currency_i='', currency_o='', currency_a='', **_ctx())
+
+@app.route('/interest', methods=['GET', 'POST'])
+@_rl("20 per minute", "200 per hour", methods=["POST"])
+def interest():
+    if request.method == 'POST':
+        interest_type = request.form.get('type')
+        try:
+            principal = float(request.form.get('principal'))
+            rate = float(request.form.get('rate'))
+            years = float(request.form.get('years'))   # was 'time' — renamed to avoid shadowing the time module
+            if principal < 0 or rate < 0 or years < 0:
+                flash('No negative values allowed.', 'error')
+                return render_template('interest.html', **_ctx())
+
+            if interest_type == 'simple':
+                si = simple_interest(principal, rate, years)
+                amt = si + principal
+                flash('Simple interest calculated successfully.', 'success')
+                result = {'description': 'Simple Interest Result', 'interest': si, 'total': amt}
+                return render_template('interest.html', result=result, **_ctx())
+
+            elif interest_type == 'compound':
+                periods = float(request.form.get('periods', 1))
+                if periods <= 0:
+                    flash('Compounding periods must be positive.', 'error')
+                    return render_template('interest.html', **_ctx())
+                amt = compound_interest(principal, rate, years, periods)
+                interest_amt = amt - principal
+                flash('Compound interest calculated successfully.', 'success')
+                result = {'description': 'Compound Interest Result',
+                    'interest': interest_amt, 'total': amt}
+                return render_template('interest.html', result=result, **_ctx())
+
+            elif interest_type == 'continuous':
+                amt = round(principal * math.exp((rate / 100) * years), 2)
+                interest_amt = round(amt - principal, 2)
+                flash('Continuous interest calculated successfully.', 'success')
+                result = {'description': 'Continuous Compounding Result',
+                    'interest': interest_amt, 'total': amt}
+                return render_template('interest.html', result=result, **_ctx())
+
+            else:
+                flash('Invalid interest type selected.', 'error')
+                return render_template('interest.html', **_ctx())
+
+        except ValueError:
+            flash('Please enter valid numeric inputs.', 'error')
+            return render_template('interest.html', **_ctx())
+
+    return render_template('interest.html', **_ctx())
+
+@app.route('/tax', methods=['GET', 'POST'])
+@_rl("20 per minute", "200 per hour", methods=["POST"])
+def tax():
+    if request.method == 'POST':
+        income = request.form.get('income', '').strip()
+        status = request.form.get('status', '')
+        display_status = status
+        if status == 'head of household':
+            status = 'hoh'
+            display_status = 'Head of Household'
+        elif status == 'single':
+            display_status = 'Single'
+        elif status == 'married':
+            display_status = 'Married'
+        else:
+            flash('Please select a valid filing status.', 'error')
+            return render_template('tax.html', income=income, status='', **_ctx())
+
+        try:
+            income_float = float(income)
+            if not math.isfinite(income_float) or income_float < 0:
+                flash('Income cannot be negative.', 'error')
+                return render_template('tax.html', income=income, status=status, **_ctx())
+
+            tax_amount = fetch_tax(income_float, status)
+            flash('Tax calculated successfully.', 'success')
+            result = {'income': income_float, 'status': display_status, 'tax': tax_amount}
+            return render_template('tax.html', result=result, income=income, status=status, **_ctx())
+
+        except ValueError:
+            flash('Please enter a valid number for income.', 'error')
+            return render_template('tax.html', income=income, status=status, **_ctx())
+        except requests.exceptions.JSONDecodeError:
+            flash('Invalid response from tax API.', 'error')
+            return render_template('tax.html', income=income, status=status, **_ctx())
+        except requests.exceptions.RequestException:
+            flash('Problem connecting to tax API.', 'error')
+            return render_template('tax.html', income=income, status=status, **_ctx())
+        except Exception:
+            flash('Please enter valid input.', 'error')
+            return render_template('tax.html', income=income, status=status, **_ctx())
+
+    return render_template('tax.html', **_ctx())
+
+
+@app.route('/auth/register', methods=['POST'])
+@_rl("5 per minute", "20 per hour")
+def register():
+    data = request.get_json()
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
+    if len(username) < 3:
+        return jsonify({"error": "Username must be at least 3 characters"}), 400
+    if not re.match(r'^[a-zA-Z0-9_.\-]+$', username):
+        return jsonify({"error": "Username may only contain letters, numbers, _, . or -"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+    if len(password) > 128:
+        return jsonify({"error": "Password must be at most 128 characters"}), 400
+    if not re.search(r'[A-Z]', password):
+        return jsonify({"error": "Password must contain at least one uppercase letter"}), 400
+    if not re.search(r'[0-9]', password):
+        return jsonify({"error": "Password must contain at least one number"}), 400
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING id",
+                    (username, generate_password_hash(password))
+                )
+                user_id = cur.fetchone()[0]
+                cur.execute("INSERT INTO user_data (user_id) VALUES (%s)", (user_id,))
+        session.clear()  # drop any pre-auth session state (fixation hardening)
+        session['user_id'] = user_id
+        session['username'] = username
+        session['theme'] = 'light'
+        session['personality'] = 'balanced'
+        return jsonify({"ok": True, "username": username, "csrf_token": _new_csrf()})
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "Username already taken"}), 409
+    finally:
+        release_db(conn)
+
+@app.route('/auth/login', methods=['POST'])
+@_rl("10 per minute", "50 per hour")
+def auth_login():
+    data = request.get_json()
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, password_hash, theme, personality FROM users WHERE username=%s", (username,))
+                row = cur.fetchone()
+        if not row:
+            check_password_hash(_DUMMY_PWHASH, password)  # equalize timing
+            return jsonify({"error": "Invalid username or password"}), 401
+        if not check_password_hash(row[1], password):
+            return jsonify({"error": "Invalid username or password"}), 401
+        session.clear()  # drop any pre-auth session state (fixation hardening)
+        session['user_id'] = row[0]
+        session['username'] = username
+        session['theme'] = row[2] or 'light'
+        session['personality'] = row[3] or 'balanced'
+        return jsonify({"ok": True, "username": username, "csrf_token": _new_csrf()})
+    finally:
+        release_db(conn)
+
+@app.route('/auth/logout', methods=['POST'])
+def auth_logout():
+    # session.clear() is sufficient for Flask's signed-cookie sessions.
+    # If migrating to server-side sessions, add explicit token invalidation here.
+    session.clear()
+    return jsonify({"ok": True})
+
+@app.route('/auth/me')
+def auth_me():
+    if 'user_id' not in session:
+        return jsonify({"user": None}), 200
+    # Verify the user still exists — handles the case where an account was deleted
+    # but the signed cookie is still valid in the browser.
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users WHERE id=%s", (session['user_id'],))
+            row = cur.fetchone()
+    finally:
+        release_db(conn)
+    if not row:
+        session.clear()
+        return jsonify({"user": None}), 401
+    return jsonify({"username": session['username'], "id": session['user_id']})
+
+@app.route('/auth/delete_account', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("3 per minute")
+def delete_account():
+    data = request.get_json(silent=True) or {}
+    password = data.get('password') or ''
+    if not password:
+        return jsonify({"error": "Password is required"}), 400
+    user_id = session['user_id']
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+                row = cur.fetchone()
+        if not row or not check_password_hash(row[0], password):
+            return jsonify({"error": "Incorrect password"}), 403
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM data_revisions WHERE user_id=%s", (user_id,))
+                cur.execute("DELETE FROM user_data WHERE user_id=%s", (user_id,))
+                cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+        session.clear()
+        return jsonify({"ok": True})
+    finally:
+        release_db(conn)
+
+@app.route('/auth/change_username', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("5 per minute")
+def change_username():
+    data = request.get_json(silent=True) or {}
+    new_username = (data.get('new_username') or '').strip()
+    password = data.get('password') or ''
+    if not new_username:
+        return jsonify({"error": "New username is required"}), 400
+    if len(new_username) < 3:
+        return jsonify({"error": "Username must be at least 3 characters"}), 400
+    if not re.match(r'^[a-zA-Z0-9_.\-]+$', new_username):
+        return jsonify({"error": "Username may only contain letters, numbers, _, . or -"}), 400
+    if not password:
+        return jsonify({"error": "Password is required"}), 400
+    user_id = session['user_id']
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+                row = cur.fetchone()
+        if not row or not check_password_hash(row[0], password):
+            return jsonify({"error": "Incorrect password"}), 403
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET username=%s WHERE id=%s", (new_username, user_id))
+        session['username'] = new_username
+        return jsonify({"ok": True, "username": new_username})
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "Username already taken"}), 409
+    finally:
+        release_db(conn)
+
+@app.route('/auth/change_password', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("5 per minute")
+def change_password():
+    data = request.get_json(silent=True) or {}
+    current_password = data.get('current_password') or ''
+    new_password = data.get('new_password') or ''
+    if not current_password or not new_password:
+        return jsonify({"error": "Both passwords are required"}), 400
+    if len(new_password) < 8:
+        return jsonify({"error": "New password must be at least 8 characters"}), 400
+    if len(new_password) > 128:
+        return jsonify({"error": "New password must be at most 128 characters"}), 400
+    if not re.search(r'[A-Z]', new_password):
+        return jsonify({"error": "New password must contain at least one uppercase letter"}), 400
+    if not re.search(r'[0-9]', new_password):
+        return jsonify({"error": "New password must contain at least one number"}), 400
+    user_id = session['user_id']
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+                row = cur.fetchone()
+        if not row or not check_password_hash(row[0], current_password):
+            return jsonify({"error": "Incorrect current password"}), 403
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET password_hash=%s WHERE id=%s",
+                    (generate_password_hash(new_password), user_id))
+        return jsonify({"ok": True})
+    finally:
+        release_db(conn)
+
+
+def _load_tracker_versioned(tracker):
+    """Shared GET /api/load/<tracker> body: returns (data, version) for the current user."""
+    data_col, ver_col = _TRACKER_COLUMNS[tracker]
+    query = _sql.SQL("SELECT {data}, {ver} FROM user_data WHERE user_id=%s").format(
+        data=_sql.Identifier(data_col), ver=_sql.Identifier(ver_col))
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, (session['user_id'],))
+            row = cur.fetchone()
+        data = row[0] if row and row[0] else None
+        version = row[1] if row and row[1] is not None else 0
+        return data, version
+    finally:
+        release_db(conn)
+
+
+def _save_tracker_versioned(tracker, data, base_version, force=False):
+    """
+    Shared optimistic-concurrency POST /api/save/<tracker> body.
+
+    Locks the user's row, then either:
+      - base_version matches the stored version (or force=True): writes the
+        new blob, bumps the version, records a data_revisions row, and prunes
+        old revisions beyond _REVISION_KEEP; or
+      - base_version is stale: returns 409 with the server's current data and
+        version so the client can merge and retry.
+
+    Returns (status_code, response_dict).
+    """
+    data_col, ver_col = _TRACKER_COLUMNS[tracker]
+    select_q = _sql.SQL("SELECT {data}, {ver} FROM user_data WHERE user_id=%s FOR UPDATE").format(
+        data=_sql.Identifier(data_col), ver=_sql.Identifier(ver_col))
+    upsert_q = _sql.SQL("""
+        INSERT INTO user_data (user_id, {data}, {ver}, updated_at)
+        VALUES (%s, %s, %s, NOW())
+        ON CONFLICT (user_id) DO UPDATE
+        SET {data} = EXCLUDED.{data}, {ver} = EXCLUDED.{ver}, updated_at = NOW()
+    """).format(data=_sql.Identifier(data_col), ver=_sql.Identifier(ver_col))
+
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(select_q, (session['user_id'],))
+                row = cur.fetchone()
+                current_data = row[0] if row else None
+                current_version = row[1] if row and row[1] is not None else 0
+
+                if not force and base_version != current_version:
+                    return 409, {
+                        "error": "conflict",
+                        "server_data": current_data,
+                        "server_version": current_version,
+                    }
+
+                new_version = current_version + 1
+                cur.execute(upsert_q, (session['user_id'], json.dumps(data), new_version))
+                cur.execute(
+                    "INSERT INTO data_revisions (user_id, tracker, version, blob) VALUES (%s, %s, %s, %s)",
+                    (session['user_id'], tracker, new_version, json.dumps(data))
+                )
+                cur.execute("""
+                    DELETE FROM data_revisions WHERE user_id=%s AND tracker=%s AND id NOT IN (
+                        SELECT id FROM data_revisions WHERE user_id=%s AND tracker=%s
+                        ORDER BY version DESC LIMIT %s
+                    )
+                """, (session['user_id'], tracker, session['user_id'], tracker, _REVISION_KEEP))
+        return 200, {"ok": True, "version": new_version}
+    finally:
+        release_db(conn)
+
+
+def _parse_save_body(body):
+    """Pulls (data, base_version, force) out of a {data, base_version, force} POST body."""
+    data = body.get('data')
+    base_version = body.get('base_version')
+    if not isinstance(base_version, int):
+        base_version = 0
+    return data, base_version, bool(body.get('force'))
+
+
+@app.route('/api/save/expenses', methods=['POST'])
+@login_required
+@csrf_required
+def save_expenses():
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Invalid data format"}), 400
+    data, base_version, force = _parse_save_body(body)
+    if not isinstance(data, dict) or 'rows' not in data:
+        return jsonify({"error": "Missing required field: rows"}), 400
+    if not _within_limits(data):
+        return jsonify({"error": "Row/column limit exceeded"}), 400
+    status, resp = _save_tracker_versioned('expenses', data, base_version, force=force)
+    return jsonify(resp), status
+
+@app.route('/api/load/expenses')
+@login_required
+def load_expenses():
+    data, version = _load_tracker_versioned('expenses')
+    return jsonify({"ok": True, "data": data, "version": version})
+
+@app.route('/api/save/subs', methods=['POST'])
+@login_required
+@csrf_required
+def save_subs():
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Invalid data format"}), 400
+    data, base_version, force = _parse_save_body(body)
+    if not isinstance(data, dict) or 'rows' not in data:
+        return jsonify({"error": "Missing required field: rows"}), 400
+    if len(data.get('rows', [])) > MAX_SUBS:
+        return jsonify({"error": f"Subscription limit ({MAX_SUBS}) exceeded"}), 400
+    cols = data.get('cols')
+    if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
+        return jsonify({"error": "Column limit exceeded"}), 400
+    status, resp = _save_tracker_versioned('subs', data, base_version, force=force)
+    return jsonify(resp), status
+
+@app.route('/api/load/subs')
+@login_required
+def load_subs():
+    data, version = _load_tracker_versioned('subs')
+    return jsonify({"ok": True, "data": data, "version": version})
+
+@app.route('/api/save/income', methods=['POST'])
+@login_required
+@csrf_required
+def save_income():
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Invalid data format"}), 400
+    data, base_version, force = _parse_save_body(body)
+    if not isinstance(data, dict) or 'rows' not in data:
+        return jsonify({"error": "Missing required field: rows"}), 400
+    if not _within_limits(data):
+        return jsonify({"error": "Row/column limit exceeded"}), 400
+    status, resp = _save_tracker_versioned('income', data, base_version, force=force)
+    return jsonify(resp), status
+
+@app.route('/api/load/income')
+@login_required
+def load_income():
+    data, version = _load_tracker_versioned('income')
+    return jsonify({"ok": True, "data": data, "version": version})
+
+@app.route('/api/revisions/<tracker>')
+@login_required
+def list_revisions(tracker):
+    """List recent revisions for one of the user's trackers (metadata only, no blobs)."""
+    if tracker not in _TRACKER_COLUMNS:
+        return jsonify({"error": "Unknown tracker"}), 404
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT version, saved_at FROM data_revisions
+                WHERE user_id=%s AND tracker=%s
+                ORDER BY version DESC LIMIT %s
+            """, (session['user_id'], tracker, _REVISION_KEEP))
+            rows = cur.fetchall()
+        revisions = [
+            {"version": r[0], "saved_at": r[1].strftime('%Y-%m-%dT%H:%M:%SZ')}
+            for r in rows
+        ]
+        return jsonify({"ok": True, "revisions": revisions})
+    finally:
+        release_db(conn)
+
+@app.route('/api/revisions/<tracker>/restore', methods=['POST'])
+@login_required
+@csrf_required
+def restore_revision(tracker):
+    """Restore one of the user's trackers to a prior revision (force-saved as a new version)."""
+    if tracker not in _TRACKER_COLUMNS:
+        return jsonify({"error": "Unknown tracker"}), 404
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or not isinstance(body.get('version'), int):
+        return jsonify({"error": "Missing required field: version"}), 400
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT blob FROM data_revisions WHERE user_id=%s AND tracker=%s AND version=%s",
+                (session['user_id'], tracker, body['version'])
+            )
+            row = cur.fetchone()
+    finally:
+        release_db(conn)
+    if not row:
+        return jsonify({"error": "Revision not found"}), 404
+    status, resp = _save_tracker_versioned(tracker, row[0], base_version=0, force=True)
+    return jsonify(resp), status
+
+
+@app.route('/api/exchange')
+@login_required
+def api_exchange():
+    base = (request.args.get('base') or request.args.get('from', 'USD')).upper()
+    to_currency = request.args.get('to', '').upper()
+    force = request.args.get('force', '0') == '1'
+    if not _CCY_RE.match(base):
+        return jsonify({"error": "Invalid base currency"}), 400
+    if to_currency and not _CCY_RE.match(to_currency):
+        return jsonify({"error": "Invalid target currency"}), 400
+    try:
+        rates, fetched_at = fetch(base, force=force)
+        fetched_str = fetched_at.strftime('%Y-%m-%dT%H:%M:%SZ')
+        if to_currency:
+            rate = rates.get(to_currency)
+            if rate is None:
+                return jsonify({"error": f"Unknown currency: {to_currency}"}), 400
+            return jsonify({"rate": rate, "from": base, "to": to_currency, "fetched_at": fetched_str})
+        return jsonify({"rates": rates, "base": base, "from": base, "fetched_at": fetched_str})
+    except requests.exceptions.RequestException:
+        app.logger.exception("Exchange rate fetch failed (base=%s)", base)
+        return jsonify({"error": "Exchange rate service unavailable"}), 502
+
+
+def simple_interest(principal, rate, years):
+    return round(principal * (rate / 100) * years, 2)
+
+def compound_interest(principal, rate, years, periods):
+    return round(principal * ((1 + (rate / 100) / periods) ** (years * periods)), 2)
+
+def fetch_tax(income, status):
+    # income is a validated finite float — :g renders 50000.0 as 50000
+    key = (status, f"{income:g}")
+    cached = _tax_cache.get(key)
+    if cached and time.time() - cached[1] < TAX_TTL:
+        return cached[0]
+
+    url = f"https://api.taxapi.net/income/{status}/{income:g}"
+    response = requests.get(url, timeout=8)
+    response.raise_for_status()
+    tax_amount = round(response.json(), 2)
+    _tax_cache[key] = (tax_amount, time.time())
+    return tax_amount
+
+def fetch(currency_i: str, force: bool = False) -> tuple:
+    """Return (rates_dict, fetched_at_utc). Three-tier: memory → DB → API.
+    Note: _rates_cache is module-level and therefore per-Gunicorn worker.
+    The '1-hour TTL in-memory' applies per-worker, not globally across all workers.
+    The DB cache (7-day TTL) is the actual cross-worker dedup layer."""
+    now = time.time()
+    key = currency_i.upper()
+
+    if not force and key in _rates_cache and now - _rates_ts.get(key, 0) < RATES_TTL:
+        return _rates_cache[key], datetime.fromtimestamp(_rates_ts[key], tz=timezone.utc)
+
+    if not force:
+        try:
+            conn = get_db()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT rates, fetched_at FROM exchange_rates WHERE base=%s AND fetched_at > NOW() - INTERVAL '7 days'",
+                        (key,)
+                    )
+                    row = cur.fetchone()
+                if row:
+                    rates, fetched_at = row
+                    _rates_cache[key] = rates
+                    _rates_ts[key] = fetched_at.timestamp()
+                    return rates, fetched_at
+            finally:
+                release_db(conn)
+        except Exception:
+            # Degrade to the live API below — a DB hiccup here shouldn't fail the
+            # request, but it should be visible in logs rather than silently identical
+            # to a normal cache miss.
+            app.logger.exception("Exchange rate DB cache read failed (base=%s)", key)
+
+    url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/latest/{key}"
+    response = requests.get(url, timeout=8)
+    response.raise_for_status()
+    data = response.json()
+    rates = data["conversion_rates"]
+    fetched_at = datetime.now(tz=timezone.utc)
+
+    _rates_cache[key] = rates
+    _rates_ts[key] = fetched_at.timestamp()
+
+    try:
+        conn = get_db()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO exchange_rates (base, rates, fetched_at)
+                       VALUES (%s, %s, %s)
+                       ON CONFLICT (base) DO UPDATE SET rates=EXCLUDED.rates, fetched_at=EXCLUDED.fetched_at""",
+                    (key, psycopg2.extras.Json(rates), fetched_at)
+                )
+            conn.commit()
+        finally:
+            release_db(conn)
+    except Exception:
+        # The fresh rates are already cached in-memory above, so the request still
+        # succeeds — but a failure to persist the cross-worker DB cache is worth knowing
+        # about (it means every worker will re-hit the upstream API independently).
+        app.logger.exception("Exchange rate DB cache write failed (base=%s)", key)
+
+    return rates, fetched_at
+
+@app.route('/api/prefs', methods=['PATCH'])
+@login_required
+@csrf_required
+def save_prefs():
+    data = request.get_json(silent=True) or {}
+    set_clauses, params = [], []
+
+    if 'theme' in data:
+        theme = (data.get('theme') or '').strip()
+        allowed_themes = {'light', 'dark', 'ocean', 'forest', 'sunset', 'midnight', 'rose', 'purple', 'indigo'}
+        if theme not in allowed_themes:
+            return jsonify({"error": "Invalid theme"}), 400
+        set_clauses.append("theme=%s"); params.append(theme)
+
+    if 'personality' in data:
+        personality = (data.get('personality') or '').strip()
+        if personality not in {'playful', 'balanced', 'quiet'}:
+            return jsonify({"error": "Invalid personality"}), 400
+        set_clauses.append("personality=%s"); params.append(personality)
+
+    if not set_clauses:
+        return jsonify({"error": "No valid fields to update"}), 400
+
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE id=%s", (*params, session['user_id']))
+        if 'theme' in data: session['theme'] = theme
+        if 'personality' in data: session['personality'] = personality
+        return jsonify({"ok": True})
+    finally:
+        release_db(conn)
+
+def convert(currency_i, currency_a, currency_o):
+    rates, _ = fetch(currency_i)
+    return currency_a * rates[currency_o]
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
