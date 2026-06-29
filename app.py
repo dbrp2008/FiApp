@@ -21,6 +21,11 @@ try:
     _limiter_available = True
 except ImportError:
     _limiter_available = False
+try:
+    from authlib.integrations.flask_client import OAuth
+    _authlib_available = True
+except ImportError:
+    _authlib_available = False
 
 
 _rates_cache: dict = {}
@@ -129,6 +134,33 @@ else:
         def __call__(self, f): return f
     def _rl(*limits, **kwargs):
         return _NoopDecorator()
+
+# ── Google Sign-In (OpenID Connect) ──────────────────────────────────────────
+# Optional and gracefully degrading, mirroring the Flask-Limiter pattern above:
+# enabled only when Authlib is importable AND both client credentials are present.
+# Otherwise the app runs exactly as before (password auth only; the Google button is
+# hidden via the `google_enabled` template flag). Server-side Authorization-Code + OIDC
+# is redirect-based, so the strict CSP stays untouched (no Google JS SDK). Authlib does
+# discovery, PKCE, nonce and id_token validation — we don't hand-roll any of it.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+_google_enabled = bool(_authlib_available and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+oauth = None
+if _google_enabled:
+    oauth = OAuth(app)
+    oauth.register(
+        name="google",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        # Discovery doc is fetched lazily on first use and cached — no network at import.
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile", "code_challenge_method": "S256"},
+    )
+elif _authlib_available:
+    app.logger.warning(
+        "Google sign-in disabled — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable.")
+else:
+    app.logger.info("Authlib not installed — Google sign-in disabled (password auth unaffected).")
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
@@ -257,6 +289,17 @@ def init_db():
                     ALTER TABLE user_data ADD COLUMN IF NOT EXISTS income_data JSONB;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'light';
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT 'balanced';
+                    -- Google Sign-In (OIDC): email + the stable Google subject id. Identity is
+                    -- keyed on google_sub (never reused); email is for display + uniqueness only.
+                    -- password_hash becomes nullable — Google-only accounts have no password
+                    -- (DROP NOT NULL is a no-op if already nullable, so it's safe to re-run).
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
+                    ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub
+                        ON users(google_sub) WHERE google_sub IS NOT NULL;
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email
+                        ON users(email) WHERE email IS NOT NULL;
                     CREATE TABLE IF NOT EXISTS exchange_rates (
                         base TEXT PRIMARY KEY,
                         rates JSONB NOT NULL,
@@ -324,6 +367,7 @@ def _ctx():
         "csrf_token": session.get('csrf_token') or _new_csrf(),
         "theme": session.get('theme', 'light'),
         "personality": session.get('personality', 'balanced'),
+        "google_enabled": _google_enabled,
     }
 
 # Constant-time guard: comparing against a real hash when the user is absent
@@ -367,7 +411,10 @@ def home():
 def login_page():
     if 'user_id' in session:
         return redirect(url_for('home'))
-    return render_template('login.html', **_ctx())
+    # When ?finish=google, a Google sign-in is mid-way: surface the verified email so the
+    # completion panel can show it read-only while the user picks a username.
+    return render_template('login.html',
+        pending_google_email=session.get('pending_google_email'), **_ctx())
 
 @app.route('/expenses')
 def expenses():
@@ -389,7 +436,20 @@ def income():
 def account():
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
-    return render_template('account.html', **_ctx())
+    # Surface the auth-method state so the page can show Connect/Change/Disconnect Google,
+    # "Set a password", and the right (password vs typed-username) confirm for rename/delete.
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT password_hash, email, google_sub FROM users WHERE id=%s",
+                        (session['user_id'],))
+            row = cur.fetchone()
+    finally:
+        release_db(conn)
+    has_password = bool(row and row[0])
+    google_email = row[1] if (row and row[2]) else None
+    return render_template('account.html',
+        has_password=has_password, google_email=google_email, **_ctx())
 
 @app.route('/currency', methods=['GET', 'POST'])
 @_rl("20 per minute", "200 per hour", methods=["POST"])
@@ -618,24 +678,224 @@ def auth_me():
         return jsonify({"user": None}), 401
     return jsonify({"username": session['username'], "id": session['user_id']})
 
+
+# ── Google Sign-In (OIDC) routes ─────────────────────────────────────────────
+# All Google auth funnels through one callback; the in-flight intent is held in
+# session['google_flow'] ('login' = sign-in/register, 'link' = connect/change).
+# state, nonce, PKCE and id_token signature/claim validation are all performed
+# inside Authlib's authorize_redirect / authorize_access_token — not hand-rolled.
+# A Google change/disconnect requires a fresh password step-up (see google_stepup);
+# password-less (Google-only) users must Set a password first to manage the link.
+_STEPUP_TTL = 600  # seconds a password step-up authorizes a Google change/disconnect
+
+def _establish_session(user_id, username, theme=None, personality=None):
+    """Fixation-hardened login (mirrors register/login): fresh session + CSRF."""
+    session.clear()
+    session['user_id'] = user_id
+    session['username'] = username
+    session['theme'] = theme or 'light'
+    session['personality'] = personality or 'balanced'
+    _new_csrf()
+
+def _stepup_fresh():
+    return (time.time() - session.get('change_authorized_at', 0)) <= _STEPUP_TTL
+
+def _google_redirect_uri():
+    # Force https in prod so the redirect_uri matches the Google-registered URI even
+    # behind Render's TLS-terminating proxy (no ProxyFix needed for just this).
+    return url_for('google_callback', _external=True,
+                   _scheme=('http' if app.debug else 'https'))
+
+@app.route('/auth/google/login')
+@_rl("20 per minute", "200 per hour")
+def google_login():
+    if not _google_enabled:
+        return redirect(url_for('login_page'))
+    session['google_flow'] = 'login'
+    return oauth.google.authorize_redirect(_google_redirect_uri())
+
+@app.route('/auth/google/link')
+@_rl("20 per minute", "200 per hour")
+def google_link():
+    # GET (browser nav), so redirect rather than JSON on the not-logged-in path.
+    if 'user_id' not in session:
+        return redirect(url_for('login_page'))
+    if not _google_enabled:
+        return redirect(url_for('account'))
+    # Connecting or changing the Google binding is sensitive — require a fresh password
+    # step-up first. Password-less users can't step up, so they must Set a password before
+    # managing Google (keeps every change password-confirmed; no second OAuth round-trip).
+    if not _stepup_fresh():
+        return redirect(url_for('account', google='stepup'))
+    session['google_flow'] = 'link'
+    return oauth.google.authorize_redirect(_google_redirect_uri())
+
+@app.route('/auth/google/callback')
+@_rl("20 per minute", "200 per hour")
+def google_callback():
+    flow = session.pop('google_flow', None)
+    if not _google_enabled or not flow:
+        return redirect(url_for('login_page'))
+    try:
+        token = oauth.google.authorize_access_token()  # validates state+PKCE+id_token(nonce)
+    except Exception:
+        app.logger.exception("Google OAuth callback failed")
+        return redirect(url_for('login_page', google='error'))
+    info = token.get('userinfo') or {}
+    sub = info.get('sub')
+    email = (info.get('email') or '').strip().lower()
+    if not sub or not email or not info.get('email_verified'):
+        return redirect(url_for('login_page', google='unverified'))
+    if flow == 'link':
+        return _google_apply_link(sub, email)
+    return _google_apply_login(sub, email)
+
+def _google_apply_login(sub, email):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, username, theme, personality FROM users WHERE google_sub=%s", (sub,))
+            row = cur.fetchone()
+        if row:  # returning Google user → straight in
+            _establish_session(row[0], row[1], row[2], row[3])
+            return redirect(url_for('home'))
+        # New Google identity. If the email already belongs to an account, that account
+        # must use "Connect Google" from settings — don't silently fork a second account.
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM users WHERE email=%s", (email,))
+            taken = cur.fetchone()
+        if taken:
+            return redirect(url_for('login_page', google='email_taken'))
+        session['pending_google_sub'] = sub
+        session['pending_google_email'] = email
+        return redirect(url_for('login_page', finish='google'))
+    finally:
+        release_db(conn)
+
+def _google_apply_link(sub, email):
+    if not _stepup_fresh():  # re-check at the authoritative mutation point
+        return redirect(url_for('account', google='stepup'))
+    user_id = session['user_id']
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users WHERE google_sub=%s AND id<>%s", (sub, user_id))
+            if cur.fetchone():
+                return redirect(url_for('account', google='in_use'))
+            cur.execute("SELECT id FROM users WHERE email=%s AND id<>%s", (email, user_id))
+            if cur.fetchone():
+                return redirect(url_for('account', google='email_in_use'))
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET google_sub=%s, email=%s WHERE id=%s", (sub, email, user_id))
+        session.pop('change_authorized_at', None)  # one-time use
+        return redirect(url_for('account', google='linked'))
+    finally:
+        release_db(conn)
+
+@app.route('/auth/google/complete', methods=['POST'])
+@csrf_required
+@_rl("10 per minute", "50 per hour")
+def google_complete():
+    """New Google user picks a username; creates the account (password_hash NULL)."""
+    sub = session.get('pending_google_sub')
+    email = session.get('pending_google_email')
+    if not sub or not email:
+        return jsonify({"error": "No pending Google sign-up. Please start again."}), 400
+    data = request.get_json(silent=True) or {}
+    username = (data.get('username') or '').strip()
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+    if len(username) < 3:
+        return jsonify({"error": "Username must be at least 3 characters"}), 400
+    if not re.match(r'^[a-zA-Z0-9_.\-]+$', username):
+        return jsonify({"error": "Username may only contain letters, numbers, _, . or -"}), 400
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO users (username, google_sub, email) VALUES (%s, %s, %s) RETURNING id",
+                    (username, sub, email))
+                user_id = cur.fetchone()[0]
+                cur.execute("INSERT INTO user_data (user_id) VALUES (%s)", (user_id,))
+        session.pop('pending_google_sub', None)
+        session.pop('pending_google_email', None)
+        _establish_session(user_id, username)
+        return jsonify({"ok": True, "username": username, "csrf_token": session['csrf_token']})
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "Username already taken"}), 409
+    finally:
+        release_db(conn)
+
+@app.route('/auth/google/stepup', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("10 per minute", "50 per hour")
+def google_stepup():
+    """Re-confirm current identity (password) before a Google change/disconnect."""
+    data = request.get_json(silent=True) or {}
+    password = data.get('password') or ''
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT password_hash FROM users WHERE id=%s", (session['user_id'],))
+            row = cur.fetchone()
+    finally:
+        release_db(conn)
+    if not row or not row[0]:
+        return jsonify({"error": "Set a password first to manage your Google connection"}), 400
+    if not check_password_hash(row[0], password):
+        return jsonify({"error": "Incorrect password"}), 403
+    session['change_authorized_at'] = time.time()
+    return jsonify({"ok": True})
+
+@app.route('/auth/google/disconnect', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("5 per minute")
+def google_disconnect():
+    if not _stepup_fresh():
+        return jsonify({"error": "Confirm your password first"}), 403
+    user_id = session['user_id']
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT password_hash, google_sub FROM users WHERE id=%s", (user_id,))
+            row = cur.fetchone()
+        if not row or not row[1]:
+            return jsonify({"error": "No Google account connected"}), 400
+        if not row[0]:  # no password → disconnecting would lock them out
+            return jsonify({"error": "Set a password before disconnecting Google"}), 400
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET google_sub=NULL, email=NULL WHERE id=%s", (user_id,))
+        session.pop('change_authorized_at', None)
+        return jsonify({"ok": True})
+    finally:
+        release_db(conn)
+
+
 @app.route('/auth/delete_account', methods=['POST'])
 @login_required
 @csrf_required
 @_rl("3 per minute")
 def delete_account():
     data = request.get_json(silent=True) or {}
-    password = data.get('password') or ''
-    if not password:
-        return jsonify({"error": "Password is required"}), 400
     user_id = session['user_id']
     conn = get_db()
     try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
-                row = cur.fetchone()
-        if not row or not check_password_hash(row[0], password):
-            return jsonify({"error": "Incorrect password"}), 403
+        with conn.cursor() as cur:
+            cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+            row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        if row[0]:  # has a password → confirm with it
+            if not check_password_hash(row[0], data.get('password') or ''):
+                return jsonify({"error": "Incorrect password"}), 403
+        else:       # Google-only (no password) → confirm by typing the exact username
+            if (data.get('confirm_username') or '').strip() != session.get('username'):
+                return jsonify({"error": "Type your username exactly to confirm"}), 403
         with conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM data_revisions WHERE user_id=%s", (user_id,))
@@ -653,24 +913,26 @@ def delete_account():
 def change_username():
     data = request.get_json(silent=True) or {}
     new_username = (data.get('new_username') or '').strip()
-    password = data.get('password') or ''
     if not new_username:
         return jsonify({"error": "New username is required"}), 400
     if len(new_username) < 3:
         return jsonify({"error": "Username must be at least 3 characters"}), 400
     if not re.match(r'^[a-zA-Z0-9_.\-]+$', new_username):
         return jsonify({"error": "Username may only contain letters, numbers, _, . or -"}), 400
-    if not password:
-        return jsonify({"error": "Password is required"}), 400
     user_id = session['user_id']
     conn = get_db()
     try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
-                row = cur.fetchone()
-        if not row or not check_password_hash(row[0], password):
-            return jsonify({"error": "Incorrect password"}), 403
+        with conn.cursor() as cur:
+            cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+            row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        if row[0]:  # has a password → confirm with it
+            if not check_password_hash(row[0], data.get('password') or ''):
+                return jsonify({"error": "Incorrect password"}), 403
+        else:       # Google-only → confirm by typing the current username
+            if (data.get('confirm_username') or '').strip() != session.get('username'):
+                return jsonify({"error": "Type your current username to confirm"}), 403
         with conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET username=%s WHERE id=%s", (new_username, user_id))
@@ -687,10 +949,9 @@ def change_username():
 @_rl("5 per minute")
 def change_password():
     data = request.get_json(silent=True) or {}
-    current_password = data.get('current_password') or ''
     new_password = data.get('new_password') or ''
-    if not current_password or not new_password:
-        return jsonify({"error": "Both passwords are required"}), 400
+    if not new_password:
+        return jsonify({"error": "New password is required"}), 400
     if len(new_password) < 8:
         return jsonify({"error": "New password must be at least 8 characters"}), 400
     if len(new_password) > 128:
@@ -702,12 +963,18 @@ def change_password():
     user_id = session['user_id']
     conn = get_db()
     try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
-                row = cur.fetchone()
-        if not row or not check_password_hash(row[0], current_password):
-            return jsonify({"error": "Incorrect current password"}), 403
+        with conn.cursor() as cur:
+            cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+            row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        if row[0]:  # changing an existing password → verify the current one
+            current_password = data.get('current_password') or ''
+            if not current_password:
+                return jsonify({"error": "Current password is required"}), 400
+            if not check_password_hash(row[0], current_password):
+                return jsonify({"error": "Incorrect current password"}), 403
+        # else: first-time set for a Google-only user — no current password to verify
         with conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET password_hash=%s WHERE id=%s",
