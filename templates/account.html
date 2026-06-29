@@ -300,7 +300,7 @@
 
   <div class="glass-panel">
     <h2>📥 Export &amp; Backup</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download a CSV for spreadsheets, or a full JSON backup that preserves everything CSV drops — goals, per-row currencies, and multi-month history. Restoring a backup replaces your current data.</p>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download a CSV for spreadsheets, or a full JSON backup that preserves everything CSV drops - goals, per-row currencies, and multi-month history. Restoring a backup replaces your current data.</p>
     <button class="btn btn-gradient btn-primary" id="export-csv-btn">Export all data as CSV</button>
     <button class="btn btn-gradient btn-primary" id="export-backup-btn" style="margin-left:.5rem;">Download full backup (JSON)</button>
     <div style="margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--panel-border);">
@@ -312,7 +312,7 @@
 
   <div class="glass-panel">
     <h2>🕐 Version History</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">FiApp keeps your last 20 saves of each tracker. If something looks wrong, step back to an earlier version — your current data stays in this list too, so this can itself be undone.</p>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">FiApp keeps your last 20 saves of each tracker. If something looks wrong, step back to an earlier version - your current data stays in this list too, so this can itself be undone.</p>
     <label for="rev-tracker-select" style="font-size:.85rem;font-weight:600;color:var(--fg);display:block;margin-bottom:.3rem;">Tracker</label>
     <select id="rev-tracker-select">
       <option value="expenses">Expenses</option>
@@ -558,7 +558,7 @@ async function restoreFromBackupFile(file){
   }catch(e){ showRestoreFeedback('That file is not valid JSON.','error'); return; }
 
   const names=_validateBackup(parsed);
-  if(!names){ showRestoreFeedback('That file does not look like a valid FiApp backup — nothing was changed.','error'); return; }
+  if(!names){ showRestoreFeedback('That file does not look like a valid FiApp backup - nothing was changed.','error'); return; }
 
   const when=parsed.exported_at?new Date(parsed.exported_at).toLocaleString():'an unknown date';
   const trackerList=names.join(', ');
@@ -620,7 +620,7 @@ async function loadRevisions(tracker){
     if(!res.ok||!data.ok){ list.innerHTML=''; showRevFeedback(data.error||'Could not load version history.','error'); return; }
     const revisions=data.revisions||[];
     if(!revisions.length){
-      list.innerHTML='<div class="rev-empty">No earlier versions yet — they\'ll appear here as you keep using FiApp.</div>';
+      list.innerHTML='<div class="rev-empty">No earlier versions yet - they\'ll appear here as you keep using FiApp.</div>';
       return;
     }
     list.innerHTML='';
@@ -629,7 +629,7 @@ async function loadRevisions(tracker){
       const row=document.createElement('div');
       row.className='rev-row';
       const label=document.createElement('span');
-      label.textContent='Version '+rev.version+' — '+when;
+      label.textContent='Version '+rev.version+' - '+when;
       const btn=document.createElement('button');
       btn.className='btn-ghost btn-sm';
       btn.textContent='Restore';
