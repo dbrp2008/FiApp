@@ -42,6 +42,17 @@ function getAnalyticsCurrency() { return _anaCcy; }
 function setAnalyticsCurrency(code) {
   _anaCcy = code;
   try { localStorage.setItem('fiapp_analytics_currency', code); } catch (e) {}
+  // Persist to the account too, so the choice follows the user across devices
+  // (base.html's _CSRF global is defined by the time a user can click this).
+  try {
+    if (typeof _CSRF !== 'undefined' && _CSRF) {
+      fetch('/api/prefs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _CSRF },
+        body: JSON.stringify({ analytics_currency: code })
+      }).catch(function () {});
+    }
+  } catch (e) {}
 }
 function _anaRate() { return _anaCcy === 'USD' ? 1 : (_coreRatesCache[_anaCcy] || 1); }
 function _anaPrefix() { return _anaCcy === 'USD' ? '$' : _anaCcy + ' '; }
