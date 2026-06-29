@@ -402,15 +402,16 @@
         <input type="password" id="del-pw" placeholder="Your password" autocomplete="current-password">
       </div>
       {% else %}
-      <div>
-        <label for="del-confirm-user">Type your username (<strong>{{ current_user }}</strong>) to confirm</label>
-        <input type="text" id="del-confirm-user" placeholder="Your username" autocomplete="off">
+      <div id="del-google-step">
+        <p style="margin:0 0 .5rem;color:var(--muted);font-size:.85rem;">Your account signs in with Google and has no password set. Confirm with Google to continue.</p>
+        <button class="btn-ghost btn-sm" id="del-google-btn" type="button">Confirm with Google</button>
+        <p id="del-google-status" style="margin-top:.5rem;font-size:.85rem;"></p>
       </div>
       {% endif %}
 
       <div id="delete-steps">
         <div id="delete-arm-step">
-          <button class="btn-danger" id="del-arm-btn">Delete my account</button>
+          <button class="btn-danger" id="del-arm-btn" {% if not has_password %}disabled{% endif %}>Delete my account</button>
         </div>
         <div id="delete-confirm-step">
           <p id="delete-confirm-warning" tabindex="-1">Are you absolutely sure? This will permanently delete everything.</p>
@@ -696,8 +697,8 @@ function armDelete(){
   hideDeleteError();
   if(window._hasPassword){
     if(!document.getElementById('del-pw').value){ showDeleteError('Please enter your password first.'); return; }
-  } else {
-    if(!document.getElementById('del-confirm-user').value.trim()){ showDeleteError('Please type your username first.'); return; }
+  } else if(!window._deleteGoogleConfirmed){
+    showDeleteError('Please confirm with Google first.'); return;
   }
   document.getElementById('delete-arm-step').style.display='none';
   document.getElementById('delete-confirm-step').style.display='block';
@@ -728,9 +729,8 @@ async function confirmDelete(){
     if(!pw){ showDeleteError('Password required.'); cancelDelete(); return; }
     body={password:pw};
   } else {
-    const cu=document.getElementById('del-confirm-user').value.trim();
-    if(!cu){ showDeleteError('Username required.'); cancelDelete(); return; }
-    body={confirm_username:cu};
+    if(!window._deleteGoogleConfirmed){ showDeleteError('Please confirm with Google first.'); cancelDelete(); return; }
+    body={};
   }
   const btn=document.getElementById('del-confirm-btn');
   btn.disabled=true; btn.textContent='Deleting…';
@@ -923,11 +923,22 @@ function setupGoogleAuth(){
       in_use:'That Google account is already linked to another FiApp account.',
       email_in_use:'That Google email is already used by another FiApp account.',
       error:'Google connection failed. Please try again.',
-      unverified:'That Google email isn’t verified.'
+      unverified:'That Google email isn’t verified.',
+      delete_mismatch:'That Google account doesn’t match the one on this account. Please try again with the right account.'
     };
-    if(msgs[g]) fb(msgs[g], g==='linked'?'success':'error');
+    if(g==='delete_confirmed'){
+      window._deleteGoogleConfirmed=true;
+      var darmBtn=document.getElementById('del-arm-btn'); if(darmBtn) darmBtn.disabled=false;
+      var dstatus=document.getElementById('del-google-status');
+      if(dstatus){ dstatus.textContent='✓ Confirmed with Google.'; dstatus.style.color='var(--success,#2a9d4a)'; }
+    } else if(g==='delete_mismatch'){
+      var dstatus2=document.getElementById('del-google-status');
+      if(dstatus2){ dstatus2.textContent=msgs[g]; dstatus2.style.color='var(--danger,#c0392b)'; }
+    } else if(msgs[g]) fb(msgs[g], g==='linked'?'success':'error');
     history.replaceState(null,'','/account');
   }
+  var gdb=document.getElementById('del-google-btn');
+  if(gdb) gdb.addEventListener('click',function(){ window.location='/auth/google/confirm_delete'; });
 }
 
 document.addEventListener('DOMContentLoaded',function(){
