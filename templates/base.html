@@ -34,10 +34,22 @@
          'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
          'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
          'fiapp_tax_result','fiapp_prefill_income',
-         'fiapp_walkthrough_v1','fiapp_analytics_currency'].forEach(function(k){localStorage.removeItem(k);});
+         'fiapp_walkthrough_v1','fiapp_analytics_currency','fiapp_personality'].forEach(function(k){localStorage.removeItem(k);});
         localStorage.removeItem('fiapp_auth_user');
       }
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
+    } catch(e) {}
+  })();
+  </script>
+  <script nonce="{{ csp_nonce }}">
+  (function(){
+    // Must run before analytics_core.js (loaded in head_scripts below) computes its
+    // module-level currency default, so a fresh/just-switched account sees its own
+    // server-side value rather than USD or a previous account's leftover localStorage.
+    try {
+      if(!localStorage.getItem('fiapp_analytics_currency')){
+        localStorage.setItem('fiapp_analytics_currency','{{ analytics_currency|default("USD") }}');
+      }
     } catch(e) {}
   })();
   </script>
@@ -157,6 +169,16 @@
       localStorage.setItem('fiapp_personality',_srvP);
     } else if(_CSRF&&_lsP&&_lsP!==_srvP){
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({personality:_lsP})}).catch(function(){});
+    }
+  })();
+  (function(){
+    // The head_scripts hydration above already covers the "no local value yet" case;
+    // this only catches a local value that drifted from the server (e.g. a prior
+    // /api/prefs call failed offline) so it still converges across devices.
+    var _lsC=localStorage.getItem('fiapp_analytics_currency');
+    var _srvC='{{ analytics_currency|default("USD") }}';
+    if(_CSRF&&_lsC&&_lsC!==_srvC){
+      fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({analytics_currency:_lsC})}).catch(function(){});
     }
   })();
   // quiet strips motion/celebration; playful adds extra motion, celebration, mascot
