@@ -513,7 +513,7 @@ function updateMonthContextNote(){
   const now=new Date();
   if(currentMK()===mk(now.getFullYear(),now.getMonth())){ note.style.display='none'; return; }
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
-  note.textContent='📅 Viewing '+label+' — sources, columns, and currencies here belong to '+label+' only; other months keep their own.';
+  note.textContent='📅 Viewing '+label+' - sources, columns, and currencies here belong to '+label+' only; other months keep their own.';
   note.style.display='block';
 }
 
@@ -557,7 +557,7 @@ function updateCloseBar(){
     else { (state.cols||[]).forEach(col=>{ total+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); }
   });
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
-  document.getElementById('close-bar-text').textContent='📋 Close '+label+'? — $'+total.toFixed(2)+' income logged';
+  document.getElementById('close-bar-text').textContent='📋 Close '+label+'? - $'+total.toFixed(2)+' income logged';
   bar.style.display='flex';
 }
 function openCloseModal(){
@@ -1580,7 +1580,7 @@ function renderMobileCards(){
       const lbl=document.createElement('div');lbl.className='mc-wl';lbl.textContent=col.label;
       const v=hasKids?children(row.id).reduce((s,c)=>s+getCell(c.id,col.id),0):getCell(row.id,col.id);
       const val=document.createElement('div');val.className='mc-wv'+(v===0?' mc-wv-empty':'');
-      val.textContent=v>0?fmt(v):'—';
+      val.textContent=v>0?fmt(v):'-';
       wk.appendChild(lbl);wk.appendChild(val);
       if(v>0&&!hasKids){const cc=document.createElement('div');cc.className='mc-wc';cc.textContent=cur;wk.appendChild(cc);}
       weeksEl.appendChild(wk);
