@@ -214,6 +214,8 @@ def set_security_headers(resp):
         "img-src 'self' data:; "
         "font-src 'self' data:; "
         "connect-src 'self'; "
+        "worker-src 'self'; "
+        "manifest-src 'self'; "
         "base-uri 'self'; "
         "form-action 'self'; "
         "frame-ancestors 'self'; "
@@ -400,6 +402,46 @@ def serve_css():
     resp.cache_control.public = True
     return resp
 
+
+# --- PWA: manifest + service worker --------------------------------------------------
+# Both are served from the app root (not /static/) so the service-worker scope can
+# cover the whole origin. ASSET_V is injected into the SW as its cache version, so each
+# deploy yields a byte-different SW that the browser updates to and which purges the
+# previous deploy's caches. See static/js/sw.js for the caching strategy.
+try:
+    with open(os.path.join(app.static_folder, 'js', 'sw.js'), encoding='utf-8') as _swf:
+        _SW_SRC = _swf.read()
+except OSError:
+    _SW_SRC = ''
+    app.logger.warning("static/js/sw.js missing - PWA offline support disabled.")
+
+@app.route('/sw.js')
+def service_worker():
+    body = 'self.__SW_VERSION=%s;\n%s' % (json.dumps(ASSET_V), _SW_SRC)
+    resp = app.response_class(body, mimetype='application/javascript')
+    resp.headers['Cache-Control'] = 'no-cache'        # always re-check for a new SW
+    resp.headers['Service-Worker-Allowed'] = '/'      # allow root scope from this path
+    return resp
+
+@app.route('/manifest.webmanifest')
+def web_manifest():
+    resp = jsonify({
+        "name": "FiApp - Personal Finance",
+        "short_name": "FiApp",
+        "description": "Track income, expenses, subscriptions and savings.",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#7c3aed",
+        "icons": [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    })
+    resp.mimetype = 'application/manifest+json'
+    return resp
 
 @app.route('/ping')
 def ping():
