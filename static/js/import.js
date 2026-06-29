@@ -253,7 +253,7 @@
       const better=Object.keys(counts).filter(function(f){ return f!==fmt; })
         .sort(function(a,b){ return counts[b]-counts[a]; })[0];
       if(better&&counts[better]>counts[fmt]){
-        tips.push('The dates in column '+(dateCol+1)+" don't look like "+fmtNames[fmt]+' — try "'+fmtNames[better]+'" instead.');
+        tips.push('The dates in column '+(dateCol+1)+" don't look like "+fmtNames[fmt]+' - try "'+fmtNames[better]+'" instead.');
       }
     }
 
@@ -264,9 +264,9 @@
         if(!isNaN(v)){ if(v<0) neg++; else if(v>0) pos++; }
       });
       if(pos&&!neg&&sign==='neg-spend'){
-        tips.push('Every amount in column '+(amtCol+1)+' looks positive — try "Positive amounts are spending" instead.');
+        tips.push('Every amount in column '+(amtCol+1)+' looks positive - try "Positive amounts are spending" instead.');
       } else if(neg&&!pos&&sign==='pos-spend'){
-        tips.push('Every amount in column '+(amtCol+1)+' looks negative — try "Negative amounts are spending" instead.');
+        tips.push('Every amount in column '+(amtCol+1)+' looks negative - try "Negative amounts are spending" instead.');
       }
     }
     return tips;
@@ -276,7 +276,7 @@
   let _wiz=null;
 
   function openImportWizard(){
-    if(_isClosedMonth(currentMK())){ showToast('🔒 This month is locked — switch to an open month before importing.'); return; }
+    if(_isClosedMonth(currentMK())){ showToast('🔒 This month is locked - switch to an open month before importing.'); return; }
     if(localStorage.getItem('fiapp_template_dismissed')!=='1' && Object.keys(state.cells||{}).length===0 && getRows().length===0){
       showToast('Choose a starting template (or "Start blank") before importing.');
       return;
@@ -305,7 +305,7 @@
   // Step 1 — choose a file; OFX/QIF go straight to parsing, CSV needs mapping.
   function renderPickStep(m){
     const desc=document.createElement('p'); desc.className='share-hint';
-    desc.textContent='Import spending from a bank export (.ofx, .qfx, .qif) or a spreadsheet (.csv). Imports are summed per category into a dedicated "Imported" column — your manual entries are never changed.';
+    desc.textContent='Import spending from a bank export (.ofx, .qfx, .qif) or a spreadsheet (.csv). Imports are summed per category into a dedicated "Imported" column - your manual entries are never changed.';
     const inp=document.createElement('input'); inp.type='file'; inp.accept='.ofx,.qfx,.qif,.csv,text/csv';
     const status=document.createElement('div'); status.className='paste-status'; status.textContent='No file selected.';
     const actions=document.createElement('div'); actions.className='share-actions';
@@ -325,7 +325,7 @@
       // .qfx/.qif export will never contain. Catching it here avoids showing the
       // user a garbled column preview for a format we can't parse anyway.
       if(/�/.test(text)){
-        status.textContent='⚠ That file doesn’t look like a text export — FiApp can only import .csv, .ofx, .qfx or .qif files. If this is a spreadsheet, export/save it as CSV first.';
+        status.textContent='⚠ That file doesn’t look like a text export - FiApp can only import .csv, .ofx, .qfx or .qif files. If this is a spreadsheet, export/save it as CSV first.';
         status.className='paste-status bad';
         return;
       }
@@ -348,7 +348,7 @@
         let modeLen=0,modeCount=0;
         Object.keys(lenCounts).forEach(function(len){ if(lenCounts[len]>modeCount){ modeCount=lenCounts[len]; modeLen=+len; } });
         if(nonBlank<2||modeLen<2||modeCount/nonBlank<0.7){
-          status.textContent='⚠ That doesn’t look like tabular transaction data — FiApp expects a CSV with consistent columns for date, description, and amount.';
+          status.textContent='⚠ That doesn’t look like tabular transaction data - FiApp expects a CSV with consistent columns for date, description, and amount.';
           status.className='paste-status bad';
           return;
         }
@@ -358,7 +358,7 @@
       }
       let txns;
       try{ txns=(fmt==='ofx')?parseOFX(text):parseQIF(text); }
-      catch(e){ status.textContent='⚠ Could not parse that file — is it a valid '+fmt.toUpperCase()+' export?'; status.className='paste-status bad'; return; }
+      catch(e){ status.textContent='⚠ Could not parse that file - is it a valid '+fmt.toUpperCase()+' export?'; status.className='paste-status bad'; return; }
       const incomeTxnsOfx=txns.filter(function(t){ return t.sign==='credit'; });
       txns=txns.filter(function(t){ return t.sign==='debit'; });
       if(!txns.length&&!incomeTxnsOfx.length){ status.textContent='⚠ No transactions were found in that file.'; status.className='paste-status bad'; return; }
@@ -434,7 +434,7 @@
     // signed column. When set, the sign-convention picker is hidden — it doesn't
     // apply once the columns themselves tell us which side a transaction is on.
     const creditSel=colSelect();
-    const noCreditOpt=document.createElement('option'); noCreditOpt.value=''; noCreditOpt.textContent='— not used (single signed amount column) —';
+    const noCreditOpt=document.createElement('option'); noCreditOpt.value=''; noCreditOpt.textContent='- not used (single signed amount column) -';
     creditSel.insertBefore(noCreditOpt,creditSel.firstChild);
     creditSel.value='';
     const gCredit=guess(['money in','credit','deposit','paid in']);
@@ -507,7 +507,7 @@
         const tips=diagnoseMismatch(rows,skip,dateCol,amtCol,fmt,sign,creditCol);
         status.textContent=tips.length
           ? '⚠ No transactions matched those settings. '+tips.join(' ')
-          : '⚠ No transactions matched those settings — double-check the column and sign choices.';
+          : '⚠ No transactions matched those settings - double-check the column and sign choices.';
         status.className='paste-status bad'; status.style.display='block';
         return;
       }
@@ -587,9 +587,9 @@
 
     if(!_wiz.txns.length&&!(_wiz.incomeGroups&&_wiz.incomeGroups.length)){
       const status=document.createElement('div'); status.className='paste-status ok';
-      status.textContent='Nothing new to import — every matching transaction in this file has already been imported.';
+      status.textContent='Nothing new to import - every matching transaction in this file has already been imported.';
       const hint=document.createElement('p'); hint.className='share-hint';
-      hint.textContent="If you undid a previous import, FiApp's duplicate-detection memory won't know that — it still thinks those transactions are in your tracker. Use the button below to clear that memory, then try again.";
+      hint.textContent="If you undid a previous import, FiApp's duplicate-detection memory won't know that - it still thinks those transactions are in your tracker. Use the button below to clear that memory, then try again.";
       const actions=document.createElement('div'); actions.className='share-actions';
       actions.appendChild(mkBtn('Forget previous imports & retry','btn btn-sm btn-ghost',function(){
         saveSeen(new Set());
@@ -601,7 +601,7 @@
     }
 
     const desc=document.createElement('p'); desc.className='share-hint';
-    desc.textContent='Assign a category to each group below — FiApp remembers your choice for future imports from the same source.';
+    desc.textContent='Assign a category to each group below - FiApp remembers your choice for future imports from the same source.';
 
     const catOptions=buildCategoryOptions();
     const list=document.createElement('div');
@@ -610,9 +610,9 @@
       const card=document.createElement('div'); card.style.cssText='display:flex;flex-direction:column;gap:.35rem;';
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.83rem;flex-wrap:wrap;';
       const info=document.createElement('span'); info.style.cssText='flex:1;min-width:160px;';
-      info.innerHTML='<strong>'+escapeHtml(g.keyword)+'</strong> <span style="color:var(--muted)">— '+escapeHtml(g.sample.slice(0,40))+' · '+g.txns.length+' transaction'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2)+'</span>';
+      info.innerHTML='<strong>'+escapeHtml(g.keyword)+'</strong> <span style="color:var(--muted)">- '+escapeHtml(g.sample.slice(0,40))+' · '+g.txns.length+' transaction'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2)+'</span>';
       const sel=selStyleSmall(document.createElement('select'));
-      const blank=document.createElement('option'); blank.value=''; blank.textContent='— choose category —'; sel.appendChild(blank);
+      const blank=document.createElement('option'); blank.value=''; blank.textContent='- choose category -'; sel.appendChild(blank);
       catOptions.forEach(function(c){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
       sel.value=g.category||'';
       sel.addEventListener('change',function(){ g.category=sel.value; });
@@ -642,7 +642,7 @@
     if(_wiz.incomeGroups&&_wiz.incomeGroups.length){
       const incHdr=document.createElement('div');
       incHdr.style.cssText='font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:.6rem .2rem .2rem;';
-      incHdr.textContent='Income — routes to income tracker';
+      incHdr.textContent='Income - routes to income tracker';
 
       // Currency selector: income rows in the tracker may be set to a specific currency.
       // Tell us what currency the amounts in this file are in so we write to the right row.
@@ -667,10 +667,10 @@
         badge.textContent='income';
         const kw=document.createElement('strong'); kw.textContent=g.keyword;
         const detail=document.createElement('span'); detail.style.color='var(--muted)';
-        detail.textContent=' — '+g.sample.slice(0,40)+' · '+g.txns.length+' transaction'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2);
+        detail.textContent=' - '+g.sample.slice(0,40)+' · '+g.txns.length+' transaction'+(g.txns.length===1?'':'s')+' · $'+g.total.toFixed(2);
         info.appendChild(badge); info.appendChild(kw); info.appendChild(detail);
         const sel=selStyleSmall(document.createElement('select'));
-        const blank=document.createElement('option'); blank.value=''; blank.textContent='— choose income category —'; sel.appendChild(blank);
+        const blank=document.createElement('option'); blank.value=''; blank.textContent='- choose income category -'; sel.appendChild(blank);
         incOpts.forEach(function(c){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
         sel.value=g.category||'';
         sel.addEventListener('change',function(){ g.category=sel.value; });
