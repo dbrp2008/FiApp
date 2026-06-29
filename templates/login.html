@@ -129,6 +129,18 @@
     .login-btn:hover { opacity: .88; }
     .login-btn:disabled { opacity: .5; cursor: not-allowed; }
 
+    .auth-or { display:flex; align-items:center; gap:.6rem; margin:1rem 0 .25rem; color:var(--muted); font-size:.8rem; }
+    .auth-or::before, .auth-or::after { content:''; flex:1; height:1px; background:var(--panel-border); }
+    .google-btn {
+      display:flex; align-items:center; justify-content:center; gap:.6rem;
+      width:100%; padding:.6rem; margin-top:.5rem;
+      background:var(--input-bg); color:var(--fg); border:1px solid var(--input-border);
+      border-radius:8px; font-size:.95rem; font-weight:600; cursor:pointer; text-decoration:none;
+      transition:background .15s, border-color .15s;
+    }
+    .google-btn:hover { border-color:var(--accent); background:var(--input-focus); }
+    .google-btn img { display:block; }
+
     .auth-error {
       background: var(--error-bg);
       color: var(--error-fg);
@@ -238,6 +250,8 @@
       </div>
     </div>
     <button class="login-btn btn btn-gradient" id="login-btn">Log In</button>
+    {% if google_enabled %}<div class="auth-or"><span>or</span></div>
+    <a class="google-btn" href="/auth/google/login"><img src="/static/google-g.svg?v={{ ASSET_V }}" alt="" width="18" height="18">Continue with Google</a>{% endif %}
     <div class="back-link"><a href="/">← Back to FiApp</a></div>
   </div>
 
@@ -278,8 +292,24 @@
       </div>
     </div>
     <button class="login-btn btn btn-gradient" id="register-btn">Create Account</button>
+    {% if google_enabled %}<div class="auth-or"><span>or</span></div>
+    <a class="google-btn" href="/auth/google/login"><img src="/static/google-g.svg?v={{ ASSET_V }}" alt="" width="18" height="18">Continue with Google</a>{% endif %}
     <div class="back-link"><a href="/">← Back to FiApp</a></div>
   </div>
+
+  {% if pending_google_email %}
+  <div id="panel-google-finish" class="login-panel" style="display:none;">
+    <div class="auth-error" id="finish-error"></div>
+    <p class="form-hint" style="margin-top:0;">Signed in with Google as <strong>{{ pending_google_email }}</strong>. Pick a username to finish setting up your account.</p>
+    <div class="form-group">
+      <label for="finish-username">Username</label>
+      <input type="text" id="finish-username" autocomplete="username" placeholder="Choose a username" minlength="3" />
+    </div>
+    <p class="form-hint">At least 3 characters. No password needed, you'll sign in with Google. You can add one later in Account settings.</p>
+    <button class="login-btn btn btn-gradient" id="finish-btn">Create account</button>
+    <div class="back-link"><a href="/login">← Use a different method</a></div>
+  </div>
+  {% endif %}
   </div>
   </div>
 
@@ -411,6 +441,8 @@ async function submitRegister(){
 
 document.addEventListener('keydown', e=>{
   if(e.key!=='Enter') return;
+  const fin=document.getElementById('panel-google-finish');
+  if(fin && fin.style.display!=='none'){ submitGoogleComplete(); return; }
   const loginVisible = document.getElementById('panel-login').style.display !== 'none';
   if(loginVisible) submitLogin();
   else submitRegister();
@@ -449,6 +481,53 @@ document.querySelectorAll('.pw-toggle').forEach(function(btn){
     btn.querySelector('.eye-closed').style.display=show?'':'none';
   });
 });
+
+// ── Google sign-in: completion step + redirect error banners ──
+window._CSRF = {{ csrf_token|tojson }};
+async function submitGoogleComplete(){
+  clearError('finish-error');
+  var username=document.getElementById('finish-username').value.trim();
+  if(!username){ showError('finish-error','Please choose a username.'); return; }
+  if(username.length<3){ showError('finish-error','Username must be at least 3 characters.'); return; }
+  var btn=document.getElementById('finish-btn');
+  btn.disabled=true; btn.textContent='Creating account…';
+  try{
+    var res=await fetch('/auth/google/complete',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-Token':window._CSRF||''},
+      body:JSON.stringify({username:username})
+    });
+    var data=await res.json();
+    if(res.ok){ localStorage.setItem('fiapp_auth_user', data.username||username); window.location='/'; }
+    else{ showError('finish-error', data.error||'Could not create account.'); }
+  }catch(e){ showError('finish-error','Network error. Please try again.'); }
+  finally{ btn.disabled=false; btn.textContent='Create account'; }
+}
+(function(){
+  var qp=new URLSearchParams(window.location.search);
+  // Reveal the Google completion panel when a sign-in is mid-way.
+  var fin=document.getElementById('panel-google-finish');
+  if(qp.get('finish')==='google' && fin){
+    var tb=document.querySelector('.tab-bar'); if(tb) tb.style.display='none';
+    document.getElementById('panel-login').style.display='none';
+    document.getElementById('panel-register').style.display='none';
+    fin.style.display='';
+    var fu=document.getElementById('finish-username'); if(fu) fu.focus();
+  }
+  // Surface a Google redirect error/notice on the login panel.
+  var g=qp.get('google');
+  if(g){
+    var msgs={
+      error:'Google sign-in failed. Please try again.',
+      unverified:'Your Google email is not verified, so we can’t use it to sign in.',
+      email_taken:'An account already uses that email. Log in with it, then connect Google from Account settings.'
+    };
+    if(msgs[g]) showError('login-error', msgs[g]);
+    history.replaceState(null,'','/login');
+  }
+})();
+var _finishBtn=document.getElementById('finish-btn');
+if(_finishBtn) _finishBtn.addEventListener('click', submitGoogleComplete);
 </script>
 </body>
 </html>
