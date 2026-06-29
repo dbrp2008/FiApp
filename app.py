@@ -289,6 +289,7 @@ def init_db():
                     ALTER TABLE user_data ADD COLUMN IF NOT EXISTS income_data JSONB;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'light';
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT 'balanced';
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS analytics_currency TEXT DEFAULT 'USD';
                     -- Google Sign-In (OIDC): email + the stable Google subject id. Identity is
                     -- keyed on google_sub (never reused); email is for display + uniqueness only.
                     -- password_hash becomes nullable — Google-only accounts have no password
@@ -367,6 +368,7 @@ def _ctx():
         "csrf_token": session.get('csrf_token') or _new_csrf(),
         "theme": session.get('theme', 'light'),
         "personality": session.get('personality', 'balanced'),
+        "analytics_currency": session.get('analytics_currency', 'USD'),
         "google_enabled": _google_enabled,
     }
 
@@ -621,6 +623,7 @@ def register():
         session['username'] = username
         session['theme'] = 'light'
         session['personality'] = 'balanced'
+        session['analytics_currency'] = 'USD'
         return jsonify({"ok": True, "username": username, "csrf_token": _new_csrf()})
     except psycopg2.errors.UniqueViolation:
         return jsonify({"error": "Username already taken"}), 409
@@ -637,11 +640,17 @@ def auth_login():
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, password_hash, theme, personality FROM users WHERE username=%s", (username,))
+                cur.execute("SELECT id, password_hash, theme, personality, analytics_currency FROM users WHERE username=%s", (username,))
                 row = cur.fetchone()
         if not row:
             check_password_hash(_DUMMY_PWHASH, password)  # equalize timing
             return jsonify({"error": "Invalid username or password"}), 401
+        if not row[1]:
+            # Google-only account: there's no password to check. Calling
+            # check_password_hash(None, ...) would raise (AttributeError, not the
+            # ValueError it guards against) and surface as a generic client-side
+            # "Network error" — name the real reason instead.
+            return jsonify({"error": "This account signs in with Google - there's no password set. Use \"Continue with Google\" below."}), 401
         if not check_password_hash(row[1], password):
             return jsonify({"error": "Invalid username or password"}), 401
         session.clear()  # drop any pre-auth session state (fixation hardening)
@@ -649,6 +658,7 @@ def auth_login():
         session['username'] = username
         session['theme'] = row[2] or 'light'
         session['personality'] = row[3] or 'balanced'
+        session['analytics_currency'] = row[4] or 'USD'
         return jsonify({"ok": True, "username": username, "csrf_token": _new_csrf()})
     finally:
         release_db(conn)
@@ -688,17 +698,21 @@ def auth_me():
 # password-less (Google-only) users must Set a password first to manage the link.
 _STEPUP_TTL = 600  # seconds a password step-up authorizes a Google change/disconnect
 
-def _establish_session(user_id, username, theme=None, personality=None):
+def _establish_session(user_id, username, theme=None, personality=None, analytics_currency=None):
     """Fixation-hardened login (mirrors register/login): fresh session + CSRF."""
     session.clear()
     session['user_id'] = user_id
     session['username'] = username
     session['theme'] = theme or 'light'
     session['personality'] = personality or 'balanced'
+    session['analytics_currency'] = analytics_currency or 'USD'
     _new_csrf()
 
 def _stepup_fresh():
     return (time.time() - session.get('change_authorized_at', 0)) <= _STEPUP_TTL
+
+def _delete_authorized_fresh():
+    return (time.time() - session.get('delete_authorized_at', 0)) <= _STEPUP_TTL
 
 def _google_redirect_uri():
     # Force https in prod so the redirect_uri matches the Google-registered URI even
@@ -730,6 +744,18 @@ def google_link():
     session['google_flow'] = 'link'
     return oauth.google.authorize_redirect(_google_redirect_uri())
 
+@app.route('/auth/google/confirm_delete')
+@_rl("10 per minute", "50 per hour")
+def google_confirm_delete():
+    # Password-less accounts have no password to confirm a delete with; re-proving
+    # control of the same Google identity that's on file is the equivalent step-up.
+    if 'user_id' not in session:
+        return redirect(url_for('login_page'))
+    if not _google_enabled:
+        return redirect(url_for('account'))
+    session['google_flow'] = 'delete_confirm'
+    return oauth.google.authorize_redirect(_google_redirect_uri())
+
 @app.route('/auth/google/callback')
 @_rl("20 per minute", "200 per hour")
 def google_callback():
@@ -748,16 +774,18 @@ def google_callback():
         return redirect(url_for('login_page', google='unverified'))
     if flow == 'link':
         return _google_apply_link(sub, email)
+    if flow == 'delete_confirm':
+        return _google_apply_delete_confirm(sub)
     return _google_apply_login(sub, email)
 
 def _google_apply_login(sub, email):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, username, theme, personality FROM users WHERE google_sub=%s", (sub,))
+            cur.execute("SELECT id, username, theme, personality, analytics_currency FROM users WHERE google_sub=%s", (sub,))
             row = cur.fetchone()
         if row:  # returning Google user → straight in
-            _establish_session(row[0], row[1], row[2], row[3])
+            _establish_session(row[0], row[1], row[2], row[3], row[4])
             return redirect(url_for('home'))
         # New Google identity. If the email already belongs to an account, that account
         # must use "Connect Google" from settings — don't silently fork a second account.
@@ -790,6 +818,22 @@ def _google_apply_link(sub, email):
                 cur.execute("UPDATE users SET google_sub=%s, email=%s WHERE id=%s", (sub, email, user_id))
         session.pop('change_authorized_at', None)  # one-time use
         return redirect(url_for('account', google='linked'))
+    finally:
+        release_db(conn)
+
+def _google_apply_delete_confirm(sub):
+    if 'user_id' not in session:
+        return redirect(url_for('login_page'))
+    user_id = session['user_id']
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT google_sub FROM users WHERE id=%s", (user_id,))
+            row = cur.fetchone()
+        if not row or row[0] != sub:
+            return redirect(url_for('account', google='delete_mismatch'))
+        session['delete_authorized_at'] = time.time()
+        return redirect(url_for('account', google='delete_confirmed'))
     finally:
         release_db(conn)
 
@@ -893,9 +937,9 @@ def delete_account():
         if row[0]:  # has a password → confirm with it
             if not check_password_hash(row[0], data.get('password') or ''):
                 return jsonify({"error": "Incorrect password"}), 403
-        else:       # Google-only (no password) → confirm by typing the exact username
-            if (data.get('confirm_username') or '').strip() != session.get('username'):
-                return jsonify({"error": "Type your username exactly to confirm"}), 403
+        else:       # Google-only (no password) → must have just re-confirmed via Google
+            if not _delete_authorized_fresh():
+                return jsonify({"error": "Please confirm with Google first"}), 403
         with conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM data_revisions WHERE user_id=%s", (user_id,))
@@ -1310,6 +1354,12 @@ def save_prefs():
             return jsonify({"error": "Invalid personality"}), 400
         set_clauses.append("personality=%s"); params.append(personality)
 
+    if 'analytics_currency' in data:
+        analytics_currency = (data.get('analytics_currency') or '').strip().upper()
+        if not _CCY_RE.match(analytics_currency):
+            return jsonify({"error": "Invalid currency"}), 400
+        set_clauses.append("analytics_currency=%s"); params.append(analytics_currency)
+
     if not set_clauses:
         return jsonify({"error": "No valid fields to update"}), 400
 
@@ -1320,6 +1370,7 @@ def save_prefs():
                 cur.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE id=%s", (*params, session['user_id']))
         if 'theme' in data: session['theme'] = theme
         if 'personality' in data: session['personality'] = personality
+        if 'analytics_currency' in data: session['analytics_currency'] = analytics_currency
         return jsonify({"ok": True})
     finally:
         release_db(conn)
