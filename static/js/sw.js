@@ -27,13 +27,11 @@ var OFFLINE_HTML =
   'body{display:flex;align-items:center;justify-content:center;' +
   'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;' +
   'background:#ffffff;color:#0f172a;text-align:center;padding:1.5rem}' +
-  '.c{max-width:22rem}.m{width:72px;height:72px;border-radius:18px;margin:0 auto 1rem;' +
-  'background:linear-gradient(135deg,#7c3aed,#0891b2);display:flex;align-items:center;' +
-  'justify-content:center;color:#fff;font-weight:700;font-size:1.7rem}' +
+  '.c{max-width:22rem}.m{width:72px;height:72px;border-radius:18px;margin:0 auto 1rem;display:block}' +
   'h1{font-size:1.15rem;margin:.2rem 0 .5rem}p{color:#475569;font-size:.92rem;line-height:1.5}' +
   '.btn{display:inline-block;margin-top:1.1rem;padding:.6rem 1.1rem;border-radius:9px;' +
   'text-decoration:none;font-weight:600;color:#fff;background:#7c3aed}</style></head><body><div class="c">' +
-  '<div class="m">Fi</div><h1>You are offline</h1>' +
+  '<img class="m" src="/static/icons/icon-192.png" width="72" height="72" alt="FiApp"><h1>You are offline</h1>' +
   '<p>FiApp could not reach the network. Your saved data on this device is still safe; ' +
   'reconnect to sync and load the latest.</p>' +
   '<a class="btn" href="/">Try again</a></div></body></html>';
@@ -44,6 +42,12 @@ self.addEventListener('install', function (event) {
     await cache.put(OFFLINE_URL, new Response(OFFLINE_HTML, {
       headers: { 'Content-Type': 'text/html; charset=utf-8' }
     }));
+    // Precache the icon the offline page references, so it renders even on a
+    // cold install that never had a prior successful /static/* fetch to fall back on.
+    try {
+      var iconRes = await fetch('/static/icons/icon-192.png');
+      if (iconRes.ok) await cache.put('/static/icons/icon-192.png', iconRes);
+    } catch (e) { /* installing while already offline: best-effort only */ }
     await self.skipWaiting();
   })());
 });
