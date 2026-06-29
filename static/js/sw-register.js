@@ -15,10 +15,24 @@
   } catch (e) { /* non-fatal: fall back to an unversioned register */ }
 
   var url = '/sw.js' + (v ? ('?v=' + encodeURIComponent(v)) : '');
+  var _reg = null;
+
+  // The SW's own 'activate' handler already covers a silent background update
+  // (claim() can take over open tabs with no reload), but a normal reload of an
+  // already-active worker never refires 'activate' - so refreshing here on every
+  // load, and again on reconnect, is what actually keeps pages cache-fresh day to day.
+  function refreshPrecache() {
+    if (_reg && _reg.active) _reg.active.postMessage({ type: 'refresh-precache' });
+  }
 
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register(url, { scope: '/' }).catch(function () {
+    navigator.serviceWorker.register(url, { scope: '/' }).then(function (reg) {
+      _reg = reg;
+      return navigator.serviceWorker.ready;
+    }).then(refreshPrecache).catch(function () {
       /* registration failure must never break the page */
     });
   });
+
+  window.addEventListener('online', refreshPrecache);
 })();
