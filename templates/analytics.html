@@ -1123,7 +1123,7 @@ function renderMemory(root){
       if(recentTotal>avg*1.15) context='Higher than your usual range.';
       else if(recentTotal<avg*0.85) context='One of your lower months.';
       else context='Typical for your past months.';
-      observations.push(mkLabel(recentMK)+': $'+recentTotal.toFixed(0)+' spent — '+context);
+      observations.push(mkLabel(recentMK)+': $'+recentTotal.toFixed(0)+' spent - '+context);
     }
   }
 
