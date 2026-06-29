@@ -449,7 +449,7 @@ window.VoiceInput = (function () {
 
   function _decide(p) {
     if (typeof _bridge().isLockedMonth === 'function' && _bridge().isLockedMonth()) {
-      _toast('🔒 This month is locked — reopen it to make changes.');
+      _toast('🔒 This month is locked - reopen it to make changes.');
       return;
     }
     if (p.action === 'delete-row' || p.action === 'add-subcategory') { _showConfirmSheet(p); return; }
@@ -821,13 +821,13 @@ window.VoiceInput = (function () {
       list.forEach(function(code) {
         var opt = document.createElement('option');
         opt.value = code;
-        opt.textContent = code + (CURRENCY_NAMES[code] ? '  —  ' + CURRENCY_NAMES[code] : '');
+        opt.textContent = code + (CURRENCY_NAMES[code] ? '  -  ' + CURRENCY_NAMES[code] : '');
         if (code === p.currency.code) opt.selected = true;
         sel.appendChild(opt);
       });
       var otherOpt = document.createElement('option');
       otherOpt.value = '__other__';
-      otherOpt.textContent = '— Other —';
+      otherOpt.textContent = '- Other -';
       sel.appendChild(otherOpt);
       document.getElementById('_vi-cur-row').style.display = 'flex';
       document.querySelector('.voice-chips').style.display = 'none';
@@ -1049,9 +1049,9 @@ window.VoiceInput = (function () {
         'Did you mean last month\’s Week 4? If so, close and navigate to that month first.' +
       '</div>' +
       '<div id="_vi-forecast-note" class="voice-forecast-note" style="display:none">' +
-        '📂 Forecast month — you\'re editing a future month.' +
+        '📂 Forecast month - you\'re editing a future month.' +
       '</div>' +
-      '<div id="_vi-no-cat" class="voice-warning" style="display:none">No category matched — tap Category to pick one.</div>' +
+      '<div id="_vi-no-cat" class="voice-warning" style="display:none">No category matched - tap Category to pick one.</div>' +
       '<div id="_vi-sub-section" style="display:none">' +
         '<div class="voice-sub-label">Which subcategory?</div>' +
         '<div id="_vi-sub-chips" class="voice-sub-chips"></div>' +
