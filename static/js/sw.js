@@ -18,6 +18,10 @@ var VERSION = self.__SW_VERSION || 'dev';
 var CACHE = 'fiapp-' + VERSION;
 var OFFLINE_URL = '/__offline';
 
+// Top-level pages (mirrors base.html's NAV_ITEMS) proactively cached rather than
+// left to "whatever you happened to click into" - see precacheNavPages().
+var NAV_PAGES = ['/', '/income', '/expenses', '/subscriptions', '/analytics', '/currency', '/tax', '/interest'];
+
 // Built in-SW (not fetched) so it's always available even on a cold first offline load.
 var OFFLINE_HTML =
   '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
@@ -60,7 +64,32 @@ self.addEventListener('activate', function (event) {
       return (k.indexOf('fiapp-') === 0 && k !== CACHE) ? caches.delete(k) : null;
     }));
     await self.clients.claim();
+    // Covers a silent background update: claim() can take over already-open tabs
+    // without a reload ever firing, so this is the only guaranteed refresh point
+    // for that case. The 'message' handler below covers reload/reconnect refreshes
+    // on an already-active worker, where 'activate' does not fire again.
+    await precacheNavPages();
   })());
+});
+
+// Fetches each top-level page fresh (same-origin -> browser sends the current
+// session cookie, so this reflects whoever is actually logged in right now) and
+// caches the successful ones. Best-effort: a page that fails to fetch (offline,
+// or a transient error) just keeps whatever was cached for it before.
+async function precacheNavPages() {
+  var cache = await caches.open(CACHE);
+  await Promise.all(NAV_PAGES.map(async function (path) {
+    try {
+      var res = await fetch(path, { credentials: 'same-origin' });
+      if (cacheable(res)) await cache.put(path, res);
+    } catch (e) { /* offline or transient error: leave the existing cache entry alone */ }
+  }));
+}
+
+self.addEventListener('message', function (event) {
+  if (event.data && event.data.type === 'refresh-precache') {
+    event.waitUntil(precacheNavPages());
+  }
 });
 
 function isStatic(url) {
