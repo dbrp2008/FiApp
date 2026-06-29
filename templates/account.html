@@ -214,6 +214,37 @@
     </div>
   </div>
 
+  {% if google_enabled %}
+  <div class="glass-panel">
+    <h2>🔑 Sign-in methods</h2>
+    <div class="change-feedback" id="google-feedback"></div>
+    <div class="info-row">
+      <span class="info-label">Google</span>
+      <span>{% if google_email %}<strong>{{ google_email }}</strong>{% else %}Not connected{% endif %}</span>
+    </div>
+    <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+      {% if google_email %}
+        {% if has_password %}
+        <button class="btn-ghost btn-sm" id="google-change-btn">Change Google account</button>
+        <button class="btn-ghost btn-sm" id="google-disconnect-btn">Disconnect Google</button>
+        {% endif %}
+      {% else %}
+        <button class="btn-ghost btn-sm" id="google-connect-btn">Connect Google</button>
+      {% endif %}
+    </div>
+    {% if google_email and not has_password %}
+    <p style="margin-top:.6rem;color:var(--muted);font-size:.82rem;">Set a password below to change or disconnect your Google account, so you always keep a way to sign in.</p>
+    {% endif %}
+    <div id="google-stepup" style="display:none;margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--panel-border);">
+      <label for="google-stepup-pw" style="display:block;font-size:.85rem;font-weight:600;margin-bottom:.3rem;">Confirm your password to continue</label>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+        <input type="password" id="google-stepup-pw" placeholder="Your password" autocomplete="current-password" style="flex:1;min-width:180px;padding:.5rem .7rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--fg);">
+        <button class="btn btn-gradient btn-sm" id="google-stepup-go">Confirm</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="glass-panel">
     <h2>Change Username</h2>
     <div class="change-feedback" id="change-feedback"></div>
@@ -222,22 +253,34 @@
         <label for="new-username">New username</label>
         <input type="text" id="new-username" placeholder="At least 3 characters" minlength="3" autocomplete="username" />
       </div>
+      {% if has_password %}
       <div>
         <label for="change-pw">Current password</label>
         <input type="password" id="change-pw" placeholder="Confirm your password" autocomplete="current-password" />
       </div>
+      {% else %}
+      <div>
+        <label for="change-confirm-user">Confirm your current username</label>
+        <input type="text" id="change-confirm-user" placeholder="Type {{ current_user }} to confirm" autocomplete="off" />
+      </div>
+      {% endif %}
       <button class="btn btn-gradient btn-primary" id="change-btn">Save new username</button>
     </div>
   </div>
 
   <div class="glass-panel">
-    <h2>Change Password</h2>
+    <h2>{% if has_password %}Change Password{% else %}Set a Password{% endif %}</h2>
     <div class="change-feedback" id="pw-feedback"></div>
+    {% if not has_password %}
+    <p style="color:var(--muted);font-size:.88rem;margin-bottom:.75rem;">Add a password so you can also sign in with your username (<strong>{{ current_user }}</strong>) instead of Google.</p>
+    {% endif %}
     <div class="change-form">
+      {% if has_password %}
       <div>
         <label for="cur-pw">Current password</label>
         <input type="password" id="cur-pw" placeholder="Your current password" autocomplete="current-password" />
       </div>
+      {% endif %}
       <div>
         <label for="new-pw">New password</label>
         <input type="password" id="new-pw" placeholder="Min 8 chars, 1 uppercase, 1 number" minlength="8" autocomplete="new-password" />
@@ -251,7 +294,7 @@
         <label for="confirm-pw">Confirm new password</label>
         <input type="password" id="confirm-pw" placeholder="Repeat new password" autocomplete="new-password" />
       </div>
-      <button class="btn btn-gradient btn-primary" id="pw-btn">Save new password</button>
+      <button class="btn btn-gradient btn-primary" id="pw-btn">{% if has_password %}Save new password{% else %}Set password{% endif %}</button>
     </div>
   </div>
 
@@ -353,10 +396,17 @@
     <div id="delete-error"></div>
 
     <div class="delete-form">
+      {% if has_password %}
       <div>
         <label for="del-pw">Confirm your password to continue</label>
         <input type="password" id="del-pw" placeholder="Your password" autocomplete="current-password">
       </div>
+      {% else %}
+      <div>
+        <label for="del-confirm-user">Type your username (<strong>{{ current_user }}</strong>) to confirm</label>
+        <input type="text" id="del-confirm-user" placeholder="Your username" autocomplete="off">
+      </div>
+      {% endif %}
 
       <div id="delete-steps">
         <div id="delete-arm-step">
@@ -377,6 +427,7 @@
 {% block body_scripts %}
 <script nonce="{{ csp_nonce }}">
 window._csrfToken={{ csrf_token | default('') | tojson }};
+window._hasPassword={{ has_password | default(false) | tojson }};
 async function apiFetch(url,opts={}){
   opts.headers=opts.headers||{};
   opts.headers['Content-Type']='application/json';
@@ -643,8 +694,11 @@ function hideDeleteError(){
 
 function armDelete(){
   hideDeleteError();
-  const pw=document.getElementById('del-pw').value;
-  if(!pw){ showDeleteError('Please enter your password first.'); return; }
+  if(window._hasPassword){
+    if(!document.getElementById('del-pw').value){ showDeleteError('Please enter your password first.'); return; }
+  } else {
+    if(!document.getElementById('del-confirm-user').value.trim()){ showDeleteError('Please type your username first.'); return; }
+  }
   document.getElementById('delete-arm-step').style.display='none';
   document.getElementById('delete-confirm-step').style.display='block';
   // W8c: move focus onto the warning so screen-reader users hear it before
@@ -668,14 +722,22 @@ function _deleteConfirmEsc(e){
 
 async function confirmDelete(){
   hideDeleteError();
-  const pw=document.getElementById('del-pw').value;
-  if(!pw){ showDeleteError('Password required.'); cancelDelete(); return; }
+  let body;
+  if(window._hasPassword){
+    const pw=document.getElementById('del-pw').value;
+    if(!pw){ showDeleteError('Password required.'); cancelDelete(); return; }
+    body={password:pw};
+  } else {
+    const cu=document.getElementById('del-confirm-user').value.trim();
+    if(!cu){ showDeleteError('Username required.'); cancelDelete(); return; }
+    body={confirm_username:cu};
+  }
   const btn=document.getElementById('del-confirm-btn');
   btn.disabled=true; btn.textContent='Deleting…';
   try{
     const res=await apiFetch('/auth/delete_account',{
       method:'POST',
-      body:JSON.stringify({password:pw})
+      body:JSON.stringify(body)
     });
     if(!res) return;
     const data=await res.json();
@@ -708,16 +770,24 @@ function hideChangeFeedback(){
 async function submitChangeUsername(){
   hideChangeFeedback();
   const newUser=document.getElementById('new-username').value.trim();
-  const pw=document.getElementById('change-pw').value;
   if(!newUser){ showChangeFeedback('Please enter a new username.','error'); return; }
   if(newUser.length<3){ showChangeFeedback('Username must be at least 3 characters.','error'); return; }
-  if(!pw){ showChangeFeedback('Please enter your current password.','error'); return; }
+  const body={new_username:newUser};
+  if(window._hasPassword){
+    const pw=document.getElementById('change-pw').value;
+    if(!pw){ showChangeFeedback('Please enter your current password.','error'); return; }
+    body.password=pw;
+  } else {
+    const cu=document.getElementById('change-confirm-user').value.trim();
+    if(!cu){ showChangeFeedback('Type your current username to confirm.','error'); return; }
+    body.confirm_username=cu;
+  }
   const btn=document.getElementById('change-btn');
   btn.disabled=true; btn.textContent='Saving…';
   try{
     const res=await apiFetch('/auth/change_username',{
       method:'POST',
-      body:JSON.stringify({new_username:newUser,password:pw})
+      body:JSON.stringify(body)
     });
     if(!res) return;
     const data=await res.json();
@@ -725,8 +795,6 @@ async function submitChangeUsername(){
       showChangeFeedback(data.error||'Failed to change username.','error');
     } else {
       showChangeFeedback('✓ Username changed to "'+data.username+'". Reloading…','success');
-      document.getElementById('new-username').value='';
-      document.getElementById('change-pw').value='';
       setTimeout(()=>window.location.reload(),1200);
     }
   }catch(e){
@@ -769,35 +837,96 @@ function updatePwChecklist(listEl, pw){
 
 async function submitChangePassword(){
   hidePwFeedback();
-  const cur=document.getElementById('cur-pw').value;
   const np=document.getElementById('new-pw').value;
   const cp=document.getElementById('confirm-pw').value;
-  if(!cur){ showPwFeedback('Please enter your current password.','error'); return; }
   if(!np){ showPwFeedback('Please enter a new password.','error'); return; }
   const issues=pwIssues(np);
   if(issues.length){ showPwFeedback('New password needs: '+issues.join(', ')+'.','error'); return; }
   if(np!==cp){ showPwFeedback('New passwords do not match.','error'); return; }
+  const body={new_password:np};
+  if(window._hasPassword){
+    const cur=document.getElementById('cur-pw').value;
+    if(!cur){ showPwFeedback('Please enter your current password.','error'); return; }
+    body.current_password=cur;
+  }
   const btn=document.getElementById('pw-btn');
+  const setting=!window._hasPassword;  // first-time set for a Google-only user
   btn.disabled=true; btn.textContent='Saving…';
   try{
     const res=await apiFetch('/auth/change_password',{
       method:'POST',
-      body:JSON.stringify({current_password:cur,new_password:np})
+      body:JSON.stringify(body)
     });
     if(!res) return;
     const data=await res.json();
     if(!res.ok||!data.ok){
       showPwFeedback(data.error||'Failed to change password.','error');
+      btn.disabled=false; btn.textContent=setting?'Set password':'Save new password';
+    } else if(setting){
+      // Now they have a password too — reload so the page switches to the full
+      // (password-confirmed) account-management UI.
+      showPwFeedback('✓ Password set. You can now sign in with your username too. Reloading…','success');
+      setTimeout(()=>window.location.reload(),1200);
     } else {
       showPwFeedback('✓ Password changed successfully.','success');
       document.getElementById('cur-pw').value='';
       document.getElementById('new-pw').value='';
       document.getElementById('confirm-pw').value='';
+      btn.disabled=false; btn.textContent='Save new password';
     }
   }catch(e){
     showPwFeedback('Network error. Please try again.','error');
-  }finally{
-    btn.disabled=false; btn.textContent='Save new password';
+    btn.disabled=false; btn.textContent=setting?'Set password':'Save new password';
+  }
+}
+
+// ── Google connection management: password step-up, then connect/change/disconnect ──
+function setupGoogleAuth(){
+  function fb(msg,type){ var el=document.getElementById('google-feedback'); if(el){ el.textContent=msg; el.className='change-feedback '+(type||''); el.style.display='block'; } }
+  var pending=null;
+  var stepup=document.getElementById('google-stepup');
+  function openStepup(action){
+    pending=action;
+    if(stepup){ stepup.style.display='block'; var p=document.getElementById('google-stepup-pw'); if(p){ p.value=''; p.focus(); } }
+  }
+  var cb=document.getElementById('google-connect-btn'); if(cb) cb.addEventListener('click',function(){ openStepup('link'); });
+  var chb=document.getElementById('google-change-btn'); if(chb) chb.addEventListener('click',function(){ openStepup('link'); });
+  var db=document.getElementById('google-disconnect-btn'); if(db) db.addEventListener('click',function(){ openStepup('disconnect'); });
+  var go=document.getElementById('google-stepup-go');
+  if(go) go.addEventListener('click',async function(){
+    var pwEl=document.getElementById('google-stepup-pw');
+    var pw=pwEl?pwEl.value:'';
+    if(!pw){ fb('Enter your password to continue.','error'); return; }
+    go.disabled=true; go.textContent='Confirming…';
+    try{
+      var res=await apiFetch('/auth/google/stepup',{method:'POST',body:JSON.stringify({password:pw})});
+      if(!res) return;
+      var data=await res.json();
+      if(!res.ok||!data.ok){ fb(data.error||'Incorrect password.','error'); go.disabled=false; go.textContent='Confirm'; return; }
+      if(pending==='disconnect'){
+        var r2=await apiFetch('/auth/google/disconnect',{method:'POST',body:JSON.stringify({})});
+        if(!r2) return;
+        var d2=await r2.json();
+        if(!r2.ok||!d2.ok){ fb(d2.error||'Could not disconnect Google.','error'); go.disabled=false; go.textContent='Confirm'; return; }
+        fb('✓ Google disconnected. Reloading…','success'); setTimeout(function(){ location.reload(); },900);
+      } else {
+        window.location='/auth/google/link';  // step-up is now fresh → connect/change
+      }
+    }catch(e){ fb('Network error. Please try again.','error'); go.disabled=false; go.textContent='Confirm'; }
+  });
+  // Notices coming back from a link/change/disconnect round-trip.
+  var g=new URLSearchParams(window.location.search).get('google');
+  if(g){
+    var msgs={
+      linked:'✓ Google account updated.',
+      stepup:'Please confirm your password and try again.',
+      in_use:'That Google account is already linked to another FiApp account.',
+      email_in_use:'That Google email is already used by another FiApp account.',
+      error:'Google connection failed. Please try again.',
+      unverified:'That Google email isn’t verified.'
+    };
+    if(msgs[g]) fb(msgs[g], g==='linked'?'success':'error');
+    history.replaceState(null,'','/account');
   }
 }
 
@@ -808,6 +937,7 @@ document.addEventListener('DOMContentLoaded',function(){
   if(changeBtn) changeBtn.addEventListener('click',submitChangeUsername);
   var pwBtn=document.getElementById('pw-btn');
   if(pwBtn) pwBtn.addEventListener('click',submitChangePassword);
+  setupGoogleAuth();
   var newPwInput=document.getElementById('new-pw');
   var newPwChecklist=document.getElementById('new-pw-checklist');
   if(newPwInput && newPwChecklist){
