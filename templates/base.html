@@ -1041,7 +1041,7 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
       _overlay.style.background='rgba(0,0,0,.42)';_overlay.style.display='block';
       _transition(function(){
         _avatar.textContent='🧭';
-        _text.innerHTML='Before we start — you have saved data in FiApp.<br><br>I\'ll <strong>temporarily hide it</strong> during the walkthrough so we start with a clean slate.<br><br><strong>Don\'t worry:</strong> everything is <strong>fully restored</strong> when the tour ends or if you skip.';
+        _text.innerHTML='Before we start - you have saved data in FiApp.<br><br>I\'ll <strong>temporarily hide it</strong> during the walkthrough so we start with a clean slate.<br><br><strong>Don\'t worry:</strong> everything is <strong>fully restored</strong> when the tour ends or if you skip.';
         _btns.innerHTML='';
         var goBtn=document.createElement('button');goBtn.className='wt-btn-primary';goBtn.textContent="Got it, let's go! →";
         goBtn.onclick=function(){_backup();onConfirm();};
