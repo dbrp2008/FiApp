@@ -484,7 +484,7 @@ function updateMonthContextNote(){
   const now=new Date();
   if(currentMK()===mk(now.getFullYear(),now.getMonth())){ note.style.display='none'; return; }
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
-  note.textContent='📅 Viewing '+label+' — categories, columns, and goals here belong to '+label+' only; other months keep their own.';
+  note.textContent='📅 Viewing '+label+' - categories, columns, and goals here belong to '+label+' only; other months keep their own.';
   note.style.display='block';
 }
 
@@ -525,7 +525,7 @@ function updateCloseBar(){
   const mk2=currentMK();
   const btn=bar.querySelector('button');
   if(_isClosedMonth(mk2)){
-    document.getElementById('close-bar-text').innerHTML='🔒 <strong>Closed</strong> — this month is locked.';
+    document.getElementById('close-bar-text').innerHTML='🔒 <strong>Closed</strong> - this month is locked.';
     if(btn){ btn.textContent='Reopen ↩'; btn.onclick=reopenMonth; }
     bar.style.display='flex'; return;
   }
@@ -538,7 +538,7 @@ function updateCloseBar(){
   const mCols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
   getRows(mk2).forEach(row=>{ mCols.forEach(col=>{ spent+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); });
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
-  document.getElementById('close-bar-text').textContent='📋 Close '+label+'? — $'+spent.toFixed(2)+' tracked';
+  document.getElementById('close-bar-text').textContent='📋 Close '+label+'? - $'+spent.toFixed(2)+' tracked';
   bar.style.display='flex';
 }
 function openCloseModal(){
@@ -1016,10 +1016,10 @@ function updateOverspendNudge(){
     return;
   }
   const msg = n.scope==='cat'
-    ? 'At this pace you\'ll spend ~'+fmt(n.projected)+' on '+escapeHtml(n.name)+' by month-end — ~'+fmt(n.overBy)+' over your '+fmt(n.limit)+' goal.'
-    : 'At this pace you\'ll spend ~'+fmt(n.projected)+' this month — ~'+fmt(n.overBy)+' more than your '+fmt(n.limit)+' income.';
+    ? 'At this pace you\'ll spend ~'+fmt(n.projected)+' on '+escapeHtml(n.name)+' by month-end - ~'+fmt(n.overBy)+' over your '+fmt(n.limit)+' goal.'
+    : 'At this pace you\'ll spend ~'+fmt(n.projected)+' this month - ~'+fmt(n.overBy)+' more than your '+fmt(n.limit)+' income.';
   const dismissLabel = n.scope==='cat' ? ('Dismiss overspend nudge for '+n.name+' this month') : 'Dismiss overspend nudge for this month';
-  el.innerHTML='<p>⚠ <strong>Heads up —</strong> '+msg+'</p>'
+  el.innerHTML='<p>⚠ <strong>Heads up -</strong> '+msg+'</p>'
     +'<button class="btn btn-sm" id="nudge-review-btn" type="button">Review →</button>'
     +'<button class="btn-ghost btn-sm" id="nudge-dismiss-btn" type="button" aria-label="'+escapeHtml(dismissLabel)+'">Dismiss</button>';
   el.style.display='flex';
@@ -1378,7 +1378,7 @@ function renderTemplatePrompt(){
     const colHeaders=cols.map(c=>'<th style="padding:.25rem .5rem;font-weight:600;font-size:.78rem;color:var(--muted);border-bottom:1px solid var(--panel-border);white-space:nowrap;">'+c+'</th>').join('');
     const rows=labels.map(l=>{
       const bg=CAT_COLORS[l]||'#e5e7eb';
-      const cells=cols.map(()=>'<td style="padding:.25rem .5rem;border-bottom:1px solid var(--panel-border);font-size:.78rem;color:var(--muted);text-align:right;">—</td>').join('');
+      const cells=cols.map(()=>'<td style="padding:.25rem .5rem;border-bottom:1px solid var(--panel-border);font-size:.78rem;color:var(--muted);text-align:right;">-</td>').join('');
       return '<tr><td style="padding:.25rem .6rem;border-bottom:1px solid var(--panel-border);font-size:.82rem;font-weight:500;background:'+bg+';color:#1f2937;border-radius:3px 0 0 3px;white-space:nowrap;">'+escapeHtml(l)+'</td>'+cells+'</tr>';
     }).join('');
     previewArea.innerHTML='<div style="overflow-x:auto;margin-top:.65rem;border:1px solid var(--panel-border);border-radius:6px;">'
@@ -2360,7 +2360,7 @@ function renderMobileCards(){
       const lbl=document.createElement('div');lbl.className='mc-wl';lbl.textContent=col.label;
       const v=hasKids?children(row.id).reduce((s,c)=>s+getCell(c.id,col.id),0):getCell(row.id,col.id);
       const val=document.createElement('div');val.className='mc-wv'+(v===0?' mc-wv-empty':'');
-      val.textContent=v>0?fmt(v):'—';
+      val.textContent=v>0?fmt(v):'-';
       wk.appendChild(lbl);wk.appendChild(val);weeksEl.appendChild(wk);
     });
     main.appendChild(weeksEl);
