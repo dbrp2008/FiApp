@@ -571,6 +571,7 @@ h1, h2, h3, h4 { color: var(--fg); }
 /* ── iOS auto-zoom prevention (inputs must be ≥16px on mobile) ─ */
 @media (max-width: 640px) {
   input, select, textarea { font-size: max(16px, 1rem); }
+  #sync-revision-note { display: none; }
 }
 
 /* ── Hamburger 44×44 touch target ───────────────────────────── */
