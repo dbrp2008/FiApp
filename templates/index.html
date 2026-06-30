@@ -528,9 +528,11 @@
 
   // ── Helper: gross income for a given month ──
   function grossForMonth(mk2) {
-    // If income tracker has rows set up, it is the authoritative source for all months.
-    // Even a 0 total (after reset) is returned as-is — no fallback to expenses panel.
-    // Fallback only applies when income tracker has never been configured (inc is null or no rows).
+    // The Income Tracker is the sole source of income for the whole app (home, analytics,
+    // and the Expenses budget panel all read it). The Expenses tracker's own gross-income
+    // field used to accept manual entries and fall back to them here, but that desynced
+    // from this total and stored raw USD without converting to the home currency - manual
+    // entry was removed, so there is nothing left to fall back to.
     if(inc && inc.rows && inc.rows.length > 0) {
       var rows = incRows(inc, mk2);
       var total = 0;
@@ -554,10 +556,6 @@
         }
       });
       return parseFloat(total.toFixed(2));
-    }
-    // Fall back to expense tracker's income panel (income tracker not set up)
-    if(exp && exp.income && exp.income[mk2]) {
-      var g = parseFloat(exp.income[mk2].gross); if(g > 0) return g;
     }
     return 0;
   }
@@ -973,13 +971,7 @@
     }
 
     // Win 3: Savings rate > 20%
-    var prevGross = 0;
-    if(exp && exp.income && exp.income[prevMonth]) {
-      prevGross = parseFloat(exp.income[prevMonth].gross) || 0;
-    }
-    if(!prevGross && inc && inc.months && inc.months[prevMonth]) {
-      prevGross = parseFloat(inc.months[prevMonth].gross || inc.months[prevMonth].total) || 0;
-    }
+    var prevGross = grossForMonth(prevMonth);
     if(prevGross > 0 && expenseEntryCount(prevMonth) >= MIN_EXPENSE_ENTRIES) {
       var prevSpent2 = 0, savingsRowTotal = 0;
       var prevRows2 = (exp && exp.rowsByMonth && exp.rowsByMonth[prevMonth] && exp.rowsByMonth[prevMonth].length > 0)
