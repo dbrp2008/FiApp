@@ -52,6 +52,9 @@
        wrapping below. Scoped via :has so the longer budget labels can still wrap normally. */
     .income-field label:has(.help-btn){white-space:nowrap;}
     .income-field input[type="number"]{width:100%;padding:5px 7px;border:1px solid var(--input-border);border-radius:5px;font-size:.88rem;box-sizing:border-box;background:var(--input-bg);color:var(--fg);}
+    /* Gross income is sourced from the Income Tracker only; the (i) badge explains why
+       this field can't be typed into. */
+    .income-field input[type="number"][readonly]{background:var(--total-soft);cursor:not-allowed;color:var(--muted);}
     .income-computed{display:block;padding:5px 7px;border:1px solid var(--panel-border);border-radius:5px;font-size:.88rem;background:var(--panel-bg);font-weight:700;color:var(--fg);}
     .tax-banner{grid-column:1/-1;font-size:.78rem;padding:.35rem .6rem;background:var(--total-bg);border:1px solid var(--success-border);border-radius:5px;color:var(--total-fg);}
     .pos{color:var(--total-fg);} .neg{color:#ef4444;}
@@ -393,8 +396,7 @@
     <div class="income-grid" id="income-grid">
       <div class="income-field">
         <label>Gross Monthly Income ($) <span id="income-sync-icon" class="tip-host help-btn" data-tip="Synced from Income Tracker" style="display:none;">i</span></label>
-        <input type="number" id="inp-gross" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
-        <div id="income-sync-badge" style="margin-top:4px;"></div>
+        <input type="number" id="inp-gross" min="0" step="0.01" inputmode="decimal" placeholder="0.00" readonly>
       </div>
       <div class="income-field">
         <label>Monthly Tax / Deductions ($) <span id="tax-link" style="font-weight:400;font-size:.75rem;color:var(--muted)"> - auto-filled from Tax Calculator</span></label>
@@ -417,7 +419,7 @@
         <span class="income-computed" id="disp-remaining">-</span>
       </div>
       <div class="apply-row">
-        <button class="btn-ghost btn-sm" id="apply-year-btn" style="display:none;font-size:.78rem;" title="Copy this month's income/tax to all months in the same year">Apply to all months in <span id="apply-year-lbl"></span></button>
+        <button class="btn-ghost btn-sm" id="apply-year-btn" style="display:none;font-size:.78rem;" title="Copy this month's tax/deductions to all months in the same year">Apply tax to all months in <span id="apply-year-lbl"></span></button>
         <span id="apply-flash" class="apply-flash"></span>
       </div>
     </div>
