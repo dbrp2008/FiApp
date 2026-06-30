@@ -983,6 +983,9 @@ function applyIncomeToYear(){
   }
 }
 function updateIncomeSummary(){
+  const curLabel=_homeCur()==='USD'?'$':_homeCur();
+  const grossCurEl=document.getElementById('gross-cur-label'); if(grossCurEl) grossCurEl.textContent=curLabel;
+  const taxCurEl=document.getElementById('tax-cur-label'); if(taxCurEl) taxCurEl.textContent=curLabel;
   const gross=parseFloat(document.getElementById('inp-gross').value)||0;
   const tax  =parseFloat(document.getElementById('inp-tax').value)  ||0;
   const annual=gross*12;
