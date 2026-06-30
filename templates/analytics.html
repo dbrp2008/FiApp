@@ -361,20 +361,6 @@ function renderAll(){
     periodRow.appendChild(lbl);
     periodRow.appendChild(sel);
 
-    const ccyLbl=document.createElement('span');
-    ccyLbl.className='period-label'; ccyLbl.textContent='Show in:';
-    const ccySel=document.createElement('select');
-    ccySel.id='curr-sel'; ccySel.className='period-select';
-    ANALYTICS_CURRENCIES.forEach(code=>{
-      const opt=document.createElement('option');
-      opt.value=code; opt.textContent=code;
-      ccySel.appendChild(opt);
-    });
-    ccySel.value=getAnalyticsCurrency();
-    ccySel.addEventListener('change', ()=>{ setAnalyticsCurrency(ccySel.value); reRenderCharts(); });
-    periodRow.appendChild(ccyLbl);
-    periodRow.appendChild(ccySel);
-
     root.appendChild(periodRow);
   }
 
