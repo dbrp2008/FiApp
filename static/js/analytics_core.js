@@ -34,6 +34,7 @@ function _coreToUSD(cost, currency) {
 }
 // Convert native-currency cost directly to home currency (USD-normalize then apply display rate).
 function _coreToHome(cost, currency) { return _coreToUSD(cost, currency) * _anaRate(); }
+function fiappCoreRatesLoaded() { return _coreRatesReady; }
 
 // Analytics-wide display currency. All analytics/snapshot totals are USD-normalized
 // internally (via _coreToUSD above); this only changes how fmtMoney* presents them.
