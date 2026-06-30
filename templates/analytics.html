@@ -1200,6 +1200,11 @@ function reRenderCharts(){
   }catch(e){}
   await fiappCoreLoadRates();
   renderAll();
+  // If rates failed (API down, rate-limited, etc.), retry once after 3s and re-render.
+  // Needed because _coreToHome() returns raw values when _anaRate() = 1 (no rates).
+  if(!fiappCoreRatesLoaded()){
+    setTimeout(()=>fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) reRenderCharts(); }),3000);
+  }
 })();
 
 
