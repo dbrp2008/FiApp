@@ -396,29 +396,76 @@ function showToast(msg, isError=false, duration=4000, undoCb=null){
 }
 
 
-let undoStack=[], redoStack=[];
+let undoByMonth={}, redoByMonth={};
 function loadHistory(){
   try{
     const uid=window.__currentUser&&window.__currentUser.user_id;
     if(uid&&sessionStorage.getItem('fiapp_undo_uid')&&String(sessionStorage.getItem('fiapp_undo_uid'))!==String(uid)){
       sessionStorage.removeItem(UNDO_KEY); sessionStorage.removeItem(REDO_KEY); sessionStorage.removeItem('fiapp_undo_uid'); return;
     }
-    const u=sessionStorage.getItem(UNDO_KEY); if(u) undoStack=JSON.parse(u)||[];
-    const r=sessionStorage.getItem(REDO_KEY); if(r) redoStack=JSON.parse(r)||[];
+    const u=sessionStorage.getItem(UNDO_KEY); if(u){const p=JSON.parse(u); if(p&&!Array.isArray(p)) undoByMonth=p;}
+    const r=sessionStorage.getItem(REDO_KEY); if(r){const p=JSON.parse(r); if(p&&!Array.isArray(p)) redoByMonth=p;}
   }catch{}
 }
 function saveHistory(){
   try{
     const uid=window.__currentUser&&window.__currentUser.user_id;
     if(uid) sessionStorage.setItem('fiapp_undo_uid',String(uid));
-    sessionStorage.setItem(UNDO_KEY,JSON.stringify(undoStack.slice(-60)));
-    sessionStorage.setItem(REDO_KEY,JSON.stringify(redoStack.slice(-60)));
+    sessionStorage.setItem(UNDO_KEY,JSON.stringify(undoByMonth));
+    sessionStorage.setItem(REDO_KEY,JSON.stringify(redoByMonth));
   }catch{}
 }
-function snapshot(){ undoStack.push(JSON.stringify(state)); redoStack.length=0; if(undoStack.length>60) undoStack.shift(); saveHistory(); updateHistBtns(); }
-function undo(){ if(!undoStack.length) return; redoStack.push(JSON.stringify(state)); state=JSON.parse(undoStack.pop()); save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns(); showToast('↩ Undone.', false, 1800); }
-function redo(){ if(!redoStack.length) return; undoStack.push(JSON.stringify(state)); state=JSON.parse(redoStack.pop()); save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns(); showToast('↪ Redone.', false, 1800); }
-function updateHistBtns(){ const u=document.getElementById('undo-btn'),r=document.getElementById('redo-btn'); if(u)u.disabled=!undoStack.length; if(r)r.disabled=!redoStack.length; }
+function _captureSlice(mk2){
+  const goalsSlice={};
+  Object.entries(state.goals||{}).forEach(([k,v])=>{if(k.startsWith(mk2+'|')) goalsSlice[k]=v;});
+  return {
+    cells:JSON.parse(JSON.stringify(state.cells?.[mk2]||{})),
+    rows:state.rowsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.rowsByMonth[mk2])):null,
+    cols:state.colsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.colsByMonth[mk2])):null,
+    goals:goalsSlice
+  };
+}
+function _applySlice(mk2,entry){
+  if(!state.cells) state.cells={};
+  state.cells[mk2]=entry.cells;
+  if(entry.rows!==null){if(!state.rowsByMonth) state.rowsByMonth={}; state.rowsByMonth[mk2]=entry.rows;}
+  else if(state.rowsByMonth) delete state.rowsByMonth[mk2];
+  if(entry.cols!==null){if(!state.colsByMonth) state.colsByMonth={}; state.colsByMonth[mk2]=entry.cols;}
+  else if(state.colsByMonth) delete state.colsByMonth[mk2];
+  if(!state.goals) state.goals={};
+  Object.keys(state.goals).forEach(k=>{if(k.startsWith(mk2+'|')) delete state.goals[k];});
+  Object.assign(state.goals,entry.goals||{});
+}
+function snapshot(){
+  const mk2=currentMK();
+  if(!undoByMonth[mk2]) undoByMonth[mk2]=[];
+  undoByMonth[mk2].push(_captureSlice(mk2));
+  if(undoByMonth[mk2].length>60) undoByMonth[mk2].shift();
+  if(!redoByMonth[mk2]) redoByMonth[mk2]=[];
+  redoByMonth[mk2]=[];
+  saveHistory(); updateHistBtns();
+}
+function undo(){
+  const mk2=currentMK();
+  if(_isClosedMonth(mk2)){showToast('🔒 Month is locked.');return;}
+  const stack=undoByMonth[mk2];
+  if(!stack||!stack.length) return;
+  if(!redoByMonth[mk2]) redoByMonth[mk2]=[];
+  redoByMonth[mk2].push(_captureSlice(mk2));
+  _applySlice(mk2,stack.pop());
+  save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns(); showToast('↩ Undone.', false, 1800);
+}
+function redo(){
+  const mk2=currentMK();
+  if(_isClosedMonth(mk2)){showToast('🔒 Month is locked.');return;}
+  const stack=redoByMonth[mk2];
+  if(!stack||!stack.length) return;
+  if(!undoByMonth[mk2]) undoByMonth[mk2]=[];
+  undoByMonth[mk2].push(_captureSlice(mk2));
+  _applySlice(mk2,stack.pop());
+  save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns(); showToast('↪ Redone.', false, 1800);
+}
+function updateHistBtns(){ const mk2=currentMK(); const u=document.getElementById('undo-btn'),r=document.getElementById('redo-btn'); if(u)u.disabled=!(undoByMonth[mk2]&&undoByMonth[mk2].length); if(r)r.disabled=!(redoByMonth[mk2]&&redoByMonth[mk2].length); }
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key==='z'){e.preventDefault();undo();}
   if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))){e.preventDefault();redo();}
@@ -437,7 +484,7 @@ function shiftMonth(d){
   if(m<0){y--;m=11;} if(m>11){y++;m=0;}
   state.currentYear=y; state.currentMonth=m;
   _mobileColPair=null;
-  saveLocal(); updateMonthNav(); render(); syncIncomeInputs(); checkSpendTrend();
+  saveLocal(); updateMonthNav(); render(); syncIncomeInputs(); checkSpendTrend(); updateHistBtns();
 }
 function populateMonthJump(){
   const sel=document.getElementById('month-jump'); if(!sel) return;
@@ -460,7 +507,7 @@ function jumpToMonth(mkStr){
   state.currentYear=parseInt(parts[0],10);
   state.currentMonth=parseInt(parts[1],10)-1;
   _mobileColPair=null;
-  saveLocal(); updateMonthNav(); render(); syncIncomeInputs(); checkSpendTrend();
+  saveLocal(); updateMonthNav(); render(); syncIncomeInputs(); checkSpendTrend(); updateHistBtns();
 }
 function updateMonthNav(){
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
