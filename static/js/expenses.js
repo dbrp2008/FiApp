@@ -3054,6 +3054,9 @@ function showExportMenu(ev){
   if(menu.getBoundingClientRect().bottom > window.innerHeight - 8){
     menu.style.top=(rect.top - menu.offsetHeight - 4)+'px';
   }
+  if(menu.getBoundingClientRect().right > window.innerWidth - 8){
+    menu.style.left=Math.max(4, window.innerWidth - menu.offsetWidth - 8)+'px';
+  }
   setTimeout(()=>document.addEventListener('click',closeExportMenu,true),50);
 }
 
