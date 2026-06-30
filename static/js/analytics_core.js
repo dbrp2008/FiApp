@@ -32,6 +32,8 @@ function _coreToUSD(cost, currency) {
   var rate = _coreRatesCache[currency];
   return rate ? cost / rate : cost;
 }
+// Convert native-currency cost directly to home currency (USD-normalize then apply display rate).
+function _coreToHome(cost, currency) { return _coreToUSD(cost, currency) * _anaRate(); }
 
 // Analytics-wide display currency. All analytics/snapshot totals are USD-normalized
 // internally (via _coreToUSD above); this only changes how fmtMoney* presents them.
@@ -82,9 +84,9 @@ function prevMK(mkStr) {
   return y + '-' + String(m).padStart(2, '0');
 }
 
-function fmtMoney(v) { return _anaPrefix() + (Number(v) * _anaRate()).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-function fmtMoneyShort(v) { var n = Number(v) * _anaRate(); if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'k'; return _anaPrefix() + n.toFixed(0); }
-function fmtMoneyCard(v) { var n = Number(v) * _anaRate(); if (n >= 1e6) return _anaPrefix() + (n / 1e6).toFixed(1) + 'M'; if (n >= 10000) return _anaPrefix() + (n / 1000).toFixed(0) + 'K'; if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'K'; return _anaPrefix() + n.toFixed(2); }
+function fmtMoney(v) { return _anaPrefix() + Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtMoneyShort(v) { var n = Number(v); if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'k'; return _anaPrefix() + n.toFixed(0); }
+function fmtMoneyCard(v) { var n = Number(v); if (n >= 1e6) return _anaPrefix() + (n / 1e6).toFixed(1) + 'M'; if (n >= 10000) return _anaPrefix() + (n / 1000).toFixed(0) + 'K'; if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'K'; return _anaPrefix() + n.toFixed(2); }
 function fmtPct(v) { return Number(v).toFixed(1) + '%'; }
 function mkLabel(mkStr) { var parts = mkStr.split('-'); return MONTHS_SHORT[parseInt(parts[1]) - 1] + " '" + parts[0].slice(2); }
 
@@ -171,7 +173,7 @@ function calcSubCostForMonth(row, subs, year, month) {
   var cancelStr = cancelCol  ? get(cancelCol.id)              : '';
   var rawCost   = parseFloat(costCol ? get(costCol.id) : 0) || 0;
   var currency  = (subs.rowCurrencies || {})[row.id] || 'USD';
-  var cost      = _coreToUSD(rawCost, currency);
+  var cost      = _coreToHome(rawCost, currency);
   var billing   = billingCol ? get(billingCol.id) || 'Monthly' : 'Monthly';
 
   var monthStart = new Date(year, month, 1);
@@ -227,7 +229,7 @@ function subMonthlySnapshot(subs) {
     var name    = nameCol   ? subs.cells[r.id + '|' + nameCol.id]  || '-' : '-';
     var rawCost = parseFloat(costCol ? subs.cells[r.id + '|' + costCol.id] || 0 : 0) || 0;
     var currency = (subs.rowCurrencies || {})[r.id] || 'USD';
-    var cost    = _coreToUSD(rawCost, currency);
+    var cost    = _coreToHome(rawCost, currency);
     var bill    = billingCol ? subs.cells[r.id + '|' + billingCol.id] || 'Monthly' : 'Monthly';
     var monthly = 0;
     if (bill === 'Monthly')        monthly = cost;
@@ -382,7 +384,7 @@ function incTrackerMonthTotals(inc) {
           var cur = getCurrency(child.id);
           (inc.cols || []).forEach(function(col) {
             var raw = parseFloat(inc.cells[mk2 + '|' + child.id + '|' + col.id] || 0) || 0;
-            total += _coreToUSD(raw, cur);
+            total += _coreToHome(raw, cur);
           });
         });
       } else {
