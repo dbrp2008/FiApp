@@ -371,6 +371,29 @@
   })();
   </script>
 
+  <div class="glass-panel">
+    <h2>💱 Home Currency</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">The currency your expense numbers are already in. Subscriptions and income with their own currency tags are converted to this for analytics.</p>
+    <select id="home-currency-sel" style="padding:.45rem .7rem;border-radius:.5rem;border:1px solid var(--border);background:var(--card-bg);color:var(--fg);font-size:.9rem;cursor:pointer;">
+      {% for code in ['USD','EUR','GBP','AED','HKD','SGD','CAD','AUD','JPY','CNY','INR','CHF','MYR','THB','KRW','BRL','MXN'] %}
+      <option value="{{ code }}"{% if analytics_currency|default('USD') == code %} selected{% endif %}>{{ code }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <script nonce="{{ csp_nonce }}">
+  (function(){
+    var sel=document.getElementById('home-currency-sel');
+    if(!sel) return;
+    sel.addEventListener('change', function(){
+      var code=sel.value;
+      try{ localStorage.setItem('fiapp_analytics_currency', code); }catch(e){}
+      if(typeof _CSRF!=='undefined'&&_CSRF){
+        fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({analytics_currency:code})}).catch(function(){});
+      }
+    });
+  })();
+  </script>
+
   <!-- Voice Settings (mobile only — voice FAB is not shown on desktop) -->
   <div class="glass-panel" style="display:none;" id="voice-settings-card">
     <h3>Voice Input</h3>
