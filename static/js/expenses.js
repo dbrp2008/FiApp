@@ -416,25 +416,43 @@ function saveHistory(){
   }catch{}
 }
 function _captureSlice(mk2){
+  const mkPrefix=mk2+'|';
+  const cellsSlice={};
+  Object.keys(state.cells||{}).forEach(k=>{if(k.startsWith(mkPrefix)) cellsSlice[k]=state.cells[k];});
   const goalsSlice={};
-  Object.entries(state.goals||{}).forEach(([k,v])=>{if(k.startsWith(mk2+'|')) goalsSlice[k]=v;});
+  Object.entries(state.goals||{}).forEach(([k,v])=>{if(k.startsWith(mkPrefix)) goalsSlice[k]=v;});
   return {
-    cells:JSON.parse(JSON.stringify(state.cells?.[mk2]||{})),
+    cells:cellsSlice,
     rows:state.rowsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.rowsByMonth[mk2])):null,
     cols:state.colsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.colsByMonth[mk2])):null,
     goals:goalsSlice
   };
 }
 function _applySlice(mk2,entry){
+  const mkPrefix=mk2+'|';
   if(!state.cells) state.cells={};
-  state.cells[mk2]=entry.cells;
+  Object.keys(state.cells).forEach(k=>{if(k.startsWith(mkPrefix)) delete state.cells[k];});
+  Object.assign(state.cells,entry.cells);
   if(entry.rows!==null){if(!state.rowsByMonth) state.rowsByMonth={}; state.rowsByMonth[mk2]=entry.rows;}
   else if(state.rowsByMonth) delete state.rowsByMonth[mk2];
   if(entry.cols!==null){if(!state.colsByMonth) state.colsByMonth={}; state.colsByMonth[mk2]=entry.cols;}
   else if(state.colsByMonth) delete state.colsByMonth[mk2];
   if(!state.goals) state.goals={};
-  Object.keys(state.goals).forEach(k=>{if(k.startsWith(mk2+'|')) delete state.goals[k];});
+  Object.keys(state.goals).forEach(k=>{if(k.startsWith(mkPrefix)) delete state.goals[k];});
   Object.assign(state.goals,entry.goals||{});
+}
+function _flashChangedRows(beforeCells,afterCells){
+  const changed=new Set();
+  const allKeys=new Set([...Object.keys(beforeCells||{}),...Object.keys(afterCells||{})]);
+  allKeys.forEach(k=>{if((beforeCells||{})[k]!==(afterCells||{})[k]){const parts=k.split('|');if(parts.length>=3) changed.add(parts[1]);}});
+  if(!changed.size) return;
+  changed.forEach(rowId=>{
+    const el=document.querySelector('tr[data-row-id="'+rowId+'"],div.mc-card[data-row-id="'+rowId+'"]');
+    if(!el) return;
+    el.style.transition='background-color 0s';
+    el.style.backgroundColor='rgba(99,102,241,0.2)';
+    requestAnimationFrame(()=>{el.style.transition='background-color 1.2s ease-out';el.style.backgroundColor='';});
+  });
 }
 function snapshot(){
   const mk2=currentMK();
@@ -450,20 +468,26 @@ function undo(){
   if(_isClosedMonth(mk2)){showToast('🔒 Month is locked.');return;}
   const stack=undoByMonth[mk2];
   if(!stack||!stack.length) return;
+  const beforeCells=Object.assign({},state.cells);
   if(!redoByMonth[mk2]) redoByMonth[mk2]=[];
   redoByMonth[mk2].push(_captureSlice(mk2));
   _applySlice(mk2,stack.pop());
-  save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns(); showToast('↩ Undone.', false, 1800);
+  save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns();
+  _flashChangedRows(beforeCells,state.cells);
+  showToast('↩ Undone.', false, 1800);
 }
 function redo(){
   const mk2=currentMK();
   if(_isClosedMonth(mk2)){showToast('🔒 Month is locked.');return;}
   const stack=redoByMonth[mk2];
   if(!stack||!stack.length) return;
+  const beforeCells=Object.assign({},state.cells);
   if(!undoByMonth[mk2]) undoByMonth[mk2]=[];
   undoByMonth[mk2].push(_captureSlice(mk2));
   _applySlice(mk2,stack.pop());
-  save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns(); showToast('↪ Redone.', false, 1800);
+  save(); saveHistory(); render(); syncIncomeInputs(); updateHistBtns();
+  _flashChangedRows(beforeCells,state.cells);
+  showToast('↪ Redone.', false, 1800);
 }
 function updateHistBtns(){ const mk2=currentMK(); const u=document.getElementById('undo-btn'),r=document.getElementById('redo-btn'); if(u)u.disabled=!(undoByMonth[mk2]&&undoByMonth[mk2].length); if(r)r.disabled=!(redoByMonth[mk2]&&redoByMonth[mk2].length); }
 document.addEventListener('keydown',e=>{
@@ -784,7 +808,8 @@ function colTotal(cId){
     return s+getCell(r.id,cId);
   },0);
 }
-function fmt(n){ return '$'+Math.max(0,n).toFixed(2); }
+function _homePfx(){ try{ var c=localStorage.getItem('fiapp_analytics_currency')||'USD'; return c==='USD'?'$':c+' '; }catch(e){ return '$'; } }
+function fmt(n){ return _homePfx()+Math.max(0,n).toFixed(2); }
 
 function _goalKey(rId){ return currentMK()+'|'+rId; }
 function _renderGoalBar(rId, totTd){
@@ -988,11 +1013,11 @@ function updateIncomeSummary(){
   const afterTax=Math.max(0,gross-tax);
   const exp=grandTotal();
   const rem=afterTax-exp;
-  document.getElementById('disp-annual').textContent  =annual>0?'$'+annual.toFixed(2):'-';
+  document.getElementById('disp-annual').textContent  =annual>0?_homePfx()+annual.toFixed(2):'-';
   document.getElementById('disp-aftertax').textContent=gross>0?fmt(afterTax):'-';
   document.getElementById('disp-expenses').textContent=fmt(exp);
   const remEl=document.getElementById('disp-remaining');
-  remEl.textContent=gross>0?('$'+Math.abs(rem).toFixed(2)+(rem<0?' over budget':'')):'-';
+  remEl.textContent=gross>0?(_homePfx()+Math.abs(rem).toFixed(2)+(rem<0?' over budget':'')):'-';
   remEl.className='income-computed '+(rem<0?'neg':'pos');
   // Phase 4c — end-of-month projection
   const projEl=document.getElementById('eom-projection');
@@ -1162,7 +1187,7 @@ async function syncFromIncomeTracker(mk2){
       document.getElementById('apply-year-btn').style.display=hasData?'inline-block':'none';
       saveLocal(); updateIncomeSummary();
     }
-    const tFmt='$'+total.toFixed(2);
+    const tFmt=_homePfx()+total.toFixed(2);
     const icon=document.getElementById('income-sync-icon');
     if(alreadySynced||obj.fromIncome){
       document.getElementById('inp-gross').readOnly=true;
@@ -1744,10 +1769,10 @@ function renderChart(){
       type:'bar',
       data:{labels,datasets:[{label:'$ Amount',data:vals,backgroundColor:colors,borderRadius:4}]},
       options:{
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' $'+ctx.parsed.y.toFixed(2)}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+_homePfx()+ctx.parsed.y.toFixed(2)}}},
         scales:{
           x:{ticks:{color:fgColor},grid:{color:gridColor},border:{color:gridColor}},
-          y:{beginAtZero:true,ticks:{color:fgColor,callback:v=>'$'+v},grid:{color:gridColor},border:{color:gridColor}}
+          y:{beginAtZero:true,ticks:{color:fgColor,callback:v=>_homePfx()+v},grid:{color:gridColor},border:{color:gridColor}}
         },
         responsive:true,maintainAspectRatio:true
       }
