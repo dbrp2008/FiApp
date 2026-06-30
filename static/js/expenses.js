@@ -808,7 +808,8 @@ function colTotal(cId){
     return s+getCell(r.id,cId);
   },0);
 }
-function _homePfx(){ try{ var c=localStorage.getItem('fiapp_analytics_currency')||'USD'; return c==='USD'?'$':c+' '; }catch(e){ return '$'; } }
+function _homeCur(){ try{ return localStorage.getItem('fiapp_analytics_currency')||'USD'; }catch(e){ return 'USD'; } }
+function _homePfx(){ var c=_homeCur(); return c==='USD'?'$':c+' '; }
 function fmt(n){ return _homePfx()+Math.max(0,n).toFixed(2); }
 
 function _goalKey(rId){ return currentMK()+'|'+rId; }
@@ -943,64 +944,39 @@ function monthIncomeObj(){
   }
   return state.income[key];
 }
-function onGrossInput(){
-  
-  const obj=monthIncomeObj();
-  delete obj.fromIncome;
-  const taxEl=document.getElementById('inp-tax');
-  taxEl.value='';
-  onIncomeInput();
-  document.getElementById('income-sync-badge').innerHTML='';
-}
 function onIncomeInput(){
-  const grossEl=document.getElementById('inp-gross');
-  if(parseFloat(grossEl.value)<0) grossEl.value='0';
-  const gross=grossEl.value;
   const taxEl=document.getElementById('inp-tax');
   if(parseFloat(taxEl.value)<0) taxEl.value='0';
-  const gNum=parseFloat(gross)||0;
-  if(gNum>0 && (parseFloat(taxEl.value)||0)>gNum) taxEl.value=gNum.toFixed(2);
+  const grossNum=parseFloat(document.getElementById('inp-gross').value)||0;
+  if(grossNum>0 && (parseFloat(taxEl.value)||0)>grossNum) taxEl.value=grossNum.toFixed(2);
   const tax=taxEl.value;
-  const obj=monthIncomeObj(); obj.gross=gross; obj.tax=tax;
-  if(gNum>0) localStorage.setItem(PREFILL_KEY,(gNum*12).toFixed(0));
-  document.getElementById('apply-year-btn').style.display=(gross||tax)?'inline-block':'none';
+  const obj=monthIncomeObj(); obj.tax=tax;
+  document.getElementById('apply-year-btn').style.display=tax?'inline-block':'none';
   save(); updateIncomeSummary();
 }
 function syncIncomeInputs(){
   const obj=monthIncomeObj();
   document.getElementById('inp-gross').value=obj.gross||'';
-  document.getElementById('inp-gross').readOnly=!!obj.fromIncome;
-  const _icon=document.getElementById('income-sync-icon');
-  if(_icon) _icon.style.display=obj.fromIncome?'':'none';
   document.getElementById('inp-tax').value  =obj.tax  ||'';
-  const hasData=!!(obj.gross||obj.tax);
-  document.getElementById('apply-year-btn').style.display=hasData?'inline-block':'none';
+  document.getElementById('apply-year-btn').style.display=obj.tax?'inline-block':'none';
   document.getElementById('apply-year-lbl').textContent=state.currentYear;
   updateIncomeSummary();
   syncFromIncomeTracker(currentMK());
 }
-function enterIncomeManually(){
-  const obj=monthIncomeObj();
-  delete obj.fromIncome;
-  saveLocal();
-  const inp=document.getElementById('inp-gross');
-  inp.readOnly=false;
-  inp.focus(); inp.select();
-  const icon=document.getElementById('income-sync-icon');
-  if(icon) icon.style.display='none';
-  document.getElementById('income-sync-badge').innerHTML='<button class="income-sync-update" data-action="accept-income-sync" data-mk="'+escapeHtml(currentMK())+'">↺ Re-link to Income Tracker</button>';
-}
 function applyIncomeToYear(){
+  // Gross is always synced live from the Income Tracker per month (never manual), so
+  // only tax/deductions - the one field still entered by hand here - gets copied.
   snapshot();
   const obj=monthIncomeObj();
   for(let m=0;m<12;m++){
     const k=mk(state.currentYear,m);
-    state.income[k]={gross:obj.gross,tax:obj.tax};
+    if(!state.income[k]) state.income[k]={gross:'',tax:''};
+    state.income[k].tax=obj.tax;
   }
   save();
   const f=document.getElementById('apply-flash');
   if(f){
-    f.textContent='✓ Applied to all 12 months in '+state.currentYear+'.';
+    f.textContent='✓ Tax applied to all 12 months in '+state.currentYear+'.';
     f.classList.add('show');
     clearTimeout(window._applyFlashT);
     window._applyFlashT=setTimeout(()=>f.classList.remove('show'),3500);
@@ -1118,14 +1094,11 @@ function loadTaxCarryover(){
     if(!isFresh) return;
 
     const monthlyTax=(parseFloat(t.tax)/12).toFixed(2);
-    const monthlyIncome=(parseFloat(t.income)/12).toFixed(2);
 
-    
     const targetMonths=t.months&&t.months.length ? t.months : [currentMK()];
     targetMonths.forEach(mk2=>{
       if(!state.income[mk2]) state.income[mk2]={};
       state.income[mk2].tax=monthlyTax;
-      if(!state.income[mk2].gross) state.income[mk2].gross=monthlyIncome;
     });
 
     t.consumed=true;
@@ -1166,54 +1139,36 @@ async function _incomeMonthTotalUSD(incomeState, mk2){
   }
   return total;
 }
+// Gross income is never typed by hand here - it always mirrors the Income Tracker for
+// the viewed month (converted to home currency), so the budget panel can't drift out of
+// sync with home/analytics the way a manually-entered figure used to. When the Income
+// Tracker has nothing for this month, the (i) badge points the user there instead of
+// accepting a local override.
 async function syncFromIncomeTracker(mk2){
-  const badge=document.getElementById('income-sync-badge'); if(!badge) return;
+  const icon=document.getElementById('income-sync-icon');
+  const grossEl=document.getElementById('inp-gross');
   // During walkthrough, fiapp_income_v1 may still hold real pre-tour data (user hasn't
   // saved income yet this session). Skip auto-fill so budget stays clean.
-  if(isWalkthroughActive()){badge.innerHTML='';return;}
+  if(isWalkthroughActive()){ if(icon) icon.style.display='none'; return; }
   try{
     const incomeState=JSON.parse(localStorage.getItem(INCOME_KEY));
-    if(!incomeState||!incomeState.rows){badge.innerHTML='';return;}
-    const total=await _incomeMonthTotalUSD(incomeState,mk2);
-    if(total<=0){badge.innerHTML='';return;}
+    const hasTracker=!!(incomeState&&incomeState.rows&&incomeState.rows.length);
+    const totalUsd=hasTracker?await _incomeMonthTotalUSD(incomeState,mk2):0;
+    const total=totalUsd*(expRatesCache[_homeCur()]||1);
     const obj=monthIncomeObj();
-    const currentGross=parseFloat(obj.gross)||0;
-    const alreadySynced=obj.fromIncome&&Math.abs(currentGross-total)<0.01;
-    if(!obj.gross||obj.fromIncome){
+    if(total>0){
       obj.gross=total.toFixed(2);
       obj.fromIncome=true;
-      document.getElementById('inp-gross').value=obj.gross;
-      const hasData=!!(obj.gross||obj.tax);
-      document.getElementById('apply-year-btn').style.display=hasData?'inline-block':'none';
-      saveLocal(); updateIncomeSummary();
-    }
-    const tFmt=_homePfx()+total.toFixed(2);
-    const icon=document.getElementById('income-sync-icon');
-    if(alreadySynced||obj.fromIncome){
-      document.getElementById('inp-gross').readOnly=true;
-      if(icon) icon.style.display='';
-      badge.innerHTML='<button data-action="enter-income-manually" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.78rem;padding:0;font-family:inherit;text-decoration:underline;">Enter manually</button>';
+      if(grossEl) grossEl.value=obj.gross;
+      if(icon){ icon.dataset.tip='Synced from Income Tracker'; icon.style.display=''; }
+      try{ localStorage.setItem(PREFILL_KEY,(total*12).toFixed(0)); }catch(e){}
     } else {
-      document.getElementById('inp-gross').readOnly=false;
-      if(icon) icon.style.display='none';
-      badge.innerHTML='<button class="income-sync-update" data-action="accept-income-sync" data-mk="'+escapeHtml(mk2)+'">↺ Re-link to Income Tracker ('+tFmt+')</button>';
+      obj.gross='';
+      obj.fromIncome=false;
+      if(grossEl) grossEl.value='';
+      if(icon){ icon.dataset.tip='No income set for this month - add it in the Income Tracker'; icon.style.display=''; }
     }
-  }catch(e){badge.innerHTML='';}
-}
-async function acceptIncomeSync(mk2){
-  try{
-    const incomeState=JSON.parse(localStorage.getItem(INCOME_KEY));
-    if(!incomeState||!incomeState.rows) return;
-    const total=await _incomeMonthTotalUSD(incomeState,mk2);
-    if(total<=0) return;
-    snapshot();
-    const obj=monthIncomeObj();
-    obj.gross=total.toFixed(2);
-    obj.fromIncome=true;
-    document.getElementById('inp-gross').value=obj.gross;
-    const hasData=!!(obj.gross||obj.tax);
-    document.getElementById('apply-year-btn').style.display=hasData?'inline-block':'none';
-    save(); updateIncomeSummary(); syncFromIncomeTracker(mk2);
+    saveLocal(); updateIncomeSummary();
   }catch(e){}
 }
 
@@ -3333,12 +3288,6 @@ document.getElementById('chart-type-doughnut').addEventListener('click',function
 // Help modal: close on overlay click or close button
 document.getElementById('help-modal').addEventListener('click',function(e){if(e.target===this)closeHelp();});
 document.getElementById('help-close-btn').addEventListener('click',closeHelp);
-// Event delegation for dynamically-injected income-sync update button
-document.getElementById('income-sync-badge').addEventListener('click',function(e){
-  var btn=e.target.closest('[data-action="accept-income-sync"]');
-  if(btn){ acceptIncomeSync(btn.dataset.mk); return; }
-  if(e.target.closest('[data-action="enter-income-manually"]')) enterIncomeManually();
-});
 // CSP: bound here instead of inline attributes in expenses.html
 document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
 // close-bar button's click is wired dynamically in updateCloseBar() (reopenMonth when the
@@ -3346,7 +3295,6 @@ document.getElementById('month-jump').addEventListener('change',function(){jumpT
 // would also fire openCloseModal and pop the close dialog.
 (function(){var b=document.getElementById('close-modal-cancel');if(b)b.addEventListener('click',cancelClose);})();
 (function(){var b=document.getElementById('close-modal-confirm');if(b)b.addEventListener('click',confirmClose);})();
-document.getElementById('inp-gross').addEventListener('input',onGrossInput);
 document.getElementById('inp-tax').addEventListener('input',onIncomeInput);
 (function(){var b=document.getElementById('voice-strip-dismiss');if(b)b.addEventListener('click',function(){this.parentElement.style.display='none';});})();
 
