@@ -45,6 +45,12 @@ MAX_SUBS = 100
 MAX_ROWS = 20
 MAX_COLS = 12
 
+# Expenses tracker's per-month budget-panel income/tax figures (data.income in
+# _within_limits) — bounds-checked so a forged /api/save/expenses payload can't stuff
+# the JSONB blob with oversized numbers or an unbounded number of month keys.
+MAX_INCOME_MONTHS = 600
+MAX_INCOME_VALUE = 1_000_000_000
+
 # Sync conflict detection (W3): how many revisions to retain per (user, tracker).
 _REVISION_KEEP = 20
 
@@ -393,6 +399,23 @@ def _within_limits(data):
     for arr in (data.get('colsByMonth') or {}).values():
         if isinstance(arr, list) and len(arr) > MAX_COLS:
             return False
+    income = data.get('income')
+    if income is not None:
+        if not isinstance(income, dict) or len(income) > MAX_INCOME_MONTHS:
+            return False
+        for entry in income.values():
+            if not isinstance(entry, dict):
+                return False
+            for field in ('gross', 'tax'):
+                val = entry.get(field)
+                if val in ('', None):
+                    continue
+                try:
+                    num = float(val)
+                except (TypeError, ValueError):
+                    return False
+                if not math.isfinite(num) or num < 0 or num > MAX_INCOME_VALUE:
+                    return False
     return True
 
 
