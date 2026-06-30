@@ -392,7 +392,7 @@ function incTrackerMonthTotals(inc) {
         var cur = getCurrency(row.id);
         (inc.cols || []).forEach(function(col) {
           var raw = parseFloat(inc.cells[mk2 + '|' + row.id + '|' + col.id] || 0) || 0;
-          total += _coreToUSD(raw, cur);
+          total += _coreToHome(raw, cur);
         });
       }
     });
