@@ -5,7 +5,7 @@ import math
 import time
 import hmac
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import psycopg2
 import psycopg2.extras
 from psycopg2 import sql as _sql
@@ -63,6 +63,7 @@ if not app.secret_key:
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' and not app.debug
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # 1 hour — caches /static/ files per session
 
@@ -661,6 +662,7 @@ def register():
                 user_id = cur.fetchone()[0]
                 cur.execute("INSERT INTO user_data (user_id) VALUES (%s)", (user_id,))
         session.clear()  # drop any pre-auth session state (fixation hardening)
+        session.permanent = True
         session['user_id'] = user_id
         session['username'] = username
         session['theme'] = 'light'
@@ -696,6 +698,7 @@ def auth_login():
         if not check_password_hash(row[1], password):
             return jsonify({"error": "Invalid username or password"}), 401
         session.clear()  # drop any pre-auth session state (fixation hardening)
+        session.permanent = True
         session['user_id'] = row[0]
         session['username'] = username
         session['theme'] = row[2] or 'light'
@@ -743,6 +746,7 @@ _STEPUP_TTL = 600  # seconds a password step-up authorizes a Google change/disco
 def _establish_session(user_id, username, theme=None, personality=None, analytics_currency=None):
     """Fixation-hardened login (mirrors register/login): fresh session + CSRF."""
     session.clear()
+    session.permanent = True
     session['user_id'] = user_id
     session['username'] = username
     session['theme'] = theme or 'light'
