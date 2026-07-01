@@ -305,13 +305,30 @@ window.VoiceInput = (function () {
     return { index: Math.min(3, Math.floor((new Date().getDate() - 1) / 7)), explicit: false };
   }
 
+  // Cheap singular/plural tolerance for category matching — no stemming library,
+  // just the two common English pluralization patterns, tried as extra substrings.
+  // "investments" (label) vs "investment" (spoken), or vice versa, should still match.
+  function _numberVariants(word) {
+    var variants = [word];
+    if (word.length > 3 && word.slice(-1) === 's') {
+      variants.push(word.slice(0, -1));           // investments -> investment
+      if (word.slice(-2) === 'es') variants.push(word.slice(0, -2)); // boxes -> box
+    } else {
+      variants.push(word + 's');                  // investment -> investments
+    }
+    return variants;
+  }
+  function _containsWithPlural(haystack, word) {
+    return _numberVariants(word).some(function(v) { return haystack.indexOf(v) !== -1; });
+  }
+
   function _matchCategory(lower, rows) {
     var best = { rowId: null, rowLabel: null, confidence: 0 };
 
     // 1. Exact label match — always beats learned dict (prevents stale learning overriding real category names)
     rows.forEach(function(row) {
       var label = row.label.toLowerCase();
-      if (lower.indexOf(label) !== -1) {
+      if (_containsWithPlural(lower, label)) {
         if (1.0 > best.confidence) best = { rowId: row.id, rowLabel: row.label, confidence: 1.0 };
       }
     });
@@ -343,7 +360,7 @@ window.VoiceInput = (function () {
     // 3. Partial: any label word (>2 chars) found in transcript
     rows.forEach(function(row) {
       var labelWords = row.label.toLowerCase().split(/\s+/);
-      var hit = labelWords.some(function(lw) { return lw.length > 2 && lower.indexOf(lw) !== -1; });
+      var hit = labelWords.some(function(lw) { return lw.length > 2 && _containsWithPlural(lower, lw); });
       if (hit && best.confidence < 0.8) {
         best = { rowId: row.id, rowLabel: row.label, confidence: 0.8 };
       }
