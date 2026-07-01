@@ -14,7 +14,7 @@ const TRIAL_OPTS  = [
   {v:'3months',l:'1st 3 months free'},
 ];
 const STATUS_CLR  = {Active:'#15803d',Trial:'#0369a1',Paused:'#b45309',Cancelled:'#dc2626'};
-const CELL_CURRENCIES = ['USD','EUR','GBP','AED','HKD','SGD','CAD','AUD','JPY','CNY','INR','CHF','MYR','THB','KRW','BRL','MXN'];
+const CELL_CURRENCIES = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'];
 const MEDALS = ['🥇','🥈','🥉'];
 const MEDAL_CLS = ['medal-gold','medal-silver','medal-bronze'];
 const _measureCtx = document.createElement('canvas').getContext('2d');
