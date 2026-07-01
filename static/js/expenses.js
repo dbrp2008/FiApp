@@ -3336,4 +3336,8 @@ window._expVoiceBridge = {
   getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
   isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
   isForecastMonth: function() { return isForecastMonth(); },
+  // Expenses has no per-row currency — every cell is always in the account's home
+  // currency. voice-input.js uses this to convert a spoken amount before committing
+  // it, instead of writing raw digits into a cell it thinks is already home-currency.
+  homeCurrency: function() { return _homeCur(); },
 };
