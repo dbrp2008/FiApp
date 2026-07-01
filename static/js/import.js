@@ -34,7 +34,7 @@
   const INCOME_STORAGE_KEY='fiapp_income_v1';
   const INCOME_DEFAULT_ROWS=['Salary','Freelance','Investments','Other Income'];
   const INCOME_CAT_COLORS={'Salary':'#bbf7d0','Freelance':'#bfdbfe','Investments':'#fed7aa','Other Income':'#e9d5ff'};
-  const IMPORT_CURRENCIES=['USD','EUR','GBP','CHF','CAD','AUD','JPY','NZD','SEK','NOK','DKK','HKD','SGD','CNY','INR'];
+  const IMPORT_CURRENCIES=['AUD','CAD','CHF','CNY','DKK','EUR','GBP','HKD','INR','JPY','NOK','NZD','SEK','SGD','USD'];
   function _incomeMapKey(){ return 'fiapp_import_income_catmap_v1_'+(window.__currentUser||'anon'); }
   function loadIncomeCatMap(){ try{ const m=JSON.parse(localStorage.getItem(_incomeMapKey())||'{}'); return (m&&typeof m==='object')?m:{}; }catch(_){ return {}; } }
   function saveIncomeCatMap(map){ try{ localStorage.setItem(_incomeMapKey(),JSON.stringify(map)); }catch(_){} }
