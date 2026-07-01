@@ -515,8 +515,13 @@ window.VoiceInput = (function () {
     var existing = parseFloat(br.getCell(effectiveRowId, colId) || '0') || 0;
     var isRemove = p.action === 'remove';
     var newCurrency = p.currency && p.currency.code;
-    var existingCurrency = (newCurrency && typeof br.rowCurrency === 'function')
-      ? br.rowCurrency(effectiveRowId) : null;
+    // Trackers with per-row currencies (income) compare against the row's own tag.
+    // Trackers without one (expenses) have no "existing" currency to speak of — every
+    // cell is always in the account's home currency, so compare against that instead.
+    var existingCurrency = newCurrency && (
+      typeof br.rowCurrency === 'function' ? br.rowCurrency(effectiveRowId) :
+      typeof br.homeCurrency === 'function' ? br.homeCurrency() : null
+    );
     var currencyChanging = newCurrency && existingCurrency && newCurrency !== existingCurrency;
 
     // Helper that finishes writing after we have the final amount
