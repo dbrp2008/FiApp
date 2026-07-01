@@ -810,10 +810,15 @@ function colTotal(cId){
 }
 function _homeCur(){ try{ return localStorage.getItem('fiapp_analytics_currency')||'USD'; }catch(e){ return 'USD'; } }
 function _homePfx(){ var c=_homeCur(); return c==='USD'?'$':c+' '; }
-// Currencies with an unambiguous, single-glyph symbol (verified against the app's
-// 'Inter' font stack). CNY is deliberately excluded — it would render as the same ¥
-// glyph as JPY, which is more confusing than just showing the ISO code.
-const CUR_SYMBOLS={USD:'$',EUR:'€',GBP:'£',JPY:'¥',INR:'₹',KRW:'₩',THB:'฿'};
+// Currency symbols (verified renderable against the app's 'Inter' font stack).
+// JPY/CNY and the $-family currencies use their standard international disambiguation
+// prefixes (JP¥/CN¥, US$/HK$/S$/C$/A$/Mex$) since a bare ¥ or $ would be ambiguous
+// with each other. AED/CHF have no standardized single-glyph symbol, so they keep
+// showing the ISO code. SAR does have one now (U+20C1 SAUDI RIYAL SIGN, Unicode 17.0,
+// Sept 2025) but it's deliberately left out: Inter (this app's font) doesn't have the
+// glyph yet (open issue: github.com/rsms/inter/issues/842) and the codepoint is too
+// new for reliable cross-device font support. Revisit once that support lands.
+const CUR_SYMBOLS={USD:'US$',EUR:'€',GBP:'£',JPY:'JP¥',CNY:'CN¥',INR:'₹',KRW:'₩',THB:'฿',HKD:'HK$',SGD:'S$',CAD:'C$',AUD:'A$',MXN:'Mex$',BRL:'R$',MYR:'RM'};
 function _curSymbol(c){ return CUR_SYMBOLS[c]||c; }
 function fmt(n){ return _homePfx()+Math.max(0,n).toFixed(2); }
 
