@@ -43,9 +43,10 @@
     
     .income-panel{background:var(--total-soft);border:1px solid var(--success-border);border-radius:8px;padding:.9rem 1.1rem;margin-bottom:.75rem;}
     .income-panel h3{margin:0 0 .6rem;font-size:.9rem;color:var(--total-fg);}
-    /* min 190px so the widest label ("Gross Monthly Income ($)" + the synced (i) badge,
-       ~183px) always fits its cell; otherwise it overflowed and the (i) touched the next
-       field's text. The column gap then keeps it clear of the neighbour. */
+    /* min 190px so the widest label ("Gross Monthly Income (Mex$)" + the synced (i) badge)
+       always fits its cell; otherwise it overflowed and the (i) touched the next field's
+       text. Verified against every CUR_SYMBOLS entry in expenses.js. The column gap then
+       keeps it clear of the neighbour. */
     .income-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.5rem .85rem;}
     .income-field label{font-size:.75rem;font-weight:600;color:var(--fg);display:block;margin-bottom:2px;}
     /* Keep the synced-from-income (i) badge on the same line as its label text rather than
