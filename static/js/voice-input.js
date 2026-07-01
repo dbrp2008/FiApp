@@ -21,6 +21,8 @@ window.VoiceInput = (function () {
     'bus':'Transport','train':'Transport','mrt':'Transport','subway':'Transport',
     'grab ride':'Transport','took bus':'Transport','took train':'Transport',
     'took uber':'Transport','took taxi':'Transport','took mrt':'Transport',
+    'took mtr':'Transport','took subway':'Transport','commute':'Transport', 'mtr':'Transport',
+    'took metro':'Transport','took light rail':'Transport','took tram':'Transport',
     // Travel
     'trip to':'Travel','flew to':'Travel','fly to':'Travel','flight to':'Travel',
     'go to':'Travel','going to':'Travel','travel to':'Travel','travelled to':'Travel',
