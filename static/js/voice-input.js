@@ -78,6 +78,11 @@ window.VoiceInput = (function () {
     'rs':['INR','PKR','NPR','LKR'],
     'franc':['CHF','XOF','XAF'],
     'francs':['CHF','XOF','XAF'],
+    // Deliberately NOT adding bare 'frank'/'franks' here — "Frank" is a common first
+    // name (e.g. "Frank paid me $10") and this map has no name-vs-currency disambiguation.
+    // The "swiss frank(s)" regex below covers the actual ASR mishearing (franc→frank)
+    // with a much lower false-positive rate; a bare "franks" still defaults to home
+    // currency as normal, with CHF available in the picker if the user wants it.
     'peso':['MXN','PHP','COP','ARS'],
     'pesos':['MXN','PHP','COP','ARS'],
     'riyal':['SAR','QAR'],
@@ -115,7 +120,7 @@ window.VoiceInput = (function () {
     'INR','PKR','KRW','MYR','THB','HKD','NZD','AED','CHF'];
 
   function _extractCurrency(lower) {
-    if (/\bswiss\s+francs?\b/.test(lower)) return { code: 'CHF', candidates: null };
+    if (/\bswiss\s+(?:francs?|franks?)\b/.test(lower)) return { code: 'CHF', candidates: null };
     var keys = Object.keys(CURRENCIES);
     for (var i = 0; i < keys.length; i++) {
       if (new RegExp('\\b' + keys[i] + '\\b').test(lower)) {
