@@ -810,6 +810,11 @@ function colTotal(cId){
 }
 function _homeCur(){ try{ return localStorage.getItem('fiapp_analytics_currency')||'USD'; }catch(e){ return 'USD'; } }
 function _homePfx(){ var c=_homeCur(); return c==='USD'?'$':c+' '; }
+// Currencies with an unambiguous, single-glyph symbol (verified against the app's
+// 'Inter' font stack). CNY is deliberately excluded — it would render as the same ¥
+// glyph as JPY, which is more confusing than just showing the ISO code.
+const CUR_SYMBOLS={USD:'$',EUR:'€',GBP:'£',JPY:'¥',INR:'₹',KRW:'₩',THB:'฿'};
+function _curSymbol(c){ return CUR_SYMBOLS[c]||c; }
 function fmt(n){ return _homePfx()+Math.max(0,n).toFixed(2); }
 
 function _goalKey(rId){ return currentMK()+'|'+rId; }
@@ -983,7 +988,7 @@ function applyIncomeToYear(){
   }
 }
 function updateIncomeSummary(){
-  const curLabel=_homeCur()==='USD'?'$':_homeCur();
+  const curLabel=_curSymbol(_homeCur());
   const grossCurEl=document.getElementById('gross-cur-label'); if(grossCurEl) grossCurEl.textContent=curLabel;
   const taxCurEl=document.getElementById('tax-cur-label'); if(taxCurEl) taxCurEl.textContent=curLabel;
   const gross=parseFloat(document.getElementById('inp-gross').value)||0;
