@@ -19,7 +19,7 @@
   // Month nav + currency selects, the subscriptions "add service" picker, and the
   // per-row Billing/Trial/Status selects (data-ctype distinguishes which despite all
   // three sharing the .c-sel class).
-  var SELECTOR = 'select.month-jump, select.cell-curr-sel, select#curr-sel, select#currency_i, select#currency_o, select#sub-sel, select.c-sel[data-ctype="billing"], select.c-sel[data-ctype="trial"], select.c-sel[data-ctype="status"]';
+  var SELECTOR = 'select.month-jump, select.cell-curr-sel, select#curr-sel, select#currency_i, select#currency_o, select#sub-sel, select#home-currency-sel, select.c-sel[data-ctype="billing"], select.c-sel[data-ctype="trial"], select.c-sel[data-ctype="status"]';
   var _reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var open = null; // {select, overlay, wheel, list, items, idx, onKey, reposition, raf}
