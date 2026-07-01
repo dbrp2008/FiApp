@@ -1145,10 +1145,6 @@ function makeCellEl(row,col){
         const cc=colByType('canceldate');
         if(cc) delete state.cells[ck(row.id,cc.id)];
       }
-      if(newStatus==='Cancelled'){
-        const cc=colByType('canceldate');
-        if(cc&&!getCell(row.id,cc.id)){ setCell(row.id,cc.id,toDateStr(new Date())); }
-      }
       save();
       render(); recalcTotals(); renderChart();
     });
@@ -1406,6 +1402,10 @@ function _openCardEdit(row){
   if(startInp) field('Start date',startInp);
   const cancelInp=cancelCol?inp('date',getCell(row.id,cancelCol.id)):null;
   // Cancel date field: only visible/relevant when status is Cancelled (mirrors table behaviour)
+  const monthFirst=new Date(state.currentYear,state.currentMonth,1);
+  const monthLast=new Date(state.currentYear,state.currentMonth+1,0);
+  const monthFirstStr=toDateStr(monthFirst);
+  const monthLastStr=toDateStr(monthLast);
   let cancelFieldWrap=null;
   if(cancelInp&&cancelCol){
     cancelFieldWrap=document.createElement('div');cancelFieldWrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
@@ -1413,10 +1413,16 @@ function _openCardEdit(row){
     cancelFieldWrap.appendChild(clbl);cancelFieldWrap.appendChild(cancelInp);modal.appendChild(cancelFieldWrap);
     const _isCancelled=()=>(statusSel?statusSel.value:'Active')==='Cancelled';
     cancelFieldWrap.style.display=_isCancelled()?'flex':'none';
+    cancelInp.max=monthLastStr;
+    const _updateCancelMin=()=>{
+      const startVal=startInp?startInp.value:'';
+      cancelInp.min=(startVal&&startVal>monthFirstStr)?startVal:monthFirstStr;
+    };
+    _updateCancelMin();
+    if(startInp) startInp.addEventListener('change',_updateCancelMin);
     if(statusSel) statusSel.addEventListener('change',()=>{
       if(_isCancelled()){
         cancelFieldWrap.style.display='flex';
-        if(!cancelInp.value) cancelInp.value=new Date().toISOString().slice(0,10);
       } else {
         cancelInp.value='';
         cancelFieldWrap.style.display='none';
@@ -1437,6 +1443,9 @@ function _openCardEdit(row){
   saveBtn.addEventListener('click',()=>{
     if(cancelInp&&cancelInp.value&&startInp&&startInp.value&&cancelInp.value<startInp.value){
       showToast('Cancel date can\'t be before the start date ('+startInp.value+').');return;
+    }
+    if(cancelInp&&cancelInp.value&&(cancelInp.value<monthFirstStr||cancelInp.value>monthLastStr)){
+      showToast('Cancel date must be within the viewed month ('+monthFirstStr+' – '+monthLastStr+').');return;
     }
     snapshot();
     if(nameInp&&serviceCol) setCell(row.id,serviceCol.id,nameInp.value.trim());
