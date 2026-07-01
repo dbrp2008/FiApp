@@ -254,13 +254,14 @@ window.VoiceInput = (function () {
     return map[w.toLowerCase()] !== undefined ? map[w.toLowerCase()] : (parseInt(w) || 1);
   }
 
-  // ── Spelled-out number parsing ("twenty five thousand", "one hundred and fifty",
-  // "a million") ──────────────────────────────────────────────────────────
+  // ── Number phrase parsing ("twenty five thousand", "one hundred and fifty", "a
+  // million", "10 billion 999 million") ──────────────────────────────────────
   var ONES_WORDS = {zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
     ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,
     seventeen:17,eighteen:18,nineteen:19};
   var TENS_WORDS = {twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
   var BIG_SCALE_WORDS = {thousand:1e3,million:1e6,billion:1e9};
+  var DIGIT_TOKEN = /^\$?\d+(?:[.,]\d+)?$/;
 
   // ASR sometimes pluralizes these ("millions" instead of "million") — strip a
   // trailing 's' before checking against the word maps above.
@@ -269,14 +270,17 @@ window.VoiceInput = (function () {
   }
   function _isNumberWord(tok) {
     var s = _singularize(tok || '');
-    return ONES_WORDS.hasOwnProperty(s) || TENS_WORDS.hasOwnProperty(s) || BIG_SCALE_WORDS.hasOwnProperty(s) || s === 'hundred';
+    return ONES_WORDS.hasOwnProperty(s) || TENS_WORDS.hasOwnProperty(s) || BIG_SCALE_WORDS.hasOwnProperty(s)
+      || s === 'hundred' || DIGIT_TOKEN.test(tok || '');
   }
 
-  // Parses the number phrase starting at tokens[start] (e.g. ['twenty','five','thousand']
-  // -> {value:25000, wordCount:3}), or returns null if tokens[start] doesn't begin one.
+  // Parses the number phrase starting at tokens[start] — spelled-out ("twenty five
+  // thousand" -> {value:25000,...}), digit-based ("50 million"), or a chain mixing
+  // scale tiers with their own digit/word coefficients ("10 billion 999 million" ->
+  // 10999000000). Returns null if tokens[start] doesn't begin one.
   // 'hundred' multiplies the running total-so-far in place (so "twelve hundred" = 1200,
   // "one hundred fifty" = 150); thousand/million/billion instead flush current*scale into
-  // the accumulated total and reset, so scales can chain ("one million two hundred thousand").
+  // the accumulated total and reset, so multiple scale tiers can chain in one phrase.
   function _parseNumberPhrase(tokens, start) {
     var i = start, matched = false, total = 0, current = 0;
     var next = _singularize(tokens[i + 1] || '');
@@ -286,6 +290,7 @@ window.VoiceInput = (function () {
     while (i < tokens.length) {
       var raw = tokens[i], tok = _singularize(raw);
       if (raw === 'and' && matched && _isNumberWord(tokens[i + 1])) { i++; continue; }
+      if (DIGIT_TOKEN.test(raw)) { current += parseFloat(raw.replace('$', '').replace(',', '.')); matched = true; i++; continue; }
       if (ONES_WORDS.hasOwnProperty(tok)) { current += ONES_WORDS[tok]; matched = true; i++; continue; }
       if (TENS_WORDS.hasOwnProperty(tok)) { current += TENS_WORDS[tok]; matched = true; i++; continue; }
       if (tok === 'hundred') { current = (current || 1) * 100; matched = true; i++; continue; }
@@ -298,8 +303,10 @@ window.VoiceInput = (function () {
     return matched ? { value: total + current, wordCount: i - start } : null;
   }
 
-  // Finds the first spelled-out number phrase anywhere in the string. Returns null if
-  // none is found (e.g. the amount was given as digits, handled separately).
+  // Finds the first number phrase anywhere in the string — spelled-out, digit-based,
+  // or a mixed chain — and returns its value, or null if none is found. A lone digit
+  // with no following scale word still resolves here too (same result the plain-digit
+  // fallback in _extractAmount would give), so this covers the common case as well.
   function _extractSpelledNumber(s) {
     var tokens = s.replace(/-/g, ' ').split(/\s+/);
     for (var i = 0; i < tokens.length; i++) {
@@ -332,20 +339,12 @@ window.VoiceInput = (function () {
     var nM = s.match(/\b(\d+|a|an|one|two|three)\s+nickels?\b/);
     if (nM) return _wordToNum(nM[1]) * 0.05;
 
-    // 5. Digit with multiplier: "50 million", "5 thousand", "1.5 billion" — decimals only
-    // make sense with a digit quantity, so this stays separate from the word parser below.
-    var mulM = s.match(/\$?\s*(\d+(?:[.,]\d+)?)\s+(billion|million|thousand|hundred)s?\b/);
-    if (mulM) {
-      var multipliers = { billion: 1e9, million: 1e6, thousand: 1e3, hundred: 100 };
-      return parseFloat(mulM[1].replace(',', '.')) * multipliers[mulM[2]];
-    }
-
-    // 6. Fully spelled-out number phrase: "one dirham", "twenty five thousand",
-    // "one hundred and fifty", "a million", etc.
+    // 5. Number phrase: digits, spelled-out words, or a chain of both across scale
+    // tiers — "50 million", "one hundred and fifty", "10 billion 999 million", etc.
     var wordsAmount = _extractSpelledNumber(s);
     if (wordsAmount !== null) return wordsAmount;
 
-    // 7. Regular number (with pre-merged decimal)
+    // 6. Regular number (with pre-merged decimal) — final fallback
     var m = s.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
     return m ? parseFloat(m[1].replace(',', '.')) : null;
   }
