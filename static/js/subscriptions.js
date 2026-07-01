@@ -1145,6 +1145,9 @@ function makeCellEl(row,col){
         const cc=colByType('canceldate');
         if(cc) delete state.cells[ck(row.id,cc.id)];
       }
+      if(newStatus==='Cancelled' && prevStatus!=='Cancelled'){
+        showToast('Set a cancellation date for this subscription.');
+      }
       save();
       render(); recalcTotals(); renderChart();
     });
@@ -1186,7 +1189,8 @@ function makeCellEl(row,col){
     const startCol=colByType('date'); const startStr=startCol?getCell(row.id,startCol.id):'';
     const inp=document.createElement('input'); inp.type='date'; inp.className='c-date'; inp.value=v;
     inp.disabled=(st!=='Cancelled'); inp.title=st!=='Cancelled'?'Set status to Cancelled to enable':'';
-    
+    if(st==='Cancelled'&&!v){ inp.classList.add('cancel-date-missing'); inp.title='Set a cancellation date'; }
+
     const monthFirst=new Date(state.currentYear,state.currentMonth,1);
     const monthLast=new Date(state.currentYear,state.currentMonth+1,0);
     const monthFirstStr=toDateStr(monthFirst);
@@ -1204,6 +1208,8 @@ function makeCellEl(row,col){
         inp.value=v; return;
       }
       setCell(row.id,col.id,inp.value); recalcTotals(); renderChart();
+      inp.classList.toggle('cancel-date-missing',!inp.value);
+      inp.title=inp.value?'':'Set a cancellation date';
     });
     return inp;
   }
@@ -1420,14 +1426,23 @@ function _openCardEdit(row){
       cancelInp.min=(startVal&&startVal>monthFirstStr)?startVal:monthFirstStr;
     };
     _updateCancelMin();
+    const _updateCancelHighlight=()=>{
+      cancelInp.style.borderColor=(_isCancelled()&&!cancelInp.value)?'var(--error-border)':'';
+    };
+    _updateCancelHighlight();
     if(startInp) startInp.addEventListener('change',_updateCancelMin);
+    cancelInp.addEventListener('input',_updateCancelHighlight);
+    let _wasCancelled=_isCancelled();
     if(statusSel) statusSel.addEventListener('change',()=>{
       if(_isCancelled()){
         cancelFieldWrap.style.display='flex';
+        if(!_wasCancelled) showToast('Set a cancellation date for this subscription.');
       } else {
         cancelInp.value='';
         cancelFieldWrap.style.display='none';
       }
+      _updateCancelHighlight();
+      _wasCancelled=_isCancelled();
     });
   }
   const notesInp=notesCol?inp('text',getCell(row.id,notesCol.id)):null;
@@ -1537,6 +1552,10 @@ function renderMobileCards(){
       if(dateCol){const s=getCell(row.id,dateCol.id);if(s){const d=new Date(s+'T00:00:00');meta.push('Since '+MONTHS_SHORT[d.getMonth()]+' '+d.getFullYear());}}
       if(cancelCol){const s=getCell(row.id,cancelCol.id);if(s){const d=new Date(s+'T00:00:00');meta.push('Cancels '+MONTHS_SHORT[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear());}}
       if(meta.length){const metaEl=document.createElement('div');metaEl.className='sub-card-meta';metaEl.textContent=meta.join(' · ');card.appendChild(metaEl);}
+      if(status==='Cancelled'&&cancelCol&&!getCell(row.id,cancelCol.id)){
+        const warnEl=document.createElement('div');warnEl.className='sub-card-meta';warnEl.style.color='var(--error-fg)';
+        warnEl.textContent='No cancellation date set';card.appendChild(warnEl);
+      }
 
       // Tap card to edit (exclude delete button)
       card.addEventListener('click',e=>{ if(!e.target.closest('.sub-card-del')) _openCardEdit(row); });
