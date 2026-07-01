@@ -176,6 +176,15 @@ window.VoiceInput = (function () {
     return _tracker === 'income' ? window._incVoiceBridge : window._expVoiceBridge;
   }
 
+  // Income rows carry their own currency tag; expenses cells don't (they're always
+  // in the account's home currency). Resolve whichever concept the current tracker
+  // actually supports, so callers don't need to know which bridge they're holding.
+  function _bridgeCurrency(br, rowId) {
+    if (rowId && typeof br.rowCurrency === 'function') return br.rowCurrency(rowId);
+    if (typeof br.homeCurrency === 'function') return br.homeCurrency();
+    return null;
+  }
+
   function _detectTracker(lower) {
     if (/\b(spent|paid|bought|expense|cost|spend|purchase)\b/.test(lower)) return 'expenses';
     if (/\b(earned|received|income|salary|wage|made|got paid)\b/.test(lower)) return 'income';
@@ -453,11 +462,13 @@ window.VoiceInput = (function () {
       return;
     }
     if (p.action === 'delete-row' || p.action === 'add-subcategory') { _showConfirmSheet(p); return; }
+    var currencyAmbiguous = !!(p.currency && p.currency.candidates && !p.currency.code);
     var autoLog = (
       p.confidence >= 0.95
       && !_hasSubcategories(p.rowId)
       && p.amount !== null
       && !p.relAmount              // relative amounts always confirm so user sees resolved value
+      && !currencyAmbiguous        // e.g. "rupees" (INR/PKR/NPR/LKR) — confirm so user can pick
       && !_alwaysConfirm()
       && !p.lastWeekInWeek1
       && !(p.isForecast && !p.weekExplicit)  // forecast month with no stated week: confirm so user can verify which week
@@ -515,13 +526,7 @@ window.VoiceInput = (function () {
     var existing = parseFloat(br.getCell(effectiveRowId, colId) || '0') || 0;
     var isRemove = p.action === 'remove';
     var newCurrency = p.currency && p.currency.code;
-    // Trackers with per-row currencies (income) compare against the row's own tag.
-    // Trackers without one (expenses) have no "existing" currency to speak of — every
-    // cell is always in the account's home currency, so compare against that instead.
-    var existingCurrency = newCurrency && (
-      typeof br.rowCurrency === 'function' ? br.rowCurrency(effectiveRowId) :
-      typeof br.homeCurrency === 'function' ? br.homeCurrency() : null
-    );
+    var existingCurrency = newCurrency && _bridgeCurrency(br, effectiveRowId);
     var currencyChanging = newCurrency && existingCurrency && newCurrency !== existingCurrency;
 
     // Helper that finishes writing after we have the final amount
@@ -693,23 +698,27 @@ window.VoiceInput = (function () {
       wkChip.textContent = p.colLabel || ('Week ' + (p.weekIndex + 1));
     }
 
-    // Currency chip — always shown on income tracker
+    // Currency chip — shown on both trackers now that expenses also has a currency
+    // concept (the account's home currency, via br.homeCurrency), not just income's
+    // per-row tags. Without this a spoken currency other than the default could never
+    // be reviewed or corrected before committing.
     var curChip = document.getElementById('_vi-c-cur');
-    var showCur = _tracker === 'income' && !isDeleteRow && !isClearRow && !isAddSub;
+    var showCur = !isDeleteRow && !isClearRow && !isAddSub;
     curChip.style.display = showCur ? '' : 'none';
     if (showCur) {
-      // If no currency was detected at all, initialise from the row's existing currency
+      // If no currency was detected at all, initialise from the row's existing
+      // currency (income) or the account's home currency (expenses).
       if (!p.currency) {
-        var existingCode = (p.rowId && typeof br.rowCurrency === 'function')
-          ? br.rowCurrency(p.rowId) : 'USD';
+        var existingCode = _bridgeCurrency(br, p.rowId) || 'USD';
         p.currency = { code: existingCode, candidates: COMMON_CURRENCIES };
       }
-      // If ambiguous (e.g. "rupees" → candidates ['INR','PKR','NPR','LKR']) and the row's
-      // own currency is in that candidate list, auto-resolve to it so confirm isn't blocked.
-      // Crucially, keep candidates intact so the picker shows only the word-specific variants
-      // (INR, PKR, NPR, LKR) rather than the full COMMON_CURRENCIES list.
-      if (p.currency.candidates && !p.currency.code && p.rowId && typeof br.rowCurrency === 'function') {
-        var rowCode = br.rowCurrency(p.rowId);
+      // If ambiguous (e.g. "rupees" → candidates ['INR','PKR','NPR','LKR']) and that
+      // matches the row's own currency (income) or the home currency (expenses),
+      // auto-resolve to it so confirm isn't blocked. Crucially, keep candidates intact
+      // so the picker shows only the word-specific variants (INR, PKR, NPR, LKR)
+      // rather than the full COMMON_CURRENCIES list.
+      if (p.currency.candidates && !p.currency.code) {
+        var rowCode = _bridgeCurrency(br, p.rowId);
         if (rowCode && p.currency.candidates.indexOf(rowCode) !== -1) {
           p.currency.code = rowCode;
         }
@@ -746,7 +755,7 @@ window.VoiceInput = (function () {
         ? _bridge().getRows().some(function(r){ return r.parentId === p.rowId; })
         : false;
       var subOk = !hasSubs || (p._subRowId !== null && p._subRowId !== undefined);
-      var curOk = !(_tracker === 'income' && p.currency && p.currency.candidates && !p.currency.code);
+      var curOk = !(p.currency && p.currency.candidates && !p.currency.code);
       ok = !!(p && p.rowId && p.amount !== null && subOk && curOk);
     }
     document.getElementById('_vi-confirm').disabled = !ok;
