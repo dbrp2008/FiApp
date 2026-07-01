@@ -254,6 +254,61 @@ window.VoiceInput = (function () {
     return map[w.toLowerCase()] !== undefined ? map[w.toLowerCase()] : (parseInt(w) || 1);
   }
 
+  // ── Spelled-out number parsing ("twenty five thousand", "one hundred and fifty",
+  // "a million") ──────────────────────────────────────────────────────────
+  var ONES_WORDS = {zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
+    ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,
+    seventeen:17,eighteen:18,nineteen:19};
+  var TENS_WORDS = {twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+  var BIG_SCALE_WORDS = {thousand:1e3,million:1e6,billion:1e9};
+
+  // ASR sometimes pluralizes these ("millions" instead of "million") — strip a
+  // trailing 's' before checking against the word maps above.
+  function _singularize(tok) {
+    return (tok && tok.length > 3 && tok.slice(-1) === 's') ? tok.slice(0, -1) : tok;
+  }
+  function _isNumberWord(tok) {
+    var s = _singularize(tok || '');
+    return ONES_WORDS.hasOwnProperty(s) || TENS_WORDS.hasOwnProperty(s) || BIG_SCALE_WORDS.hasOwnProperty(s) || s === 'hundred';
+  }
+
+  // Parses the number phrase starting at tokens[start] (e.g. ['twenty','five','thousand']
+  // -> {value:25000, wordCount:3}), or returns null if tokens[start] doesn't begin one.
+  // 'hundred' multiplies the running total-so-far in place (so "twelve hundred" = 1200,
+  // "one hundred fifty" = 150); thousand/million/billion instead flush current*scale into
+  // the accumulated total and reset, so scales can chain ("one million two hundred thousand").
+  function _parseNumberPhrase(tokens, start) {
+    var i = start, matched = false, total = 0, current = 0;
+    var next = _singularize(tokens[i + 1] || '');
+    if ((tokens[i] === 'a' || tokens[i] === 'an') && (BIG_SCALE_WORDS.hasOwnProperty(next) || next === 'hundred')) {
+      current = 1; matched = true; i++;
+    }
+    while (i < tokens.length) {
+      var raw = tokens[i], tok = _singularize(raw);
+      if (raw === 'and' && matched && _isNumberWord(tokens[i + 1])) { i++; continue; }
+      if (ONES_WORDS.hasOwnProperty(tok)) { current += ONES_WORDS[tok]; matched = true; i++; continue; }
+      if (TENS_WORDS.hasOwnProperty(tok)) { current += TENS_WORDS[tok]; matched = true; i++; continue; }
+      if (tok === 'hundred') { current = (current || 1) * 100; matched = true; i++; continue; }
+      if (BIG_SCALE_WORDS.hasOwnProperty(tok)) {
+        total += (current || 1) * BIG_SCALE_WORDS[tok];
+        current = 0; matched = true; i++; continue;
+      }
+      break;
+    }
+    return matched ? { value: total + current, wordCount: i - start } : null;
+  }
+
+  // Finds the first spelled-out number phrase anywhere in the string. Returns null if
+  // none is found (e.g. the amount was given as digits, handled separately).
+  function _extractSpelledNumber(s) {
+    var tokens = s.replace(/-/g, ' ').split(/\s+/);
+    for (var i = 0; i < tokens.length; i++) {
+      var result = _parseNumberPhrase(tokens, i);
+      if (result) return result.value;
+    }
+    return null;
+  }
+
   function _extractAmount(lower) {
     // 1. Merge split decimals: "1.0 1" → "1.01" (speech recognition artefact)
     var s = lower.replace(/(\d+[.,]\d+)\s+(\d+)/g, function(_, a, b) { return a + b; });
@@ -277,16 +332,18 @@ window.VoiceInput = (function () {
     var nM = s.match(/\b(\d+|a|an|one|two|three)\s+nickels?\b/);
     if (nM) return _wordToNum(nM[1]) * 0.05;
 
-    // 5. Number with multiplier: "50 million", "5 thousand", "1.5 billion"
-    var mulM = s.match(/\$?\s*(\d+(?:[.,]\d+)?)\s+(billion|million|thousand|hundred)\b/);
+    // 5. Digit with multiplier: "50 million", "5 thousand", "1.5 billion" — decimals only
+    // make sense with a digit quantity, so this stays separate from the word parser below.
+    var mulM = s.match(/\$?\s*(\d+(?:[.,]\d+)?)\s+(billion|million|thousand|hundred)s?\b/);
     if (mulM) {
       var multipliers = { billion: 1e9, million: 1e6, thousand: 1e3, hundred: 100 };
       return parseFloat(mulM[1].replace(',', '.')) * multipliers[mulM[2]];
     }
 
-    // 6. Spelled-out number word ("one dirham", "two dollars", etc.)
-    var wM = s.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/);
-    if (wM) return _wordToNum(wM[1]);
+    // 6. Fully spelled-out number phrase: "one dirham", "twenty five thousand",
+    // "one hundred and fifty", "a million", etc.
+    var wordsAmount = _extractSpelledNumber(s);
+    if (wordsAmount !== null) return wordsAmount;
 
     // 7. Regular number (with pre-merged decimal)
     var m = s.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
