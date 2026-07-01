@@ -4,7 +4,7 @@ const REDO_KEY    = 'fiapp_income_redo_v1';
 const PUSH_KEY    = 'fiapp_income_push_v1';
 const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT= ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const CELL_CURRENCIES  = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SGD','THB','USD'];
+const CELL_CURRENCIES  = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'];
 
 
 const ratesCache = {};
