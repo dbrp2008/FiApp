@@ -1394,18 +1394,19 @@ function _openCardEdit(row){
     curSel.addEventListener('change',()=>{ if(curSel.value!=='Other…') setRowCurrency(row.id,curSel.value); });
   }
 
+  const monthFirst=new Date(state.currentYear,state.currentMonth,1);
+  const monthLast=new Date(state.currentYear,state.currentMonth+1,0);
+  const monthFirstStr=toDateStr(monthFirst);
+  const monthLastStr=toDateStr(monthLast);
+
   const billSel=billingCol?sel(BILLING_OPTS,getCell(row.id,billingCol.id)||'Monthly'):null;
   if(billSel) field('Billing cycle',billSel);
   const statusSel=statusCol?sel(Object.keys(STATUS_CLR),getCell(row.id,statusCol.id)||'Active'):null;
   if(statusSel) field('Status',statusSel);
   const startInp=dateCol?inp('date',getCell(row.id,dateCol.id)):null;
-  if(startInp) field('Start date',startInp);
+  if(startInp){ startInp.min=monthFirstStr; startInp.max=monthLastStr; field('Start date',startInp); }
   const cancelInp=cancelCol?inp('date',getCell(row.id,cancelCol.id)):null;
   // Cancel date field: only visible/relevant when status is Cancelled (mirrors table behaviour)
-  const monthFirst=new Date(state.currentYear,state.currentMonth,1);
-  const monthLast=new Date(state.currentYear,state.currentMonth+1,0);
-  const monthFirstStr=toDateStr(monthFirst);
-  const monthLastStr=toDateStr(monthLast);
   let cancelFieldWrap=null;
   if(cancelInp&&cancelCol){
     cancelFieldWrap=document.createElement('div');cancelFieldWrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
@@ -1441,6 +1442,12 @@ function _openCardEdit(row){
   actions.appendChild(cancelBtn);actions.appendChild(saveBtn);modal.appendChild(actions);
 
   saveBtn.addEventListener('click',()=>{
+    if(startInp&&startInp.value&&startInp.value<monthFirstStr){
+      showToast('Start date can\'t be before '+monthFirstStr+'. To back-date, navigate to that month first.');return;
+    }
+    if(startInp&&startInp.value&&startInp.value>monthLastStr){
+      showToast('Start date must be within the viewed month ('+monthFirstStr+' – '+monthLastStr+').');return;
+    }
     if(cancelInp&&cancelInp.value&&startInp&&startInp.value&&cancelInp.value<startInp.value){
       showToast('Cancel date can\'t be before the start date ('+startInp.value+').');return;
     }
