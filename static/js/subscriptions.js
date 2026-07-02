@@ -23,8 +23,12 @@ function uid(){ return '_'+Math.random().toString(36).slice(2,9); }
 const msDay = 864e5;
 
 
-const ratesCache = {}; 
-let ratesReady = false; 
+const ratesCache = {};
+let ratesReady = false;
+let _ratesStaleDate = null; // set when rates came from the offline fallback (rates-utils stale:true)
+function _staleNote(){
+  return _ratesStaleDate ? ' · offline rates from '+new Date(_ratesStaleDate).toLocaleDateString() : '';
+}
 
 async function fetchAndCacheUSDRates(){
   if(ratesReady) return;
@@ -36,6 +40,7 @@ async function fetchAndCacheUSDRates(){
         if(/^[A-Z]{2,5}$/.test(k)&&typeof rates[k]==='number') ratesCache[k]=rates[k];
       });
       ratesReady=true;
+      _ratesStaleDate=obj.stale?obj.fetched_at:null;
     }
   }catch(e){ console.warn('FiApp: rate fetch failed -',e.message); }
 }
@@ -531,16 +536,17 @@ function onCurrencyChange(){
   document.getElementById('curr-note').textContent='Fetching…';
   
   if(ratesCache[cur]){
-    document.getElementById('curr-note').textContent='1 USD = '+ratesCache[cur].toFixed(4)+' '+cur;
+    document.getElementById('curr-note').textContent='1 USD = '+ratesCache[cur].toFixed(4)+' '+cur+_staleNote();
     showConvFields(cur,ratesCache[cur]);
     return;
   }
   fiappGetRates('USD').then(obj=>{
       Object.assign(ratesCache,obj.rates);
       ratesReady=true;
+      _ratesStaleDate=obj.stale?obj.fetched_at:null;
       const rate=ratesCache[cur];
       if(!rate){document.getElementById('curr-note').textContent='Unknown currency: '+cur;return;}
-      document.getElementById('curr-note').textContent='1 USD = '+rate.toFixed(4)+' '+cur;
+      document.getElementById('curr-note').textContent='1 USD = '+rate.toFixed(4)+' '+cur+_staleNote();
       showConvFields(cur,rate);
     }).catch(()=>document.getElementById('curr-note').textContent='Rate unavailable. Check your connection.');
 }
@@ -553,9 +559,10 @@ function applyOtherCurrency(){
   fiappGetRates('USD').then(obj=>{
       Object.assign(ratesCache,obj.rates);
       ratesReady=true;
+      _ratesStaleDate=obj.stale?obj.fetched_at:null;
       const rate=ratesCache[raw];
       if(!rate){note.textContent='Unknown currency: '+raw+'. Check the code.';return;}
-      note.textContent='1 USD = '+rate.toFixed(4)+' '+raw;
+      note.textContent='1 USD = '+rate.toFixed(4)+' '+raw+_staleNote();
       state.displayCurrency=raw; save();
       document.getElementById('curr-other-inp').style.display='none';
       document.getElementById('curr-other-btn').style.display='none';
@@ -1583,7 +1590,7 @@ async function preloadRates(){
     const sel=document.getElementById('curr-sel');
     if([...sel.options].some(o=>o.value===state.displayCurrency)) sel.value=state.displayCurrency;
     else { sel.value='__other__'; document.getElementById('curr-other-inp').value=state.displayCurrency; }
-    document.getElementById('curr-note').textContent='1 USD = '+ratesCache[state.displayCurrency].toFixed(4)+' '+state.displayCurrency;
+    document.getElementById('curr-note').textContent='1 USD = '+ratesCache[state.displayCurrency].toFixed(4)+' '+state.displayCurrency+_staleNote();
   }
   recalcTotals();
 }
@@ -1591,9 +1598,23 @@ async function preloadRates(){
 function _esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 (async()=>{
+  // Local-first: render whatever this device already has BEFORE any network I/O,
+  // so a dead or stalled connection can never blank the tracker.
+  state=loadState();
+  loadHistory();
+  render();
+  updateMonthNav();
+  updateSlidePanel();
+  recalcTotals();
+  updateHistBtns();
+  preloadRates();
+  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
+  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: FiApp warns you before a subscription renews. Add your recurring ones here.','subs-tip'); }catch(_){}
 
+  // Background: establish auth (bounded), refresh from the server, re-render on change.
   try{
-    const me=await fetch('/auth/me').then(r=>r.json());
+    const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
     window.__currentUser=me.username||null;
     const badge=document.getElementById('auth-badge-container');
     if(badge){
@@ -1615,18 +1636,25 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
     }
   }catch(e){ window.__currentUser=null; }
   if(!window.__currentUser) setSyncStatus('Offline','');
-  await loadFromServer();   
-  state=loadState();        
-  loadHistory();
-  render();
-  updateMonthNav();
-  updateSlidePanel();
-  recalcTotals();
-  updateHistBtns();
-  preloadRates();
-  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
-  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
-  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: FiApp warns you before a subscription renews. Add your recurring ones here.','subs-tip'); }catch(_){}
+
+  const _preRaw=localStorage.getItem(STORAGE_KEY);
+  await loadFromServer();
+  // JSONB round-trips reorder object keys, so raw strings can differ even when the
+  // data is identical; compare semantically (_deepEqual is a tracker-sync.js global)
+  // so a plain online load doesn't force a focus-destroying cosmetic re-render.
+  const _blobChanged=(pre,key)=>{
+    const post=localStorage.getItem(key);
+    if(post===pre) return false;
+    try{ return !_deepEqual(JSON.parse(pre||'null'),JSON.parse(post||'null')); }catch(_){ return true; }
+  };
+  if(_blobChanged(_preRaw,STORAGE_KEY)){
+    state=loadState();
+    render();
+    updateMonthNav();
+    updateSlidePanel();
+    recalcTotals();
+    preloadRates();
+  }
 })();
 
 // Static toolbar event wiring (replaces onclick= attributes)
