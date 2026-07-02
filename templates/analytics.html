@@ -1174,37 +1174,57 @@ function reRenderCharts(){
 
 
 (async()=>{
-  
+  const _wtActive=(function(){try{const w=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');return !!(w&&w.active);}catch(e){return false;}})();
+  if(_wtActive && typeof window._wtSeedAnalytics==='function') window._wtSeedAnalytics();
+
+  // Local-first: paint from localStorage immediately; rates and server data
+  // arrive in the background and re-render. A dead or stalled connection can
+  // never leave this page stuck on a loading message.
+  renderAll();
+  fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) reRenderCharts(); });
+  // If rates failed (API down, rate-limited, etc.), retry once after 3s.
+  setTimeout(()=>{ if(!fiappCoreRatesLoaded()) fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) reRenderCharts(); }); },3000);
+
   try{
-
-
-    const _wtActive=(function(){try{const w=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');return !!(w&&w.active);}catch(e){return false;}})();
-    const me=await fetch('/auth/me').then(r=>r.json());
+    const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
     if(me&&me.username&&!_wtActive){
-      const root=document.getElementById('root');
-      if(root) root.innerHTML='<p style="padding:1rem;color:var(--muted)">Loading…</p>';
       const [expRes,subRes,incRes]=await Promise.all([
         fetch('/api/load/expenses'),
         fetch('/api/load/subs'),
         fetch('/api/load/income')
       ]);
       // Keep each tracker's own last-viewed month (per-device view state) so visiting
-      // Analytics doesn't reset which month a tracker reopens on.
+      // Analytics doesn't reset which month a tracker reopens on. Keys with unsynced
+      // offline edits (__dirty) are skipped entirely: local data wins until it flushes.
       const _keepMonth=(key,d)=>{try{const _ln=JSON.parse(localStorage.getItem(key)||'null');if(_ln&&_ln.currentYear!=null){d.currentYear=_ln.currentYear;d.currentMonth=_ln.currentMonth;}}catch(_){}return d;};
-      if(expRes.ok){const r=await expRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(EXP_KEY,JSON.stringify(_keepMonth(EXP_KEY,d)));}
-      if(subRes.ok){const r=await subRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(SUBS_KEY,JSON.stringify(_keepMonth(SUBS_KEY,d)));}
-      if(incRes.ok){const r=await incRes.json();const d=r&&r.data;if(d&&typeof d==='object') localStorage.setItem(INC_KEY,JSON.stringify(_keepMonth(INC_KEY,d)));}
+      let _changed=false;
+      // Semantic comparison: JSONB round-trips reorder object keys, so raw-string
+      // equality misfires. This page does not load tracker-sync.js, so a local
+      // recursive equal is inlined instead of reusing _deepEqual.
+      const _jsonEq=(x,y)=>{
+        if(x===y) return true;
+        if(!x||!y||typeof x!=='object'||typeof y!=='object') return false;
+        if(Array.isArray(x)!==Array.isArray(y)) return false;
+        if(Array.isArray(x)){ if(x.length!==y.length) return false; return x.every((v,i)=>_jsonEq(v,y[i])); }
+        const xk=Object.keys(x),yk=Object.keys(y); if(xk.length!==yk.length) return false;
+        return xk.every(k=>Object.prototype.hasOwnProperty.call(y,k)&&_jsonEq(x[k],y[k]));
+      };
+      const _store=async(key,res)=>{
+        if(!res.ok) return;
+        if(localStorage.getItem(key+'__dirty')) return;
+        const r=await res.json(); const d=r&&r.data;
+        if(d&&typeof d==='object'){
+          const next=_keepMonth(key,d);
+          let prev=null; try{ prev=JSON.parse(localStorage.getItem(key)||'null'); }catch(_){}
+          if(!_jsonEq(prev,next)){ localStorage.setItem(key,JSON.stringify(next)); _changed=true; }
+        }
+      };
+      await _store(EXP_KEY,expRes);
+      await _store(SUBS_KEY,subRes);
+      await _store(INC_KEY,incRes);
+      if(_changed) renderAll();
     }
-
-    if(_wtActive && typeof window._wtSeedAnalytics==='function') window._wtSeedAnalytics();
   }catch(e){}
-  await fiappCoreLoadRates();
-  renderAll();
-  // If rates failed (API down, rate-limited, etc.), retry once after 3s and re-render.
-  // Needed because _coreToHome() returns raw values when _anaRate() = 1 (no rates).
-  if(!fiappCoreRatesLoaded()){
-    setTimeout(()=>fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) reRenderCharts(); }),3000);
-  }
 })();
 
 
