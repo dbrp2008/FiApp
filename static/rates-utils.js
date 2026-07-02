@@ -3,6 +3,7 @@
 (function(global){
   var LS_TTL   = 7  * 24 * 3600 * 1000; // 7 days  — refresh interval
   var DEAD_TTL = 14 * 24 * 3600 * 1000; // 14 days — delete if unused this long
+  var FETCH_TIMEOUT_MS = 15000; // abort a stalled request instead of hanging forever (flaky mobile networks)
   var _inFlight = {}; // deduplicate concurrent requests for the same base currency
 
   function lsKey(base){ return 'fiapp_exchange_rates_' + base.toUpperCase(); }
@@ -52,14 +53,16 @@
       if(_inFlight[base]) return _inFlight[base];
     }
     var url = '/api/exchange?base=' + encodeURIComponent(base) + (force ? '&force=1' : '');
-    var p = fetch(url).then(function(resp){
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, FETCH_TIMEOUT_MS);
+    var p = fetch(url, {signal: controller.signal}).then(function(resp){
       if(!resp.ok) throw new Error('Exchange API error ' + resp.status);
       return resp.json();
     }).then(function(data){
       if(data.error) throw new Error(data.error);
       lsSet(base, data.rates, data.fetched_at);
       return {rates: data.rates, fetched_at: data.fetched_at};
-    }).finally(function(){ delete _inFlight[base]; });
+    }).finally(function(){ clearTimeout(timeoutId); delete _inFlight[base]; });
     if(!force) _inFlight[base] = p;
     return p;
   };
