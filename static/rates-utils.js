@@ -39,6 +39,53 @@
     } catch(e){}
   }
 
+  // Reads a cached entry ignoring the 7-day freshness TTL (still parse-guarded).
+  // Offline fallback only: stale rates beat no rates. The 14-day unused sweep at
+  // load time still deletes truly abandoned entries.
+  function lsGetRaw(base){
+    try {
+      var obj = JSON.parse(localStorage.getItem(lsKey(base)) || 'null');
+      return (obj && obj.rates && obj.fetched_at) ? obj : null;
+    } catch(e){ return null; }
+  }
+
+  // When the network is unreachable, derive a rates table for `base` from whatever
+  // is cached locally:
+  //   1. the (possibly expired) cache entry for `base` itself, or
+  //   2. cross-rate triangulation from ANY cached table that quotes `base`:
+  //      rate(base -> K) = table[K] / table[base]. All tables come from one
+  //      provider, so any single table quotes every code and the quotient is
+  //      exactly what a live `base` table would contain.
+  // Returns {rates, fetched_at, stale:true[, synthesized:true]} or null.
+  function offlineFallback(base){
+    var own = lsGetRaw(base);
+    if(own) return { rates: own.rates, fetched_at: own.fetched_at, stale: true };
+    var prefix = 'fiapp_exchange_rates_';
+    var best = null, bestBase = null;
+    try {
+      for(var i = 0; i < localStorage.length; i++){
+        var k = localStorage.key(i);
+        if(!k || k.indexOf(prefix) !== 0) continue;
+        var entryBase = k.slice(prefix.length);
+        var entry = lsGetRaw(entryBase);
+        if(!entry) continue;
+        var quote = entry.rates[base];
+        if(typeof quote !== 'number' || !(quote > 0)) continue;
+        if(!best || new Date(entry.fetched_at) > new Date(best.fetched_at)){
+          best = entry; bestBase = entryBase;
+        }
+      }
+    } catch(e){ return null; }
+    if(!best) return null;
+    var t = best.rates, div = t[base], out = {};
+    Object.keys(t).forEach(function(k){
+      if(typeof t[k] === 'number') out[k] = t[k] / div;
+    });
+    out[base] = 1;
+    out[bestBase] = 1 / div;
+    return { rates: out, fetched_at: best.fetched_at, stale: true, synthesized: true };
+  }
+
   /**
    * fiappGetRates(base, force)
    * Returns Promise<{rates, fetched_at}>.
@@ -62,6 +109,13 @@
       if(data.error) throw new Error(data.error);
       lsSet(base, data.rates, data.fetched_at);
       return {rates: data.rates, fetched_at: data.fetched_at};
+    }).catch(function(err){
+      // force=true is an explicit "give me fresh rates" request: surface the
+      // failure rather than silently answering with old data.
+      if(force) throw err;
+      var fb = offlineFallback(base);
+      if(fb) return fb;
+      throw err;
     }).finally(function(){ clearTimeout(timeoutId); delete _inFlight[base]; });
     if(!force) _inFlight[base] = p;
     return p;
