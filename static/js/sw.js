@@ -20,7 +20,18 @@ var OFFLINE_URL = '/__offline';
 
 // Top-level pages (mirrors base.html's NAV_ITEMS) proactively cached rather than
 // left to "whatever you happened to click into" - see precacheNavPages().
-var NAV_PAGES = ['/', '/income', '/expenses', '/subscriptions', '/analytics', '/currency', '/tax', '/interest'];
+var NAV_PAGES = ['/', '/income', '/expenses', '/subscriptions', '/analytics', '/currency', '/tax', '/interest', '/account'];
+
+// Pulls same-origin static asset URLs out of page HTML (src=/href= attributes) or
+// CSS (url(...) values). Only /static/* and /styles.css are eligible; everything
+// else (pages, APIs, third-party origins) is ignored.
+function _extractStaticUrls(text) {
+  var out = [];
+  var re = /(?:src|href)="(\/static\/[^"]+|\/styles\.css[^"]*)"|url\((['"]?)(\/static\/[^'")]+)\2\)/g;
+  var m;
+  while ((m = re.exec(text))) out.push(m[1] || m[3]);
+  return out;
+}
 
 // Built in-SW (not fetched) so it's always available even on a cold first offline load.
 var OFFLINE_HTML =
@@ -73,17 +84,50 @@ self.addEventListener('activate', function (event) {
 });
 
 // Fetches each top-level page fresh (same-origin -> browser sends the current
-// session cookie, so this reflects whoever is actually logged in right now) and
-// caches the successful ones. Best-effort: a page that fails to fetch (offline,
-// or a transient error) just keeps whatever was cached for it before.
+// session cookie, so this reflects whoever is actually logged in right now),
+// caches the successful ones, then caches every static asset those pages
+// reference (scripts, styles, images) plus anything the cached CSS pulls in
+// (fonts). Without the asset pass, a page never visited online would serve its
+// cached HTML offline but 504 on its own scripts - a dead page.
+// Best-effort throughout: a fetch that fails leaves any prior cache entry alone.
 async function precacheNavPages() {
   var cache = await caches.open(CACHE);
+  var assetUrls = {};
+
   await Promise.all(NAV_PAGES.map(async function (path) {
     try {
       var res = await fetch(path, { credentials: 'same-origin' });
-      if (cacheable(res)) await cache.put(path, res);
+      if (cacheable(res)) {
+        var body = await res.clone().text();
+        _extractStaticUrls(body).forEach(function (u) { assetUrls[u] = true; });
+        await cache.put(path, res);
+      }
     } catch (e) { /* offline or transient error: leave the existing cache entry alone */ }
   }));
+
+  async function cacheAsset(u) {
+    try {
+      if (await cache.match(u)) return; // already cached; SWR keeps it fresh
+      var res = await fetch(u, { credentials: 'same-origin' });
+      if (cacheable(res)) await cache.put(u, res);
+    } catch (e) { /* best-effort */ }
+  }
+
+  await Promise.all(Object.keys(assetUrls).map(cacheAsset));
+
+  // Second pass: fonts and images referenced only from inside CSS files.
+  var cssUrls = Object.keys(assetUrls).filter(function (u) {
+    return /\.css(\?|$)/.test(u) || u.indexOf('/styles.css') === 0;
+  });
+  var cssAssets = {};
+  await Promise.all(cssUrls.map(async function (u) {
+    try {
+      var res = await cache.match(u);
+      if (!res) return;
+      _extractStaticUrls(await res.clone().text()).forEach(function (a) { cssAssets[a] = true; });
+    } catch (e) { /* best-effort */ }
+  }));
+  await Promise.all(Object.keys(cssAssets).map(cacheAsset));
 }
 
 self.addEventListener('message', function (event) {
