@@ -204,6 +204,7 @@ async function loadSubsFromServer(){
 
   if(!window.__currentUser) return;
   if(isWalkthroughActive())return;
+  if(localStorage.getItem(SUBS_KEY+'__dirty')) return; // unsynced offline subs edits: local wins until flushed
   try{
     const res=await fetch('/api/load/subs');
     if(!res.ok) return;
@@ -3222,9 +3223,25 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
 function _esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 (async()=>{
+  // Local-first: render whatever this device already has BEFORE any network I/O,
+  // so a dead or stalled connection can never blank the tracker.
+  try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
+  try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
+  try{ loadHistory(); }catch(e){}
+  try{ loadTaxCarryover(); }catch(e){}
+  try{ updateHistBtns(); }catch(e){}
+  try{ updateMonthNav(); }catch(e){ console.error('FiApp: updateMonthNav failed',e); }
+  try{ syncIncomeInputs(); }catch(e){}
+  try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
 
+  // D (Playful): a one-off, dismissable orientation tip, once per session. No-op for
+  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: each month keeps its own categories and columns. Use the month picker up top to switch.','exp-tip'); }catch(_){}
+
+  // Background: establish auth (bounded - a stalled network must not hang the
+  // page), refresh from the server, and re-render only if the data changed.
   try{
-    const me=await fetch('/auth/me').then(r=>r.json());
+    const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
     window.__currentUser=me.username||null;
     const badge=document.getElementById('auth-badge-container');
     if(badge){
@@ -3246,20 +3263,26 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
     }
   }catch(e){ window.__currentUser=null; }
   if(!window.__currentUser) setSyncStatus('Offline','');
+
+  const _preRaw=localStorage.getItem(STORAGE_KEY);
+  const _preSubs=localStorage.getItem(SUBS_KEY);
   try{ await loadFromServer(); }catch(e){ console.warn('FiApp: loadFromServer failed',e); }
   try{ await loadSubsFromServer(); }catch(e){ console.warn('FiApp: loadSubsFromServer failed',e); }
-  try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
-  try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
-  try{ loadHistory(); }catch(e){}
-  try{ loadTaxCarryover(); }catch(e){}
-  try{ updateHistBtns(); }catch(e){}
-  try{ updateMonthNav(); }catch(e){ console.error('FiApp: updateMonthNav failed',e); }
-  try{ syncIncomeInputs(); }catch(e){}
-  try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
-
-  // D (Playful): a one-off, dismissable orientation tip, once per session. No-op for
-  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
-  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: each month keeps its own categories and columns. Use the month picker up top to switch.','exp-tip'); }catch(_){}
+  // JSONB round-trips reorder object keys, so raw strings can differ even when the
+  // data is identical; compare semantically so a plain online load doesn't force a
+  // focus-destroying cosmetic re-render.
+  const _blobChanged=(pre,key)=>{
+    const post=localStorage.getItem(key);
+    if(post===pre) return false;
+    try{ return !_deepEqual(JSON.parse(pre||'null'),JSON.parse(post||'null')); }catch(_){ return true; }
+  };
+  if(_blobChanged(_preRaw,STORAGE_KEY) || _blobChanged(_preSubs,SUBS_KEY)){
+    try{ state=loadState(); }catch(e){}
+    try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
+    try{ updateMonthNav(); }catch(e){}
+    try{ syncIncomeInputs(); }catch(e){}
+    try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
+  }
 
   fetchExpRates().then(()=>{ if(getRows().some(r=>r.linked==='subscriptions')) render(); }).catch(()=>{});
 
