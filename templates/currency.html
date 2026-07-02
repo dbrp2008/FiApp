@@ -25,6 +25,8 @@
     .rates-info-row{display:flex;justify-content:space-between;gap:1.5rem;padding:.18rem 0;color:var(--fg);}
     .rates-info-label{color:var(--muted);font-weight:600;}
     .rates-countdown{color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;}
+    .warn{background:#fef3c7;padding:0.75rem;border:1px solid #fcd34d;border-radius:6px;margin-bottom:1rem;color:#92400e;}
+    html.dark .warn, html.theme-midnight .warn{background:#451a03;color:#fcd34d;border-color:#92400e;}
   </style>
 {% endblock %}
 
@@ -189,6 +191,9 @@ function clearMsg(){ document.getElementById('msg-area').innerHTML=''; }
 function showInfo(msg){
   document.getElementById('msg-area').innerHTML='<div class="success">'+msg+'</div>';
 }
+function showWarn(msg){
+  document.getElementById('msg-area').innerHTML='<div class="warn">'+msg+'</div>';
+}
 
 
 function dropBadCustom(selectId, code){
@@ -247,6 +252,10 @@ document.getElementById('currency-form').addEventListener('submit', async functi
 
 
     updateRatesDateBtn(new Date(obj.fetched_at));
+
+    if(obj.stale){
+      showWarn('Offline rates from '+new Date(obj.fetched_at).toLocaleDateString()+'.');
+    }
 
   }catch(err){
     if(err.message&&err.message.includes('unsupported-code')){
