@@ -9,7 +9,11 @@ const CELL_CURRENCIES  = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD',
 
 const ratesCache = {};
 let ratesReady   = false;
-let currentRate  = 1; 
+let currentRate  = 1;
+let _ratesStaleDate = null; // set when rates came from the offline fallback (rates-utils stale:true)
+function _staleNote(){
+  return _ratesStaleDate ? ' · offline rates from '+new Date(_ratesStaleDate).toLocaleDateString() : '';
+}
 async function fetchAndCacheUSDRates(){
   if(ratesReady) return;
   try{
@@ -20,6 +24,7 @@ async function fetchAndCacheUSDRates(){
         if(/^[A-Z]{2,5}$/.test(k)&&typeof rates[k]==='number') ratesCache[k]=rates[k];
       });
       ratesReady=true;
+      _ratesStaleDate=obj.stale?obj.fetched_at:null;
     }
   }catch(e){ console.warn('FiApp: rate fetch failed -',e.message); }
 }
@@ -72,7 +77,7 @@ function onCurrencyChange(){
   if(cur==='USD'){ hideConvFields(); return; }
   document.getElementById('curr-note').textContent='Fetching…';
   if(ratesCache[cur]){
-    document.getElementById('curr-note').textContent='1 USD = '+ratesCache[cur].toFixed(4)+' '+cur;
+    document.getElementById('curr-note').textContent='1 USD = '+ratesCache[cur].toFixed(4)+' '+cur+_staleNote();
     showConvFields(cur,ratesCache[cur]); return;
   }
   fiappGetRates('USD').then(obj=>{
@@ -80,10 +85,11 @@ function onCurrencyChange(){
       if(rates&&typeof rates==='object'&&!Array.isArray(rates)){
         Object.keys(rates).forEach(k=>{if(/^[A-Z]{2,5}$/.test(k)&&typeof rates[k]==='number') ratesCache[k]=rates[k];});
         ratesReady=true;
+        _ratesStaleDate=obj.stale?obj.fetched_at:null;
       }
       const rate=ratesCache[cur];
       if(!rate){document.getElementById('curr-note').textContent='Unknown currency: '+cur;return;}
-      document.getElementById('curr-note').textContent='1 USD = '+rate.toFixed(4)+' '+cur;
+      document.getElementById('curr-note').textContent='1 USD = '+rate.toFixed(4)+' '+cur+_staleNote();
       showConvFields(cur,rate);
     }).catch(()=>{document.getElementById('curr-note').textContent='Network error';});
 }
@@ -97,6 +103,7 @@ function applyOtherCurrency(){
       if(rates&&typeof rates==='object'){
         Object.keys(rates).forEach(k=>{if(/^[A-Z]{2,5}$/.test(k)&&typeof rates[k]==='number') ratesCache[k]=rates[k];});
         ratesReady=true;
+        _ratesStaleDate=obj.stale?obj.fetched_at:null;
       }
       const rate=ratesCache[raw];
       if(!rate){document.getElementById('curr-note').textContent='Unknown currency: '+raw;return;}
@@ -110,7 +117,7 @@ function applyOtherCurrency(){
       document.getElementById('curr-other-inp').style.display='none';
       document.getElementById('curr-other-btn').style.display='none';
       state.displayCurrency=raw; save();
-      document.getElementById('curr-note').textContent='1 USD = '+rate.toFixed(4)+' '+raw;
+      document.getElementById('curr-note').textContent='1 USD = '+rate.toFixed(4)+' '+raw+_staleNote();
       showConvFields(raw,rate);
     }).catch(()=>{document.getElementById('curr-note').textContent='Network error';});
 }
@@ -2287,8 +2294,48 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
 function _esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 (async()=>{
+  // Local-first: render whatever this device already has BEFORE any network I/O,
+  // so a dead or stalled connection can never blank the tracker.
+  try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
+  try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
+  try{ loadHistory(); }catch(e){}
+  try{ updateHistBtns(); }catch(e){}
+  try{ updateMonthNav(); }catch(e){ console.error('FiApp: updateMonthNav failed',e); }
+
+  // Non-blocking on purpose: rate fetches must never delay first render (a
+  // stalled network would otherwise blank the tracker for up to 15s). The
+  // .then callbacks update the note / re-render when rates arrive.
+  function _initCurrencyUI(){
+    const dc=state.displayCurrency||'USD';
+    const dcSel=document.getElementById('curr-sel');
+    if(dc!=='USD'&&dcSel){
+      if(![...dcSel.options].find(o=>o.value===dc)){
+        const opt=document.createElement('option'); opt.value=dc; opt.textContent=dc; opt.dataset.custom='1';
+        dcSel.insertBefore(opt, dcSel.querySelector('option[value="__other__"]'));
+      }
+      dcSel.value=dc;
+      ensureRate(dc).then(()=>{
+        if(ratesCache[dc]){
+          const cn=document.getElementById('curr-note'); if(cn) cn.textContent='1 USD = '+ratesCache[dc].toFixed(4)+' '+dc+_staleNote();
+          showConvFields(dc,ratesCache[dc]);
+        }
+      }).catch(()=>{});
+    }
+  }
+  try{ _initCurrencyUI(); }catch(e){ console.warn('FiApp: currency init failed',e); }
   try{
-    const me=await fetch('/auth/me').then(r=>r.json());
+    const usedCurs=[...new Set(Object.values(state.monthRowCurrencies||{}).filter(c=>c&&c!=='USD'))];
+    // Re-render once rates land so non-USD rows show converted values.
+    if(usedCurs.length) fetchAndCacheUSDRates().then(()=>{ try{ render(); }catch(_){} }).catch(()=>{});
+  }catch(e){}
+  try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
+  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
+  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: income is tracked per month too. Use the month picker up top to switch.','inc-tip'); }catch(_){}
+
+  // Background: establish auth (bounded), refresh from the server, re-render on change.
+  try{
+    const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
     window.__currentUser=me.username||null;
     const badge=document.getElementById('auth-badge-container');
     if(badge){
@@ -2310,39 +2357,30 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
     }
   }catch(e){ window.__currentUser=null; }
   if(!window.__currentUser) setSyncStatus('Offline','');
+
+  const _preRaw=localStorage.getItem(STORAGE_KEY);
   try{ await loadFromServer(); }catch(e){ console.warn('FiApp: loadFromServer failed',e); }
-  try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
-  try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
-  try{ loadHistory(); }catch(e){}
-  try{ updateHistBtns(); }catch(e){}
-  try{ updateMonthNav(); }catch(e){ console.error('FiApp: updateMonthNav failed',e); }
-
-  try{
-    const dc=state.displayCurrency||'USD';
-    const dcSel=document.getElementById('curr-sel');
-    if(dc!=='USD'&&dcSel){
-      if(![...dcSel.options].find(o=>o.value===dc)){
-        const opt=document.createElement('option'); opt.value=dc; opt.textContent=dc; opt.dataset.custom='1';
-        dcSel.insertBefore(opt, dcSel.querySelector('option[value="__other__"]'));
-      }
-      dcSel.value=dc;
-      ensureRate(dc).then(()=>{
-        if(ratesCache[dc]){
-          const cn=document.getElementById('curr-note'); if(cn) cn.textContent='1 USD = '+ratesCache[dc].toFixed(4)+' '+dc;
-          showConvFields(dc,ratesCache[dc]);
-        }
-      }).catch(()=>{});
-    }
-  }catch(e){ console.warn('FiApp: currency init failed',e); }
-
-  try{
-    const usedCurs=[...new Set(Object.values(state.monthRowCurrencies||{}).filter(c=>c&&c!=='USD'))];
-    if(usedCurs.length) await fetchAndCacheUSDRates();
-  }catch(e){}
-  try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
-  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
-  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
-  try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: income is tracked per month too. Use the month picker up top to switch.','inc-tip'); }catch(_){}
+  // JSONB round-trips reorder object keys, so raw strings can differ even when the
+  // data is identical; compare semantically (_deepEqual is a tracker-sync.js global)
+  // so a plain online load doesn't force a focus-destroying cosmetic re-render.
+  const _blobChanged=(pre,key)=>{
+    const post=localStorage.getItem(key);
+    if(post===pre) return false;
+    try{ return !_deepEqual(JSON.parse(pre||'null'),JSON.parse(post||'null')); }catch(_){ return true; }
+  };
+  if(_blobChanged(_preRaw,STORAGE_KEY)){
+    try{ state=loadState(); }catch(e){}
+    try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
+    try{ updateMonthNav(); }catch(e){}
+    try{ _initCurrencyUI(); }catch(e){}
+    try{
+      const usedCurs=[...new Set(Object.values(state.monthRowCurrencies||{}).filter(c=>c&&c!=='USD'))];
+      // Server sync can introduce new non-USD row currencies; fetch rates for them
+      // (no-op when the full USD table is already cached this session).
+      if(usedCurs.length) fetchAndCacheUSDRates().then(()=>{ try{ render(); }catch(_){} }).catch(()=>{});
+    }catch(e){}
+    try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
+  }
 })();
 
 function openHelp(){ document.getElementById('help-modal').style.display='flex'; }
