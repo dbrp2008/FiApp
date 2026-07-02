@@ -377,20 +377,23 @@ function incTrackerMonthTotals(inc) {
   allMks.forEach(function(mk2) {
     var total = 0;
     var rows = incRows(inc, mk2);
+    // Months with an import.js-created "Imported" column only exist in colsByMonth (per-month
+    // fork), not in the global inc.cols — mirrors the same fallback combinedMonthTotals uses for exp.cols.
+    var mCols = (inc.colsByMonth && inc.colsByMonth[mk2]) || inc.cols || [];
     var getCurrency = function(rowId) { return (inc.monthRowCurrencies || {})[mk2 + '|' + rowId] || 'USD'; };
     rows.filter(function(r) { return !r.parentId; }).forEach(function(row) {
       var kids = rows.filter(function(c) { return c.parentId === row.id; });
       if (kids.length) {
         kids.forEach(function(child) {
           var cur = getCurrency(child.id);
-          (inc.cols || []).forEach(function(col) {
+          mCols.forEach(function(col) {
             var raw = parseFloat(inc.cells[mk2 + '|' + child.id + '|' + col.id] || 0) || 0;
             total += _coreToHome(raw, cur);
           });
         });
       } else {
         var cur = getCurrency(row.id);
-        (inc.cols || []).forEach(function(col) {
+        mCols.forEach(function(col) {
           var raw = parseFloat(inc.cells[mk2 + '|' + row.id + '|' + col.id] || 0) || 0;
           total += _coreToHome(raw, cur);
         });
@@ -401,18 +404,13 @@ function incTrackerMonthTotals(inc) {
   return map;
 }
 
-function mergedMonthIncomes(exp, incMap) {
+function mergedMonthIncomes(incMap) {
+  // The Income Tracker is the sole source of income. The expenses panel's gross-income
+  // field used to be a fallback here, but manual entry was removed (it desynced from this
+  // total and stored raw USD without converting to the home currency), so there's nothing
+  // left to fall back to.
   var out = {};
-  if (incMap.size > 0) {
-    // Income tracker has data — use it exclusively
-    incMap.forEach(function(val, mk2) { out[mk2] = val; });
-  } else if (exp && exp.income) {
-    // Income tracker empty — fall back to expenses panel
-    Object.entries(exp.income).forEach(function(entry) {
-      var mk2 = entry[0], v = entry[1];
-      var g = parseFloat(v.gross) || 0; if (g > 0) out[mk2] = g;
-    });
-  }
+  incMap.forEach(function(val, mk2) { out[mk2] = val; });
   return out;
 }
 
