@@ -457,20 +457,12 @@
   if(!_CU) return; // non-logged-in: no snapshot
 
   var root = document.getElementById('snapshot-root');
-  if(!root) return;   
+  if(!root) return;
 
-  // Load rates first so currency conversion is available throughout
-  try{ if(typeof fiappCoreLoadRates==='function') await fiappCoreLoadRates(); }catch(e){}
-
-  // Always fetch fresh server data so home page reflects current state.
-  // Home refreshes each tracker's cached blob from the server so the snapshot is current.
-  // save() in each tracker already syncs edits, so there's no local *data* to protect — but
-  // currentYear/currentMonth is per-device view state, so carry it over from the existing
-  // local blob (mirrors tracker-sync.js loadFromServer) or visiting Home would reset which
-  // month a tracker reopens on.
   // NOTE: API returns { data: { rows, cells, ... } } — unwrap .data before storing.
   async function _fetchFresh(key, apiPath) {
     try {
+      if(localStorage.getItem(key + '__dirty')) return; // unsynced offline edits: local wins until flushed
       var r = await fetch(apiPath, {credentials:'same-origin'});
       if(!r.ok) return;
       var resp = await r.json();
@@ -484,13 +476,16 @@
       }
     } catch(e) {}
   }
-  try {
-    await Promise.all([
-      _fetchFresh('fiapp_expenses_v4',   '/api/load/expenses'),
-      _fetchFresh('fiapp_income_v1',     '/api/load/income'),
-      _fetchFresh('fiapp_subs_v4',       '/api/load/subs'),
-    ]);
-  } catch(e) {}
+
+  // Local-first: build the snapshot from localStorage immediately; the server
+  // refresh below re-runs this builder only if any tracker blob changed.
+  async function _buildDashboard() {
+  // Reset the slots this builder writes into, so a re-run can't duplicate content.
+  var _slotR=document.getElementById('snap-renewal-slot'); if(_slotR) _slotR.innerHTML='';
+  var _slotN=document.getElementById('snap-nudge-slot'); if(_slotN) _slotN.innerHTML='';
+  var _alerts=document.getElementById('dash-alerts');
+  if(_alerts) [..._alerts.children].forEach(function(n){ if(n.id!=='snap-renewal-slot'&&n.id!=='snap-nudge-slot') n.remove(); });
+  root.innerHTML='';
 
   // Load tracker state from localStorage
   var exp  = null, inc = null, subs = null;
@@ -1057,8 +1052,46 @@
         ? 'You\'re all caught up.'
         : _plClear ? 'You\'re all caught up. You\'re on a roll.'
                    : 'You\'re all caught up. Nice work.';
-      a.innerHTML = '<div class="dash-allclear"><span aria-hidden="true">✓</span> '+allClearMsg+'</div>';
+      var _prevClear=a.querySelector('.dash-allclear'); if(_prevClear) _prevClear.remove();
+      a.insertAdjacentHTML('beforeend', '<div class="dash-allclear"><span aria-hidden="true">✓</span> '+allClearMsg+'</div>');
     }
+  })();
+
+  } // end _buildDashboard
+
+  await _buildDashboard();
+
+  // Background refresh: rates + fresh tracker blobs, then rebuild if anything changed.
+  (async function(){
+    var keys=['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4'];
+    var before=keys.map(function(k){ return localStorage.getItem(k); });
+    var ratesBefore=(typeof fiappCoreRatesLoaded==='function')&&fiappCoreRatesLoaded();
+    try{ if(typeof fiappCoreLoadRates==='function') await fiappCoreLoadRates(); }catch(e){}
+    try {
+      await Promise.all([
+        _fetchFresh('fiapp_expenses_v4',   '/api/load/expenses'),
+        _fetchFresh('fiapp_income_v1',     '/api/load/income'),
+        _fetchFresh('fiapp_subs_v4',       '/api/load/subs'),
+      ]);
+    } catch(e) {}
+    // Semantic comparison: JSONB round-trips reorder object keys, so raw-string
+    // equality misfires. This page does not load tracker-sync.js, so a local
+    // recursive equal is inlined instead of reusing _deepEqual.
+    function _jsonEq(x,y){
+      if(x===y) return true;
+      if(!x||!y||typeof x!=='object'||typeof y!=='object') return false;
+      if(Array.isArray(x)!==Array.isArray(y)) return false;
+      if(Array.isArray(x)){ if(x.length!==y.length) return false; return x.every(function(v,i){ return _jsonEq(v,y[i]); }); }
+      var xk=Object.keys(x),yk=Object.keys(y); if(xk.length!==yk.length) return false;
+      return xk.every(function(k){ return Object.prototype.hasOwnProperty.call(y,k)&&_jsonEq(x[k],y[k]); });
+    }
+    var changed=keys.some(function(k,i){
+      var post=localStorage.getItem(k);
+      if(post===before[i]) return false;
+      try{ return !_jsonEq(JSON.parse(before[i]||'null'),JSON.parse(post||'null')); }catch(_){ return true; }
+    });
+    var ratesArrived=!ratesBefore&&(typeof fiappCoreRatesLoaded==='function')&&fiappCoreRatesLoaded();
+    if(changed||ratesArrived){ try{ await _buildDashboard(); }catch(e){} }
   })();
 
 })();
