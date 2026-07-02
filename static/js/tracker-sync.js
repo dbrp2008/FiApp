@@ -170,6 +170,17 @@ function isWalkthroughActive() {
 function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   opts = opts || {};
 
+  // Pages with a live sync manager own their key's flushing; the global flusher
+  // in sw-register.js skips these (see window.__fiappFlushDirtyTrackers).
+  try {
+    window.__fiappSyncManagedKeys = window.__fiappSyncManagedKeys || {};
+    window.__fiappSyncManagedKeys[storageKey] = true;
+  } catch (_) {}
+
+  function _setDirty()   { try { localStorage.setItem(storageKey + '__dirty', String(Date.now())); } catch (_) {} }
+  function _getDirty()   { try { return localStorage.getItem(storageKey + '__dirty'); } catch (_) { return null; } }
+  function _persistVer(v){ try { localStorage.setItem(storageKey + '__ver', String(v)); } catch (_) {} }
+
   var _syncTimer      = null;
   var _syncPending    = false;
   var _serverLoaded   = false;
@@ -220,6 +231,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
 
     localStorage.setItem(storageKey, JSON.stringify(merged));
     _baseVersion = serverVersion;
+    _persistVer(serverVersion);
     if (opts.onReload) opts.onReload();
     if (changed && opts.onMerge) opts.onMerge('Merged changes from another device');
 
@@ -227,6 +239,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   }
 
   function _attemptSave(retriesLeft) {
+    var _payloadTime = Date.now();
     fetch(saveApiPath, {
       method: 'POST',
       headers: {
@@ -238,7 +251,11 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     .then(function(r) {
       if (r.ok) {
         return r.json().then(function(resp) {
-          if (resp && typeof resp.version === 'number') _baseVersion = resp.version;
+          if (resp && typeof resp.version === 'number') { _baseVersion = resp.version; _persistVer(resp.version); }
+          // Clear the dirty flag only if no edit landed after this payload was
+          // built; a newer edit has its own pending save that will clear it.
+          var d = parseInt(_getDirty() || '0', 10);
+          if (d && d <= _payloadTime) { try { localStorage.removeItem(storageKey + '__dirty'); } catch (_) {} }
           setSyncStatus(
             '☁ Saved at ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
             'synced'
@@ -248,17 +265,22 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
       if (r.status === 409 && retriesLeft > 0) {
         return r.json().then(function(resp) { _resolveConflict(resp, retriesLeft); });
       }
+      _setDirty();
       setSyncStatus('⚠ Sync failed', 'failed');
     })
-    .catch(function() { setSyncStatus('⚠ Offline', 'failed'); });
+    .catch(function() { _setDirty(); setSyncStatus('Saved locally - will sync when online', 'failed'); });
   }
 
   function syncToServer() {
-    if (!window.__currentUser) { setSyncStatus('Offline', ''); return; }
     try {
       var _wts = JSON.parse(localStorage.getItem('fiapp_walkthrough_v1') || 'null');
       if (_wts && _wts.active) { setSyncStatus('', ''); return; }
     } catch (_) {}
+    // A data edit is pending until the server acks it. Marked here rather than in
+    // saveLocal so per-device view-state writes (month navigation, derived income
+    // mirrors - saveLocal-only callers) don't flag the blob as needing merge/flush.
+    _setDirty();
+    if (!window.__currentUser) { setSyncStatus('Saved locally - will sync when online', 'failed'); return; }
     if (!_serverLoaded) {
       if (_wtWasBlocking && !_reloadPending) {
         _reloadPending = true;
@@ -311,10 +333,23 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
       return res.json().then(function(resp) {
         var data = resp && resp.data;
         if (resp && typeof resp.version === 'number') _baseVersion = resp.version;
+        if (resp && typeof resp.version === 'number') _persistVer(resp.version);
         var guard = opts.contentGuard || function(d) {
           return Array.isArray(d.rows) || d.cells || d.rowsByMonth;
         };
         if (data && typeof data === 'object' && guard(data)) {
+          if (_getDirty()) {
+            // Unsynced offline edits exist: merge the server's blob into the local
+            // one (cells win by newer cellTimes, rows/cols union by id) instead of
+            // overwriting, then push the merged result. __dirty clears only when
+            // the server acks that save.
+            var _dirtyLocal = null;
+            try { _dirtyLocal = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (_) {}
+            localStorage.setItem(storageKey, JSON.stringify(_mergeTrackerBlobs(_dirtyLocal, data)));
+            _serverLoaded = true;
+            _attemptSave(_MAX_MERGE_RETRIES);
+            return;
+          }
           var _srvHas = data.cells && Object.keys(data.cells).length > 0;
           var _locRaw = localStorage.getItem(storageKey);
           var _locHas = _locRaw && (function() {
@@ -349,10 +384,31 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     }
   }
 
+  function flushIfDirty() {
+    if (!_getDirty()) return;
+    if (!window.__currentUser) return;
+    _attemptSave(_MAX_MERGE_RETRIES);
+  }
+
+  // Reconnect: __currentUser is null after an offline boot (auth/me failed), so
+  // re-establish it before flushing any pending offline edits.
+  try {
+    window.addEventListener('online', function () {
+      var authP = (typeof window.fiappFetchTimeout === 'function')
+        ? window.fiappFetchTimeout('/auth/me', 5000)
+        : fetch('/auth/me');
+      authP.then(function (r) { return r.json(); }).then(function (me) {
+        if (me && me.username) window.__currentUser = me.username;
+        flushIfDirty();
+      }).catch(function () {});
+    });
+  } catch (_) {}
+
   return {
     syncToServer:   syncToServer,
     loadFromServer: loadFromServer,
     setSyncStatus:  setSyncStatus,
-    saveLocal:      saveLocal
+    saveLocal:      saveLocal,
+    flushIfDirty:   flushIfDirty
   };
 }
