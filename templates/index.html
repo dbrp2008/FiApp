@@ -535,6 +535,9 @@
     // entry was removed, so there is nothing left to fall back to.
     if(inc && inc.rows && inc.rows.length > 0) {
       var rows = incRows(inc, mk2);
+      // Months with an import.js-created "Imported" column only exist in colsByMonth (per-month
+      // fork), not in the global inc.cols — mirrors the fallback combinedMonthTotals uses for exp.cols.
+      var mCols = (inc.colsByMonth && inc.colsByMonth[mk2]) || inc.cols || [];
       var total = 0;
       var getCurrency = function(rowId){ return (inc.monthRowCurrencies||{})[mk2+'|'+rowId]||'USD'; };
       rows.filter(function(r){ return !r.parentId; }).forEach(function(row) {
@@ -542,14 +545,14 @@
         if(kids.length) {
           kids.forEach(function(child) {
             var cur = getCurrency(child.id);
-            (inc.cols||[]).forEach(function(col){
+            mCols.forEach(function(col){
               var raw = parseFloat((inc.cells||{})[mk2+'|'+child.id+'|'+col.id]||0)||0;
               total += _coreToHome(raw, cur);
             });
           });
         } else {
           var cur = getCurrency(row.id);
-          (inc.cols||[]).forEach(function(col){
+          mCols.forEach(function(col){
             var raw = parseFloat((inc.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0;
             total += _coreToHome(raw, cur);
           });
