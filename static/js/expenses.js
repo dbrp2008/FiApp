@@ -816,6 +816,9 @@ function colTotal(cId){
 }
 function _homeCur(){ try{ return localStorage.getItem('fiapp_analytics_currency')||'USD'; }catch(e){ return 'USD'; } }
 function _homePfx(){ var c=_homeCur(); return c==='USD'?'$':c+' '; }
+// USD -> home-currency multiplier (expRatesCache is a USD-based table). 1 when home is
+// USD or rates haven't loaded yet.
+function _homeRate(){ var c=_homeCur(); return c==='USD'?1:(expRatesCache[c]||1); }
 // Currency symbols (verified renderable against the app's 'Inter' font stack).
 // JPY/CNY and the $-family currencies use their standard international disambiguation
 // prefixes (JP¥/CN¥, US$/HK$/S$/C$/A$/Mex$) since a bare ¥ or $ would be ambiguous
@@ -1105,14 +1108,28 @@ function _fmtMkLabel(mk2){
   const [y,m]=mk2.split('-');
   return MONTHS_SHORT[parseInt(m)-1]+' '+y;
 }
-function loadTaxCarryover(){
+async function loadTaxCarryover(){
   try{
     if(isWalkthroughActive()) return;
     const t=JSON.parse(localStorage.getItem(TAX_KEY)); if(!t) return;
     const isFresh = t.consumed===false || (t.ts && t.ts>(state.lastTaxTs||0));
     if(!isFresh) return;
 
-    const monthlyTax=(parseFloat(t.tax)/12).toFixed(2);
+    // The tax result is in the calculator country's currency (US->USD, IN->INR, HK->HKD).
+    // The budget card is in the home currency and gross is converted, so the tax must be
+    // converted too - otherwise afterTax mixes currencies (e.g. an INR tax number treated
+    // as HKD dwarfs the income and zeroes out after-tax). Rates load after boot, so await.
+    await fetchExpRates();
+    const srcCcy = t.country==='IN'?'INR':t.country==='HK'?'HKD':'USD';
+    const home=_homeCur();
+    const toHome=(srcVal)=>{
+      const n=parseFloat(srcVal)||0;
+      const usd=srcCcy==='USD'?n:(expRatesCache[srcCcy]?n/expRatesCache[srcCcy]:n);
+      return home==='USD'?usd:usd*(expRatesCache[home]||1);
+    };
+    const annualTaxHome=toHome(t.tax);
+    const annualIncomeHome=toHome(t.income);
+    const monthlyTax=(annualTaxHome/12).toFixed(2);
 
     const targetMonths=t.months&&t.months.length ? t.months : [currentMK()];
     targetMonths.forEach(mk2=>{
@@ -1124,12 +1141,17 @@ function loadTaxCarryover(){
     state.lastTaxTs = t.ts || Date.now();
     localStorage.setItem(TAX_KEY,JSON.stringify(t));
     save();
+    // Boot's syncIncomeInputs()/updateIncomeSummary() ran before this async work finished,
+    // so refresh the input + summary to show the freshly-applied tax.
+    try{ syncIncomeInputs(); }catch(_){}
+    try{ updateIncomeSummary(); }catch(_){}
 
+    const pfx=_homePfx();
     const monthLabel=targetMonths.length===1
       ? _fmtMkLabel(targetMonths[0])
       : targetMonths.length+' months ('+targetMonths.map(_fmtMkLabel).join(', ')+')';
     const banner=document.createElement('div'); banner.className='tax-banner';
-    banner.innerHTML=`✓ Monthly tax ($${Number(monthlyTax).toLocaleString()}) applied to ${monthLabel}. Annual: $${Number(t.income).toLocaleString()}, tax: $${Number(t.tax).toLocaleString()}. <a href="/tax">Recalculate →</a>`;
+    banner.innerHTML=`✓ Monthly tax (${pfx}${Number(monthlyTax).toLocaleString()}) applied to ${monthLabel}. Annual: ${pfx}${Number(annualIncomeHome.toFixed(2)).toLocaleString()}, tax: ${pfx}${Number(annualTaxHome.toFixed(2)).toLocaleString()}. <a href="/tax">Recalculate →</a>`;
     document.getElementById('income-grid').prepend(banner);
     document.getElementById('tax-link').style.display='none';
   }catch(e){ console.warn('FiApp: loadTaxCarryover failed -',e.message); }
@@ -1898,7 +1920,11 @@ function calcSubMonthCostInExp(r, subs, yr, mo){
   
   const cur=(subs.rowCurrencies||{})[r.id]||'USD';
   const usdCost=cur==='USD'?rawCost:(expRatesCache[cur]?rawCost/expRatesCache[cur]:rawCost);
-  return events*usdCost;
+  // Return in the home currency so the linked Subscriptions row matches the rest of
+  // the tracker (whose cells are home-currency) and the home/analytics snapshot, which
+  // both convert via the home rate. Falls back to 1 (USD-equivalent) until rates load;
+  // fetchExpRates() re-renders once they do.
+  return events*usdCost*_homeRate();
 }
 
 
