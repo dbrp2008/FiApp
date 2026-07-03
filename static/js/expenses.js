@@ -426,6 +426,9 @@ function _captureSlice(mk2){
     cells:cellsSlice,
     rows:state.rowsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.rowsByMonth[mk2])):null,
     cols:state.colsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.colsByMonth[mk2])):null,
+    // Global (unforked) rows too: applyTemplate mutates these directly, and a
+    // slice without them cannot return the user to the template menu on undo.
+    globalRows:JSON.parse(JSON.stringify(state.rows||[])),
     goals:goalsSlice
   };
 }
@@ -438,6 +441,8 @@ function _applySlice(mk2,entry){
   else if(state.rowsByMonth) delete state.rowsByMonth[mk2];
   if(entry.cols!==null){if(!state.colsByMonth) state.colsByMonth={}; state.colsByMonth[mk2]=entry.cols;}
   else if(state.colsByMonth) delete state.colsByMonth[mk2];
+  // Older persisted slices (sessionStorage) predate globalRows - leave rows alone then.
+  if(entry.globalRows) state.rows=entry.globalRows;
   if(!state.goals) state.goals={};
   Object.keys(state.goals).forEach(k=>{if(k.startsWith(mkPrefix)) delete state.goals[k];});
   Object.assign(state.goals,entry.goals||{});
