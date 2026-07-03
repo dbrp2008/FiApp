@@ -453,6 +453,17 @@ window.VoiceInput = (function () {
     var weekIdx     = (!weekResult.explicit && isForecast) ? 0 : weekResult.index;
     var col         = cols[weekIdx] || cols[0] || {};
     var match       = _matchCategory(lower, rows);
+    // Detect when the user clearly meant a linked (Subscriptions) row - those are
+    // excluded from matching above, so without this the sheet would just say the
+    // unhelpful "No category matched". Flag it so the sheet can explain instead.
+    var linkedRows  = br.getRows().filter(function(r){ return r.linked; });
+    var saidLinked  = null;
+    if (!match.rowId && linkedRows.length) {
+      for (var _li = 0; _li < linkedRows.length; _li++) {
+        if (_containsWithPlural(lower, linkedRows[_li].label.toLowerCase())) { saidLinked = linkedRows[_li].label; break; }
+      }
+      if (!saidLinked && /\bsubscriptions?\b/.test(lower)) saidLinked = linkedRows[0].label;
+    }
     var isLastWeekInWeek1 = /\blast\s+week\b/.test(lower) && weekIdx === 0;
     var action = _detectAction(lower);
     return {
@@ -467,6 +478,7 @@ window.VoiceInput = (function () {
       weekExplicit:    weekResult.explicit,
       rowId:           match.rowId,
       rowLabel:        match.rowLabel,
+      linkedCatLabel:  saidLinked,
       confidence:      match.confidence,
       colId:           col.id || null,
       colLabel:        col.label || ('Week ' + (weekIdx + 1)),
@@ -731,7 +743,13 @@ window.VoiceInput = (function () {
     }
 
     var nocat = !p.rowId;
-    document.getElementById('_vi-no-cat').style.display     = nocat ? '' : 'none';
+    var noCatEl = document.getElementById('_vi-no-cat');
+    // When the user clearly said a linked (Subscriptions) row, explain why it can't be
+    // targeted instead of the generic "no category matched".
+    noCatEl.textContent = (nocat && p.linkedCatLabel)
+      ? '"' + p.linkedCatLabel + '" is filled from the Subscriptions tracker - voice can\'t add there. Pick another category, or add it in Subscriptions.'
+      : 'No category matched - tap Category to pick one.';
+    noCatEl.style.display     = nocat ? '' : 'none';
     document.getElementById('_vi-create-cat').style.display = nocat ? '' : 'none';
 
     var subSection = document.getElementById('_vi-sub-section');
