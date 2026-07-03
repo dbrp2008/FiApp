@@ -67,13 +67,13 @@ window.VoiceInput = (function () {
     'pound':'GBP','pounds':'GBP','sterling':'GBP','gbp':'GBP',
     'yen':'JPY','jpy':'JPY',
     'yuan':'CNY','rmb':'CNY','renminbi':'CNY','cny':'CNY',
-    'ringgit':'MYR','myr':'MYR',
+    'ringgit':'MYR','ringgits':'MYR','myr':'MYR',
     'baht':'THB','thb':'THB',
     'won':'KRW','krw':'KRW',
     'ruble':'RUB','rouble':'RUB','rubles':'RUB','roubles':'RUB','rub':'RUB',
-    'dirham':'AED','aed':'AED',
-    'dong':'VND','vnd':'VND',
-    'zloty':'PLN','pln':'PLN',
+    'dirham':'AED','dirhams':'AED','aed':'AED',
+    'dong':'VND','dongs':'VND','vnd':'VND',
+    'zloty':'PLN','zlotys':'PLN','pln':'PLN',
     // Ambiguous — value is array of candidates
     'rupee':['INR','PKR','NPR','LKR'],
     'rupees':['INR','PKR','NPR','LKR'],
@@ -90,6 +90,7 @@ window.VoiceInput = (function () {
     'riyal':['SAR','QAR'],
     'riyals':['SAR','QAR'],
     'lira':['TRY','LBP'],
+    'liras':['TRY','LBP'],
     'krone':['DKK','NOK'],
     'kroner':['DKK','NOK'],
   };
@@ -145,7 +146,7 @@ window.VoiceInput = (function () {
     // currency words — too generic to be useful category signals
     'dollar','dollars','cent','cents','euro','euros','pound','pounds',
     'yen','yuan','rupee','rupees','rs','franc','francs','peso','pesos',
-    'won','baht','ringgit','ruble','rubles','dirham','lira']);
+    'won','baht','ringgit','ringgits','ruble','rubles','dirham','dirhams','lira','liras']);
 
   function _loadLearned() {
     try { return JSON.parse(localStorage.getItem(LEARN_KEY) || '{}'); } catch(e) { return {}; }
@@ -442,7 +443,9 @@ window.VoiceInput = (function () {
   function _parseTranscript(transcript) {
     var lower   = transcript.toLowerCase();
     var br      = _bridge();
-    var rows    = br.getRows();
+    // Linked rows (the Subscriptions mirror) are computed from the Subscriptions
+    // tracker and are not manually editable - voice must not target them either.
+    var rows    = br.getRows().filter(function(r){ return !r.linked; });
     var cols    = br.getCols();
     var weekResult  = _extractWeekIndex(lower);
     var isForecast  = typeof br.isForecastMonth === 'function' ? br.isForecastMonth() : false;
@@ -514,6 +517,14 @@ window.VoiceInput = (function () {
   function start() {
     if (_isListening) { stop(); return; }
     try { var _wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null'); if(_wt&&_wt.active){_toast('🧭 Voice input unavailable during the walkthrough.');return;} } catch(_) {}
+    var _catsNow = [];
+    try { _catsNow = _bridge().getRows().filter(function(r){ return !r.parentId && !r.linked; }); } catch(_) {}
+    if (!_catsNow.length) {
+      _toast(_tracker === 'expenses'
+        ? 'Pick a template or add a category first - then voice can log to it.'
+        : 'Add a row first - then voice can log to it.');
+      return;
+    }
     _recognition = _buildRecognition(); if (!_recognition) return;
     if (!sessionStorage.getItem('_vi_ringer_hint')) {
       sessionStorage.setItem('_vi_ringer_hint', '1');
@@ -851,7 +862,7 @@ window.VoiceInput = (function () {
 
   // ── Category picker ────────────────────────────────────────────────────
   function _showCatPicker(onSelect) {
-    var rows = _bridge().getRows();
+    var rows = _bridge().getRows().filter(function(r){ return !r.linked; });
     var list = document.getElementById('_vi-cat-list');
     list.innerHTML = '';
     rows.forEach(function (row) {
