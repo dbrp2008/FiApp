@@ -31,10 +31,12 @@
   function isNative() { return !!(window.fiappIsNative && window.fiappIsNative()); }
 
   // Plugins are only reachable via the bridge (the remote page can't import the app's node
-  // modules). Registered names are confirmed on-device; try the known candidates.
+  // modules). @aparajita/capacitor-biometric-auth registers itself as 'BiometricAuthNative'
+  // (confirmed from the published package's registerPlugin() call); 'BiometricAuth' is kept
+  // as a defensive fallback in case a future major renames it.
   function bioPlugin() {
     var P = (window.Capacitor && window.Capacitor.Plugins) || {};
-    return P.BiometricAuth || P.BiometricAuthNative || null;
+    return P.BiometricAuthNative || P.BiometricAuth || null;
   }
   function appPlugin() {
     var P = (window.Capacitor && window.Capacitor.Plugins) || {};
