@@ -50,7 +50,7 @@
   // One biometric / device-credential challenge. Resolves true on success, false otherwise.
   async function runAuth() {
     var bio = bioPlugin();
-    if (!bio) return false;
+    if (!bio) { console.error('[fiapp-lock] runAuth: no biometric plugin resolved'); return false; }
     try {
       await bio.authenticate({
         reason: 'Unlock FiApp',
@@ -63,6 +63,7 @@
       });
       return true;
     } catch (e) {
+      console.error('[fiapp-lock] authenticate() rejected:', e && e.code, e && e.message, e);
       return false;   // cancelled, failed, or lockout
     }
   }
@@ -162,7 +163,9 @@
           fb('Set up a fingerprint, face unlock, or a screen lock (PIN/pattern) on your device first.');
           return;
         }
-      } catch (e) { /* checkBiometry unsupported shape: fall through to a real attempt */ }
+      } catch (e) {
+        console.error('[fiapp-lock] checkBiometry() threw:', e && e.code, e && e.message, e);
+      }
       var ok = await runAuth();              // prove it works before persisting
       if (ok) {
         try { localStorage.setItem(LOCK_KEY, '1'); } catch (e) {}
