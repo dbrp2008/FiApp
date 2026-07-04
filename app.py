@@ -213,6 +213,12 @@ def set_security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
     resp.headers['Referrer-Policy'] = 'no-referrer'
+    # Defense-in-depth capability + cross-origin isolation. Microphone is deliberately
+    # NOT restricted here (voice input uses it; features left unnamed keep their default
+    # self allowance). Google sign-in is a full-page redirect, so COOP: same-origin is safe.
+    resp.headers['Permissions-Policy'] = 'geolocation=(), camera=(), payment=(), usb=()'
+    resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+    resp.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
     nonce = getattr(g, 'csp_nonce', '')
     resp.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
@@ -230,6 +236,12 @@ def set_security_headers(resp):
     )
     if not app.debug:
         resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # Authenticated HTML documents embed the CSRF token + identity metadata (username, and
+    # on /account the email + Google linkage). Forbid the browser HTTP cache / bfcache from
+    # retaining them so a shared profile can't surface a prior user's page after logout.
+    # (The service-worker cache stores pages explicitly and is purged separately on logout.)
+    if session.get('user_id') and resp.mimetype == 'text/html':
+        resp.headers['Cache-Control'] = 'no-store'
     return resp
 
 
