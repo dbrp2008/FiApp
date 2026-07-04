@@ -23,6 +23,11 @@ async function _fiappNativeGoogleIdToken() {
   var GA = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth;
   if (!GA) return null;
   if (typeof GA.initialize === 'function') { try { GA.initialize(); } catch (e) { /* native reads config */ } }
+  // The native SDK caches the last signed-in account and re-authenticates with it
+  // silently on the next signIn() call. FiApp's single Google button covers both
+  // login and creating a different account, so every tap must show the account
+  // picker - sign out of the cached native session first to force that.
+  try { await GA.signOut(); } catch (e) { /* no cached session yet: fine */ }
   var user = await GA.signIn();
   return (user && user.authentication && user.authentication.idToken) || null;
 }
