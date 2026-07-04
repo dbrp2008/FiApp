@@ -169,6 +169,49 @@ elif _authlib_available:
 else:
     app.logger.info("Authlib not installed — Google sign-in disabled (password auth unaffected).")
 
+# Native (Capacitor) sign-in posts a Google-issued id_token to /auth/google/native; the
+# server verifies it against Google's JWKS. This reuses Authlib's JOSE + requests (both
+# already dependencies) rather than adding google-auth. The web redirect flow is untouched;
+# Authlib still validates its own id_token inside authorize_access_token().
+_google_jwks_cache = {'keys': None, 'ts': 0}
+_GOOGLE_JWKS_TTL = 3600  # seconds; Google rotates signing keys periodically
+
+def _google_jwks(force=False):
+    from authlib.jose import JsonWebKey
+    now = time.time()
+    if force or not _google_jwks_cache['keys'] or (now - _google_jwks_cache['ts']) > _GOOGLE_JWKS_TTL:
+        meta = oauth.google.load_server_metadata()  # discovery doc, cached by Authlib
+        jwks = requests.get(meta['jwks_uri'], timeout=5).json()
+        _google_jwks_cache['keys'] = JsonWebKey.import_key_set(jwks)
+        _google_jwks_cache['ts'] = now
+    return _google_jwks_cache['keys']
+
+def _google_verify_id_token(raw):
+    """Verify a native-issued Google id_token. Returns (sub, email) or raises.
+    aud must equal our Web client id (the native plugin is configured with it as
+    serverClientId); iss/exp are enforced; email must be present and verified."""
+    from authlib.jose import jwt as _jose_jwt
+    from authlib.jose.errors import JoseError
+    claims_options = {
+        'iss': {'essential': True, 'values': ['https://accounts.google.com', 'accounts.google.com']},
+        'aud': {'essential': True, 'value': GOOGLE_CLIENT_ID},
+    }
+    claims = None
+    for attempt in (0, 1):  # refetch keys once on a signature miss (key rotation)
+        try:
+            claims = _jose_jwt.decode(raw, _google_jwks(force=(attempt == 1)),
+                                      claims_options=claims_options)
+            break
+        except JoseError:
+            if attempt == 1:
+                raise ValueError("id_token signature/decode failed")
+    claims.validate()  # exp/nbf/iat + the essential iss/aud above
+    sub = claims.get('sub')
+    email = (claims.get('email') or '').strip().lower()
+    if not sub or not email or not claims.get('email_verified'):
+        raise ValueError("id_token missing a verified email")
+    return sub, email
+
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return jsonify({"error": "Too many attempts. Please wait before trying again."}), 429
@@ -950,6 +993,81 @@ def google_complete():
         return jsonify({"ok": True, "username": username, "csrf_token": session['csrf_token']})
     except psycopg2.errors.UniqueViolation:
         return jsonify({"error": "Username already taken"}), 409
+    finally:
+        release_db(conn)
+
+@app.route('/auth/google/native', methods=['POST'])
+@_rl("20 per minute", "200 per hour")
+def google_native():
+    """Native (Capacitor) sign-in: JSON mirror of _google_apply_login. The posted
+    id_token is the credential (a CSRF token can't be forged into a valid one), so this
+    entry point is rate-limited but not @csrf_required, like GET /auth/google/login."""
+    if not _google_enabled:
+        return jsonify({"error": "Google sign-in is not available."}), 400
+    data = request.get_json(silent=True) or {}
+    raw = data.get('id_token') or ''
+    if not raw:
+        return jsonify({"error": "Missing id_token"}), 400
+    try:
+        sub, email = _google_verify_id_token(raw)
+    except Exception:
+        app.logger.exception("Native Google id_token verification failed")
+        return jsonify({"error": "Could not verify Google sign-in."}), 401
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, username, theme, personality, analytics_currency FROM users WHERE google_sub=%s", (sub,))
+            row = cur.fetchone()
+        if row:  # returning Google user → straight in
+            _establish_session(row[0], row[1], row[2], row[3], row[4])
+            return jsonify({"ok": True, "username": row[1], "csrf_token": session['csrf_token']})
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM users WHERE email=%s", (email,))
+            taken = cur.fetchone()
+        if taken:  # existing password account owns this email → must Connect from settings
+            return jsonify({"error": "email_taken"}), 409
+        # New identity: stash it and let the webview open the existing username-completion UI.
+        session['pending_google_sub'] = sub
+        session['pending_google_email'] = email
+        return jsonify({"finish": "google"})
+    finally:
+        release_db(conn)
+
+@app.route('/auth/google/native_link', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("20 per minute", "200 per hour")
+def google_native_link():
+    """Native account-page "Connect/Change Google": JSON mirror of _google_apply_link,
+    behind the same fresh password step-up. Error strings match account.html's notice map."""
+    if not _google_enabled:
+        return jsonify({"error": "error"}), 400
+    if not _stepup_fresh():
+        return jsonify({"error": "stepup"}), 403
+    data = request.get_json(silent=True) or {}
+    raw = data.get('id_token') or ''
+    if not raw:
+        return jsonify({"error": "error"}), 400
+    try:
+        sub, email = _google_verify_id_token(raw)
+    except Exception:
+        app.logger.exception("Native Google link id_token verification failed")
+        return jsonify({"error": "error"}), 401
+    user_id = session['user_id']
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users WHERE google_sub=%s AND id<>%s", (sub, user_id))
+            if cur.fetchone():
+                return jsonify({"error": "in_use"}), 409
+            cur.execute("SELECT id FROM users WHERE email=%s AND id<>%s", (email, user_id))
+            if cur.fetchone():
+                return jsonify({"error": "email_in_use"}), 409
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET google_sub=%s, email=%s WHERE id=%s", (sub, email, user_id))
+        session.pop('change_authorized_at', None)  # one-time use
+        return jsonify({"ok": True})
     finally:
         release_db(conn)
 
