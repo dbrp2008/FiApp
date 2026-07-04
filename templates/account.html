@@ -746,6 +746,8 @@ function _clearAllStorage(){
   localStorage.removeItem('fiapp_import_seen_v1_{{ current_user }}');
   localStorage.removeItem('fiapp_import_catmap_v1_{{ current_user }}');
   localStorage.removeItem('fiapp_import_income_catmap_v1_{{ current_user }}');
+  // Also purge the service-worker page caches (authenticated page shells).
+  if(typeof fiappClearSWCache==='function') fiappClearSWCache();
 }
 
 function showDeleteError(msg){
