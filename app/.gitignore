@@ -1,0 +1,9 @@
+# Capacitor shell: generated / installed artifacts are not committed.
+node_modules/
+android/
+.gradle/
+dist/
+build/
+*.log
+.DS_Store
+.capacitor/

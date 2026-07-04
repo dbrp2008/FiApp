@@ -1,0 +1,19 @@
+{
+  "name": "fiapp-shell",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor Android shell for FiApp. Loads the live site via server.url (the AM4 model), so Render deploys reach the app on next launch. Native Google sign-in bridges into the same-origin web session.",
+  "scripts": {
+    "sync": "cap sync",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@codetrix-studio/capacitor-google-auth": "3.4.0-rc.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "typescript": "^5.9.3"
+  }
+}
