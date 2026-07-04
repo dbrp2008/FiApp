@@ -240,8 +240,19 @@
       return;
     }
     FIAPP_USER_KEYS.forEach(function(k){localStorage.removeItem(k);});
+    fiappClearSWCache();
     fetch('/auth/logout',{method:'POST'}).then(function(){ window.location='/login'; });
   }
+  // Purge the service-worker page caches (they store authenticated page shells with
+  // identity metadata) so nothing of this user survives offline for the next one.
+  function fiappClearSWCache(){
+    try{
+      if(navigator.serviceWorker && navigator.serviceWorker.controller){
+        navigator.serviceWorker.controller.postMessage({type:'clear-cache'});
+      }
+    }catch(_){}
+  }
+  window.fiappClearSWCache=fiappClearSWCache;
   function toggleAcctMenu(btn){
     var drop=btn.nextElementSibling;
     var isOpen=drop.classList.contains('open');
