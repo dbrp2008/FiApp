@@ -134,6 +134,15 @@ self.addEventListener('message', function (event) {
   if (event.data && event.data.type === 'refresh-precache') {
     event.waitUntil(precacheNavPages());
   }
+  // Logout / account-delete: drop every FiApp cache so a prior user's cached page
+  // shells (which embed identity metadata) can't be served offline to the next user.
+  if (event.data && event.data.type === 'clear-cache') {
+    event.waitUntil(caches.keys().then(function (keys) {
+      return Promise.all(keys.map(function (k) {
+        return k.indexOf('fiapp-') === 0 ? caches.delete(k) : null;
+      }));
+    }));
+  }
 });
 
 function isStatic(url) {
