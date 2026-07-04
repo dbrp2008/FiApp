@@ -707,8 +707,8 @@ h1, h2, h3, h4 { color: var(--fg); }
   left: 50%; transform: translateX(-50%); z-index: 99999;
   background: var(--panel-bg); border: 1px solid var(--panel-border);
   border-radius: 8px; padding: .55rem 1rem; font-size: .85rem; color: var(--fg);
-  box-shadow: 0 4px 16px rgba(0,0,0,.15); white-space: nowrap;
-  max-width: 90vw; text-align: center; pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  max-width: 90vw; box-sizing: border-box; text-align: center; pointer-events: none;
 }
 
 /* Voice toggle (account page) */
