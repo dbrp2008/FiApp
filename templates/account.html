@@ -376,6 +376,20 @@
   })();
   </script>
 
+  <!-- App Lock (native app only - revealed by native-lock.js when running in the Capacitor shell) -->
+  <div class="glass-panel" style="display:none;" id="app-lock-card">
+    <h2>🔒 App Lock</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Require a fingerprint, face unlock, or your device screen lock each time you open FiApp on this device.</p>
+    <div class="info-row" style="justify-content:space-between;align-items:center;">
+      <span class="info-label">Lock this app</span>
+      <label class="voice-toggle-label">
+        <input type="checkbox" id="app-lock-toggle">
+        <span class="voice-toggle-track"></span>
+      </label>
+    </div>
+    <span id="app-lock-feedback" style="display:none;font-size:.85rem;margin-top:.5rem;"></span>
+  </div>
+
   <div class="glass-panel">
     <h2>💱 Home Currency</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">The currency your expense numbers are already in. Subscriptions and income with their own currency tags are converted to this for analytics.</p>
