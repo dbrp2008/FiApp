@@ -8,7 +8,9 @@
     "open:android": "cap open android"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^8.0.2",
     "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.2",
     "@capacitor/core": "^6.1.2",
     "@codetrix-studio/capacitor-google-auth": "3.4.0-rc.4"
   },
