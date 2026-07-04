@@ -975,6 +975,8 @@ function setupGoogleAuth(){
         var d2=await r2.json();
         if(!r2.ok||!d2.ok){ fb(d2.error||'Could not disconnect Google.','error'); go.disabled=false; go.textContent='Confirm'; return; }
         fb('✓ Google disconnected. Reloading…','success'); setTimeout(function(){ location.reload(); },900);
+      } else if(window.fiappIsNative && window.fiappIsNative()){
+        fiappNativeGoogleLink();  // native shell: id_token bridge (redirect OAuth breaks in a webview)
       } else {
         window.location='/auth/google/link';  // step-up is now fresh → connect/change
       }
