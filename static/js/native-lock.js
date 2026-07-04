@@ -1,9 +1,11 @@
 /* FiApp native (Capacitor) app lock.
  *
  * Optional biometric / device-credential gate shown on app launch and on resuming from the
- * background. Loaded on every page from base.html (script-src 'self', no nonce) right after
- * native-auth.js, and a strict no-op in a plain browser: fiappIsNative() is false, so nothing
- * renders or binds and the web app is entirely unaffected.
+ * background. Loaded (deferred) on every page from base.html right after native-auth.js, and a
+ * strict no-op in a plain browser: fiappIsNative() is false, so nothing renders or binds and
+ * the web app is entirely unaffected. The render-blocking anti-flash check that must run before
+ * first paint lives separately in native-lock-guard.js (loaded earlier, un-deferred) so this
+ * larger file doesn't have to be render-blocking on every page navigation.
  *
  * FiApp is server-rendered (each tracker page is its own full document, not an SPA route), so
  * clicking between pages is a genuine full page navigation - this script re-runs from scratch
@@ -12,26 +14,10 @@
  * survives page navigations within the same continuous session but is cleared the moment the
  * app backgrounds, so returning from background still re-locks correctly.
  *
- * Enabled flag lives in localStorage ('fiapp_app_lock'='1'), readable synchronously so the
- * cold-start anti-flash guard below can hide the page before first paint. See the Batch C
- * plan for the fail-open tradeoff (durability backstopped by navigator.storage.persist()).
+ * Enabled flag lives in localStorage ('fiapp_app_lock'='1'). See the Batch C plan for the
+ * fail-open tradeoff (durability backstopped by navigator.storage.persist()).
  */
 'use strict';
-
-(function () {
-  // Anti-flash: runs as this <head> script parses, before <body> paints. Hides the page only
-  // when the lock is enabled AND this foreground session hasn't already been unlocked (so
-  // ordinary in-app navigation - a full page load to another tracker page - doesn't flash-hide
-  // a page the user is already unlocked for). The overlay (mounted on DOMContentLoaded) covers
-  // the page when a real challenge is needed, and this class is removed either way.
-  try {
-    if (window.fiappIsNative && window.fiappIsNative()
-        && localStorage.getItem('fiapp_app_lock') === '1'
-        && sessionStorage.getItem('fiapp_lock_unlocked') !== '1') {
-      document.documentElement.classList.add('fiapp-lock-pending');
-    }
-  } catch (e) { /* storage blocked: fall through, no lock */ }
-})();
 
 (function () {
   var LOCK_KEY = 'fiapp_app_lock';
