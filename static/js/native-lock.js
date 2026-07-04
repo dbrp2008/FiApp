@@ -1,9 +1,16 @@
 /* FiApp native (Capacitor) app lock.
  *
- * Optional biometric / device-credential gate shown on every launch and resume. Loaded on
- * every page from base.html (script-src 'self', no nonce) right after native-auth.js, and a
- * strict no-op in a plain browser: fiappIsNative() is false, so nothing renders or binds and
- * the web app is entirely unaffected.
+ * Optional biometric / device-credential gate shown on app launch and on resuming from the
+ * background. Loaded on every page from base.html (script-src 'self', no nonce) right after
+ * native-auth.js, and a strict no-op in a plain browser: fiappIsNative() is false, so nothing
+ * renders or binds and the web app is entirely unaffected.
+ *
+ * FiApp is server-rendered (each tracker page is its own full document, not an SPA route), so
+ * clicking between pages is a genuine full page navigation - this script re-runs from scratch
+ * on every one. To avoid re-locking on ordinary in-app navigation (only true launch/resume
+ * should challenge), an "unlocked this foreground session" flag lives in sessionStorage: it
+ * survives page navigations within the same continuous session but is cleared the moment the
+ * app backgrounds, so returning from background still re-locks correctly.
  *
  * Enabled flag lives in localStorage ('fiapp_app_lock'='1'), readable synchronously so the
  * cold-start anti-flash guard below can hide the page before first paint. See the Batch C
@@ -12,19 +19,23 @@
 'use strict';
 
 (function () {
-  // Anti-flash: runs as this <head> script parses, before <body> paints. If the app is
-  // locked, hide the page immediately; the overlay (mounted on DOMContentLoaded) then covers
-  // it and this class is removed. CSS rule lives in styles.css (html.fiapp-lock-pending body).
+  // Anti-flash: runs as this <head> script parses, before <body> paints. Hides the page only
+  // when the lock is enabled AND this foreground session hasn't already been unlocked (so
+  // ordinary in-app navigation - a full page load to another tracker page - doesn't flash-hide
+  // a page the user is already unlocked for). The overlay (mounted on DOMContentLoaded) covers
+  // the page when a real challenge is needed, and this class is removed either way.
   try {
     if (window.fiappIsNative && window.fiappIsNative()
-        && localStorage.getItem('fiapp_app_lock') === '1') {
+        && localStorage.getItem('fiapp_app_lock') === '1'
+        && sessionStorage.getItem('fiapp_lock_unlocked') !== '1') {
       document.documentElement.classList.add('fiapp-lock-pending');
     }
-  } catch (e) { /* localStorage blocked: fall through, no lock */ }
+  } catch (e) { /* storage blocked: fall through, no lock */ }
 })();
 
 (function () {
   var LOCK_KEY = 'fiapp_app_lock';
+  var UNLOCKED_KEY = 'fiapp_lock_unlocked';   // sessionStorage: cleared on backgrounding
   var _overlay = null;
   var _locking = false;   // guards against re-entrant auth (the system sheet fires app events)
 
@@ -45,6 +56,16 @@
 
   function isEnabled() {
     try { return localStorage.getItem(LOCK_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function isUnlockedThisSession() {
+    try { return sessionStorage.getItem(UNLOCKED_KEY) === '1'; } catch (e) { return false; }
+  }
+  function markUnlocked() {
+    try { sessionStorage.setItem(UNLOCKED_KEY, '1'); } catch (e) {}
+  }
+  function markLocked() {
+    try { sessionStorage.removeItem(UNLOCKED_KEY); } catch (e) {}
   }
 
   // One biometric / device-credential challenge. Resolves true on success, false otherwise.
@@ -138,7 +159,7 @@
     _locking = true;
     var ok = await runAuth();
     _locking = false;
-    if (ok) hideOverlay();       // else leave the overlay up; the Unlock button retries
+    if (ok) { markUnlocked(); hideOverlay(); }   // else leave the overlay up; the Unlock button retries
   }
 
   function lockNow() {
@@ -185,6 +206,7 @@
       var ok = await runAuth();              // prove it works before persisting
       if (ok) {
         try { localStorage.setItem(LOCK_KEY, '1'); } catch (e) {}
+        markUnlocked();   // just proved it works; don't immediately re-challenge this session
         fb('App lock is on. You will unlock each time you open FiApp.', true);
       } else {
         toggle.checked = false;
@@ -208,6 +230,7 @@
       app.addListener('appStateChange', function (state) {
         if (!isEnabled()) return;
         if (state && state.isActive === false) {
+          markLocked();           // true backgrounding: require a fresh check on next resume
           showOverlay();          // hide content in the recent-apps thumbnail + on next resume
         } else if (state && state.isActive === true) {
           if (_overlay && _overlay.style.display !== 'none') unlockAttempt();
@@ -215,8 +238,9 @@
       });
     }
 
-    // Cold start: if launched locked, challenge now.
-    if (isEnabled()) lockNow();
+    // Launch or a same-session page navigation: only challenge if enabled AND not already
+    // unlocked this foreground session (ordinary in-app navigation must not re-lock).
+    if (isEnabled() && !isUnlockedThisSession()) lockNow();
     else document.documentElement.classList.remove('fiapp-lock-pending');
   });
 })();
