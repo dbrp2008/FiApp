@@ -48,22 +48,38 @@
   }
 
   // One biometric / device-credential challenge. Resolves true on success, false otherwise.
+  //
+  // @aparajita/capacitor-biometric-auth's public authenticate() is inherited from a base
+  // class (BiometricAuthBase.prototype) that just calls this.internalAuthenticate(options)
+  // under the hood (confirmed from the published package source). On this Android build,
+  // the object Capacitor exposes only carries its *own* properties (checkBiometry and
+  // internalAuthenticate, both explicitly rebound in the native wrapper's constructor) -
+  // the inherited authenticate() itself isn't reachable, so it's called directly here with
+  // the exact same options object authenticate() would have passed through unchanged.
   async function runAuth() {
     var bio = bioPlugin();
     if (!bio) { console.error('[fiapp-lock] runAuth: no biometric plugin resolved'); return false; }
+    var opts = {
+      reason: 'Unlock FiApp',
+      cancelTitle: 'Cancel',
+      allowDeviceCredential: true,
+      androidTitle: 'Unlock FiApp',
+      androidSubtitle: "Confirm it's you to continue",
+      androidConfirmationRequired: false,
+      iosFallbackTitle: 'Use passcode'
+    };
     try {
-      await bio.authenticate({
-        reason: 'Unlock FiApp',
-        cancelTitle: 'Cancel',
-        allowDeviceCredential: true,
-        androidTitle: 'Unlock FiApp',
-        androidSubtitle: "Confirm it's you to continue",
-        androidConfirmationRequired: false,
-        iosFallbackTitle: 'Use passcode'
-      });
+      if (typeof bio.authenticate === 'function') {
+        await bio.authenticate(opts);
+      } else if (typeof bio.internalAuthenticate === 'function') {
+        await bio.internalAuthenticate(opts);
+      } else {
+        console.error('[fiapp-lock] neither authenticate() nor internalAuthenticate() found on plugin');
+        return false;
+      }
       return true;
     } catch (e) {
-      console.error('[fiapp-lock] authenticate() rejected:', e && e.code, e && e.message, e);
+      console.error('[fiapp-lock] authenticate rejected:', e && e.code, e && e.message, e);
       return false;   // cancelled, failed, or lockout
     }
   }
