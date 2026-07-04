@@ -507,18 +507,6 @@ h1, h2, h3, h4 { color: var(--fg); }
   background: var(--secondary-bg);
   border-color: var(--panel-border);
 }
-.income-sync-update {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: .72rem;
-  font-weight: 700;
-  padding: .15rem .45rem;
-  cursor: pointer;
-  font-family: inherit;
-}
-.income-sync-update:hover { filter: brightness(1.1); }
 .income-sync-link {
   font-size: .75rem;
   color: var(--link-text);
@@ -739,6 +727,10 @@ h1, h2, h3, h4 { color: var(--fg); }
 }
 .voice-toggle-label input:checked + .voice-toggle-track { background: var(--accent); }
 .voice-toggle-label input:checked + .voice-toggle-track::after { transform: translateX(20px); }
+/* App lock (native only): hide the page from first paint on a locked cold start until
+   native-lock.js mounts its overlay, so no real content flashes. Removed as soon as the
+   overlay is shown. See static/js/native-lock.js. */
+html.fiapp-lock-pending body { visibility: hidden !important; }
 /* ── Redesign component layer ───────────────────────────────── */
 .gradient-card{
   background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
