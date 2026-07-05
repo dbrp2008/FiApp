@@ -8,6 +8,11 @@
   ('/tax', '🧾', 'Tax'),
   ('/interest', '📈', 'Interest')
 ] %}
+{% set NAV_ICON_IDS = {
+  '/': 'fi-home', '/income': 'fi-trending-up', '/expenses': 'fi-trending-down',
+  '/subscriptions': 'fi-repeat', '/analytics': 'fi-chart-pie', '/currency': 'fi-exchange',
+  '/tax': 'fi-receipt', '/interest': 'fi-percent', '/account': 'fi-user'
+} %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -127,13 +132,43 @@
     <a href="/" class="rail-brand"><span class="rail-logo" aria-hidden="true"></span><span class="rail-wordmark">FiApp</span></a>
     <nav class="rail-nav">
       {% for path, icon, label in NAV_ITEMS %}
-      <a href="{{ path }}" class="rail-link" data-path="{{ path }}"><span class="rail-ico" aria-hidden="true">{{ icon }}</span><span>{{ label }}</span></a>
+      <a href="{{ path }}" class="rail-link" data-path="{{ path }}"><svg class="rail-ico fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#{{ NAV_ICON_IDS.get(path,'fi-home') }}"/></svg><span>{{ label }}</span></a>
       {% endfor %}
     </nav>
     {% if current_user|default(none) %}
-    <a href="/account" class="rail-link rail-account" data-path="/account"><span class="rail-ico" aria-hidden="true">⚙</span><span>Account</span></a>
+    <a href="/account" class="rail-link rail-account" data-path="/account"><svg class="rail-ico fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-user"/></svg><span>Account</span></a>
     {% endif %}
   </aside>
+
+  <nav class="tab-bar" aria-label="Primary mobile navigation">
+    {% for path, icon, label in NAV_ITEMS[:5] %}
+    <a href="{{ path }}" class="tab-item" data-path="{{ path }}"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#{{ NAV_ICON_IDS.get(path,'fi-home') }}"/></svg><span>{{ label }}</span></a>
+    {% endfor %}
+  </nav>
+  <button class="tab-grabber" id="nav-drawer-grabber" aria-label="More options" aria-expanded="false" aria-controls="nav-drawer" aria-haspopup="dialog"></button>
+  <div class="nav-drawer-backdrop" id="nav-drawer-backdrop"></div>
+  <div class="nav-drawer" id="nav-drawer" role="dialog" aria-modal="true" aria-label="More options">
+    <div class="nav-drawer-grab" aria-hidden="true"></div>
+    <div class="nav-drawer-grid">
+      <a href="/tax" class="nav-drawer-tile" data-path="/tax"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-receipt"/></svg></span>Tax calculator</a>
+      <a href="/currency" class="nav-drawer-tile" data-path="/currency"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-exchange"/></svg></span>Currency</a>
+      <a href="/interest" class="nav-drawer-tile" data-path="/interest"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-percent"/></svg></span>Interest</a>
+      {% if current_user|default(none) %}
+      <a href="/account" class="nav-drawer-tile" data-path="/account"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-user"/></svg></span>Account</a>
+      {% endif %}
+    </div>
+    <button class="nav-drawer-row" id="nav-drawer-help-btn" type="button"><span><svg class="fi-ico" aria-hidden="true" style="margin-right:8px;vertical-align:-3px;"><use href="/static/icons/ui-sprite.svg#fi-help"/></svg>Help &amp; guide</span></button>
+    <div class="nav-drawer-row">
+      <span><svg class="fi-ico" aria-hidden="true" style="margin-right:8px;vertical-align:-3px;"><use href="/static/icons/ui-sprite.svg#fi-palette"/></svg>Theme</span>
+      <span class="nav-drawer-themes" id="nav-drawer-themes">
+        <button class="nav-drawer-theme-dot" data-theme="light" style="background:linear-gradient(135deg,#7c3aed,#0891b2);" aria-label="Light theme"></button>
+        <button class="nav-drawer-theme-dot" data-theme="dark" style="background:#0f172a;" aria-label="Dark theme"></button>
+        <button class="nav-drawer-theme-dot" data-theme="ocean" style="background:#0891b2;" aria-label="Ocean theme"></button>
+        <button class="nav-drawer-theme-dot" data-theme="forest" style="background:#059669;" aria-label="Forest theme"></button>
+        <button class="nav-drawer-theme-dot" data-theme="sunset" style="background:#ea580c;" aria-label="Sunset theme"></button>
+      </span>
+    </div>
+  </div>
   <main class="app-canvas {% block canvas_class %}{% endblock %}">
   <div class="{% block nav_class %}nav{% endblock %}">
     <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu">☰</button>
@@ -273,12 +308,32 @@
     document.getElementById('side-drawer').classList.remove('open');
     document.getElementById('drawer-overlay').classList.remove('open');
   }
+  // Mobile pull-up nav drawer (replaces the hamburger/side-drawer on phones).
+  function openNavDrawer(){
+    var d=document.getElementById('nav-drawer');
+    document.getElementById('nav-drawer-backdrop').classList.add('open');
+    d.classList.add('open');
+    document.getElementById('nav-drawer-grabber').setAttribute('aria-expanded','true');
+    document.body.style.overflow='hidden';
+  }
+  function closeNavDrawer(){
+    document.getElementById('nav-drawer').classList.remove('open');
+    document.getElementById('nav-drawer-backdrop').classList.remove('open');
+    document.getElementById('nav-drawer-grabber').setAttribute('aria-expanded','false');
+    document.body.style.overflow='';
+  }
+  function isNavDrawerOpen(){
+    var d=document.getElementById('nav-drawer');
+    return !!(d && d.classList.contains('open'));
+  }
   document.addEventListener('keydown',function(e){
-    if(e.key==='Escape') closeDrawer();
+    if(e.key==='Escape'){ closeDrawer(); if(isNavDrawerOpen()) closeNavDrawer(); }
     if(e.key==='Tab'){
       var bubble=document.getElementById('wt-bubble');
-      if(!bubble||bubble.style.display==='none') return;
-      var focusable=Array.from(bubble.querySelectorAll('button:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+      var trapRoot = (bubble && bubble.style.display!=='none') ? bubble
+        : (isNavDrawerOpen() ? document.getElementById('nav-drawer') : null);
+      if(!trapRoot) return;
+      var focusable=Array.from(trapRoot.querySelectorAll('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])'));
       if(!focusable.length) return;
       var first=focusable[0],last=focusable[focusable.length-1];
       if(e.shiftKey){if(document.activeElement===first){e.preventDefault();last.focus();}}
@@ -304,6 +359,62 @@
     var helpBtn=document.getElementById('topbar-help-btn');
     if(helpBtn) helpBtn.addEventListener('click',function(){
       if(typeof window.wtStart==='function') window.wtStart();
+    });
+
+    // Mobile pull-up nav drawer: tap grabber, tap backdrop, or swipe.
+    var navGrabber=document.getElementById('nav-drawer-grabber');
+    var navBackdrop=document.getElementById('nav-drawer-backdrop');
+    var navDrawerEl=document.getElementById('nav-drawer');
+    var navHelpBtn=document.getElementById('nav-drawer-help-btn');
+    if(navGrabber) navGrabber.addEventListener('click',function(){
+      isNavDrawerOpen() ? closeNavDrawer() : openNavDrawer();
+    });
+    if(navBackdrop) navBackdrop.addEventListener('click',closeNavDrawer);
+    if(navHelpBtn) navHelpBtn.addEventListener('click',function(){
+      closeNavDrawer();
+      if(typeof window.wtStart==='function') window.wtStart();
+    });
+    document.querySelectorAll('.nav-drawer-tile').forEach(function(a){
+      a.addEventListener('click',closeNavDrawer);
+    });
+    document.querySelectorAll('.nav-drawer-theme-dot').forEach(function(btn){
+      if(btn.dataset.theme===(localStorage.getItem('fiapp_theme')||'light')) btn.classList.add('active');
+      btn.addEventListener('click',function(){
+        setTheme(btn.dataset.theme);
+        document.querySelectorAll('.nav-drawer-theme-dot').forEach(function(d){
+          d.classList.toggle('active',d===btn);
+        });
+      });
+    });
+    // Swipe-up on the tab bar/grabber opens the drawer; swipe-down on the open
+    // drawer closes it. Simple vertical-delta threshold, no library needed.
+    (function(){
+      var startY=null;
+      function onStart(e){ startY=e.touches[0].clientY; }
+      function onEnd(e,closing){
+        if(startY===null) return;
+        var endY=(e.changedTouches&&e.changedTouches[0].clientY)||startY;
+        var dy=startY-endY; // positive = swiped up
+        startY=null;
+        if(closing){ if(dy<-40) closeNavDrawer(); }
+        else { if(dy>40) openNavDrawer(); }
+      }
+      var tb=document.querySelector('.tab-bar');
+      if(tb){
+        tb.addEventListener('touchstart',onStart,{passive:true});
+        tb.addEventListener('touchend',function(e){onEnd(e,false);},{passive:true});
+      }
+      if(navGrabber){
+        navGrabber.addEventListener('touchstart',onStart,{passive:true});
+        navGrabber.addEventListener('touchend',function(e){onEnd(e,isNavDrawerOpen());},{passive:true});
+      }
+      if(navDrawerEl){
+        navDrawerEl.addEventListener('touchstart',onStart,{passive:true});
+        navDrawerEl.addEventListener('touchend',function(e){onEnd(e,true);},{passive:true});
+      }
+    })();
+    document.querySelectorAll('.tab-item').forEach(function(a){
+      if(a.dataset.path===window.location.pathname){ a.classList.add('tab-active'); a.setAttribute('aria-current','page'); }
     });
   });
   // Session expiry check — debounced to 30s so rapid tab switches don't spam /auth/me
