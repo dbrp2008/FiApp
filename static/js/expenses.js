@@ -1046,7 +1046,15 @@ function updateStatStrip(){
   var spentEl=document.getElementById('stat-spent');
   if(!spentEl) return; // page has no stat strip (shouldn't happen on expenses, guards anyway)
   var mk2=currentMK();
-  var spent=_monthSpendTotal(mk2);
+  // grandTotal() (same figure the budget panel calls "Total Expenses This Month") is the
+  // source of truth: unlike _monthSpendTotal()'s raw cell sum, it resolves linked
+  // subscription rows via virtualSubChildren() instead of state.cells, which is empty
+  // for those rows. _monthSpendTotal() is still fine for the *previous* month side of
+  // the delta below - it's a directional comparison, not a headline figure, and computing
+  // an exact prior-month subscription total would mean re-plumbing virtualSubChildren()
+  // (used in 8 places, all implicitly bound to the current month) to accept a month
+  // argument - the same simplification checkSpendTrend() already makes for its own trend text.
+  var spent=grandTotal();
   var prevSpent=_monthSpendTotal(_prevMK(mk2));
   spentEl.textContent=fmt(spent);
   var deltaEl=document.getElementById('stat-spent-delta');
