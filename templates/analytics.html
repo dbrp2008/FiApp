@@ -287,6 +287,11 @@ let _exp, _subs, _inc, _allMonths, _monthTotals, _monthIncomes, _subRows, _subTr
 
 let _rowMonthIdx = {};
 
+// Batch D Wave 5: single-month cursor for the hero stat strip (Net/Savings rate/Top
+// category), navigated via the header's month-pill - independent of the Period
+// selector below, which still controls the multi-month trend charts.
+let _anaMK = null;
+
 
 let _cm=[], _cTc={fg:'#1f2937',muted:'#6b7280',grid:'rgba(0,0,0,.07)',panel:'#f9fafb'},
     _cToday='', _cHasForecast=false, _cStatMs=[], _cActualMs=[];
@@ -352,32 +357,33 @@ function renderAll(){
 
   root.innerHTML='';
 
-  // Batch D Wave 5: the period selector now lives in the header row (beside the
-  // title) instead of as its own full-width bar, matching the month-pill pattern
-  // used by the trackers' headers.
-  if(_allMonths.length&&headRight){
-    const periodRow=document.createElement('div');
-    periodRow.className='period-row';
-    periodRow.setAttribute('data-wt','analytics-period');
-    const lbl=document.createElement('span');
-    lbl.className='period-label'; lbl.textContent='Period:';
-    const sel=document.createElement('select');
-    sel.id='period-global'; sel.className='period-select';
-    periodOptions(_allMonths).forEach(o=>{
-      const opt=document.createElement('option');
-      opt.value=o.value; opt.textContent=o.label;
-      sel.appendChild(opt);
-    });
-    sel.addEventListener('change', reRenderCharts);
-    periodRow.appendChild(lbl);
-    periodRow.appendChild(sel);
-
-    headRight.appendChild(periodRow);
+  // Batch D Wave 5: the header's primary control is a month-pill (matching the
+  // trackers), navigating the hero stat strip (Net/Savings rate/Top category) one
+  // month at a time. The Period selector (All time/3/6/12 months) is a separate,
+  // secondary control further down that only scopes the multi-month trend charts -
+  // the two are independent so switching the hero month never resets chart range.
+  if(_allMonths.length){
+    if(!_anaMK||!_allMonths.includes(_anaMK)) _anaMK=_allMonths[_allMonths.length-1];
+    if(headRight){
+      const pill=document.createElement('div');
+      pill.className='month-pill';
+      pill.setAttribute('data-wt','analytics-period');
+      const prevBtn=document.createElement('button');
+      prevBtn.id='ana-prev-btn'; prevBtn.setAttribute('aria-label','Previous month'); prevBtn.textContent='‹';
+      const lbl=document.createElement('span');
+      lbl.id='ana-month-lbl'; lbl.style.cssText='padding:0 8px;font-weight:600;font-size:.85rem;color:var(--fg);white-space:nowrap;';
+      const nextBtn=document.createElement('button');
+      nextBtn.id='ana-next-btn'; nextBtn.setAttribute('aria-label','Next month'); nextBtn.textContent='›';
+      prevBtn.addEventListener('click',()=>shiftAnaMonth(-1));
+      nextBtn.addEventListener('click',()=>shiftAnaMonth(1));
+      pill.appendChild(prevBtn); pill.appendChild(lbl); pill.appendChild(nextBtn);
+      headRight.appendChild(pill);
+      _updateAnaMonthLabel();
+    }
+    renderHeroStats();
   }
 
-  
 
-  
   // Phase 6: Financial Patterns panel (above stat grid)
   renderFinancialPatterns(root);
 
@@ -416,6 +422,20 @@ function renderAll(){
   
   if(_allMonths.length){
     addSectionTitle('Spending');
+    const periodRow=document.createElement('div');
+    periodRow.className='period-row'; periodRow.style.marginBottom='.75rem';
+    const pLbl=document.createElement('span');
+    pLbl.className='period-label'; pLbl.textContent='Period:';
+    const pSel=document.createElement('select');
+    pSel.id='period-global'; pSel.className='period-select';
+    periodOptions(_allMonths).forEach(o=>{
+      const opt=document.createElement('option');
+      opt.value=o.value; opt.textContent=o.label;
+      pSel.appendChild(opt);
+    });
+    pSel.addEventListener('change', reRenderCharts);
+    periodRow.appendChild(pLbl); periodRow.appendChild(pSel);
+    root.appendChild(periodRow);
     const spendSlide=document.createElement('div');
     spendSlide.className='chart-slideshow'; spendSlide.id='spend-slideshow';
     root.appendChild(spendSlide);
@@ -541,6 +561,81 @@ function buildStatPanel(panelId){
   });
 }
 
+
+// Batch D Wave 5: hero stat strip (Net this month + delta, Savings rate + bar,
+// Top category), scoped to a single month navigated via the header's month-pill -
+// the mockup's headline view. All the detailed multi-month stat cards / charts
+// below are untouched and still driven by the separate Period selector.
+function shiftAnaMonth(d){
+  const idx=_allMonths.indexOf(_anaMK);
+  const newIdx=idx+d;
+  if(newIdx<0||newIdx>=_allMonths.length) return;
+  _anaMK=_allMonths[newIdx];
+  _updateAnaMonthLabel();
+  renderHeroStats();
+}
+function _updateAnaMonthLabel(){
+  const lbl=document.getElementById('ana-month-lbl');
+  if(!lbl||!_anaMK) return;
+  const idx=_allMonths.indexOf(_anaMK);
+  const parts=_anaMK.split('-');
+  const y=parseInt(parts[0],10), m=parseInt(parts[1],10);
+  lbl.textContent=new Date(y,m-1,1).toLocaleString('default',{month:'long'})+' '+y;
+  const prevBtn=document.getElementById('ana-prev-btn');
+  const nextBtn=document.getElementById('ana-next-btn');
+  if(prevBtn) prevBtn.disabled=idx<=0;
+  if(nextBtn) nextBtn.disabled=idx>=_allMonths.length-1;
+}
+function renderHeroStats(){
+  const old=document.getElementById('ana-hero-strip');
+  if(old) old.remove();
+  if(!_anaMK) return;
+  const root=document.getElementById('root');
+  const strip=document.createElement('div');
+  strip.className='stat-strip'; strip.id='ana-hero-strip';
+  strip.style.marginTop='1rem';
+
+  const inc=_monthIncomes[_anaMK]||0;
+  const exp=_monthTotals[_anaMK]||0;
+  const net=inc-exp;
+  const pmk=prevMK(_anaMK);
+  const prevInc=_monthIncomes[pmk]||0, prevExp=_monthTotals[pmk]||0;
+  const prevNet=prevInc-prevExp;
+
+  const netCard=document.createElement('div'); netCard.className='stat-card';
+  let deltaHtml='';
+  if(prevInc||prevExp){
+    const pct=prevNet!==0?Math.round((net-prevNet)/Math.abs(prevNet)*100):(net>0?100:net<0?-100:0);
+    const cls=pct>0?'good':pct<0?'bad':'neutral';
+    deltaHtml=`<div class="stat-delta ${cls}">${pct>=0?'+':''}${pct}% vs ${mkLabel(pmk)}</div>`;
+  }
+  netCard.innerHTML=`<div class="stat-label">Net this month</div>`+
+    `<div class="stat-value">${net<0?'-':''}${fmtMoney(Math.abs(net))}</div>`+deltaHtml;
+  strip.appendChild(netCard);
+
+  const rate=inc>0?Math.max(0,(inc-exp)/inc*100):0;
+  const rateCard=document.createElement('div'); rateCard.className='stat-card';
+  rateCard.innerHTML=`<div class="stat-label">Savings rate</div>`+
+    `<div class="stat-value">${inc>0?rate.toFixed(1)+'%':'-'}</div>`+
+    (inc>0?`<div class="progress-bar"><span style="width:${Math.min(100,rate)}%"></span></div>`:'');
+  strip.appendChild(rateCard);
+
+  const catTotals=combinedCategoryTotals(_exp,_subs,[_anaMK]);
+  const sorted=Object.entries(catTotals).sort((a,b)=>b[1].value-a[1].value);
+  const catCard=document.createElement('div'); catCard.className='stat-card';
+  if(sorted.length){
+    const total=Object.values(catTotals).reduce((s,d)=>s+d.value,0);
+    const pct=total>0?(sorted[0][1].value/total*100).toFixed(0):0;
+    catCard.innerHTML=`<div class="stat-label">Top category</div>`+
+      `<div class="stat-value">${escapeHtml(sorted[0][0])}</div>`+
+      `<div class="stat-sub">${fmtMoney(sorted[0][1].value)} &middot; ${pct}% of spend</div>`;
+  } else {
+    catCard.innerHTML=`<div class="stat-label">Top category</div><div class="stat-value">-</div>`;
+  }
+  strip.appendChild(catCard);
+
+  root.insertBefore(strip, root.firstChild);
+}
 
 function renderStatCards(){
   const statGrid=document.getElementById('stat-grid'); if(!statGrid) return;
