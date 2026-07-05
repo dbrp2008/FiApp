@@ -2180,13 +2180,20 @@ function exportXlsx(filename){
 }
 
 let _openExportMenu=null;
+// Hover-to-open, click-to-select: the submenu opens on mouseenter and stays open while
+// the pointer is over either the Export button or the submenu itself, closing shortly
+// after the pointer leaves both - like a native nested menu, instead of requiring a
+// click just to see the options.
+let _exportCloseTimer=null;
+function _cancelExportClose(){ if(_exportCloseTimer){clearTimeout(_exportCloseTimer);_exportCloseTimer=null;} }
+function _scheduleExportClose(){ _exportCloseTimer=setTimeout(closeExportMenu,200); }
 function closeExportMenu(){
   if(_openExportMenu){_openExportMenu.remove();_openExportMenu=null;}
   document.removeEventListener('click',closeExportMenu,true);
 }
 function showExportMenu(ev){
   ev.stopPropagation();
-  if(_openExportMenu){closeExportMenu();return;}
+  if(_openExportMenu) return;
   const ym=String(state.currentYear)+'-'+String(state.currentMonth+1).padStart(2,'0');
   const base='income-'+ym;
   const menu=document.createElement('div');menu.className='export-menu';
@@ -2200,7 +2207,7 @@ function showExportMenu(ev){
   ];
   formats.forEach(f=>{
     const btn=document.createElement('button');btn.textContent=f.label;
-    btn.addEventListener('click',e=>{e.stopPropagation();closeExportMenu();f.fn();});
+    btn.addEventListener('click',e=>{e.stopPropagation();closeExportMenu();closeDropdown('dd-more');f.fn();});
     menu.appendChild(btn);
   });
   // Anchor to the always-visible "..." overflow toggle, not the Export button: the Export
@@ -2209,6 +2216,8 @@ function showExportMenu(ev){
   const rect=(document.getElementById('more-menu-toggle')||ev.currentTarget).getBoundingClientRect();
   menu.style.top=(rect.bottom+4)+'px';
   menu.style.left=rect.left+'px';
+  menu.addEventListener('mouseenter',_cancelExportClose);
+  menu.addEventListener('mouseleave',_scheduleExportClose);
   document.body.appendChild(menu);
   _openExportMenu=menu;
   if(menu.getBoundingClientRect().bottom > window.innerHeight - 8){
@@ -2520,7 +2529,15 @@ document.getElementById('more-menu-toggle').addEventListener('click',function(e)
 document.getElementById('add-row-btn').addEventListener('click',function(){addRow();closeDropdown('dd-more');});
 document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-more');});
 document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-more');});
-document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-more');});
+(function(){
+  var exportBtn=document.getElementById('export-btn');
+  exportBtn.addEventListener('mouseenter',function(e){ _cancelExportClose(); showExportMenu(e); });
+  exportBtn.addEventListener('mouseleave',_scheduleExportClose);
+  // Touch/keyboard fallback: hover events don't fire on tap, so a plain click still
+  // opens the submenu (parent overflow menu is left open so the format list is
+  // reachable - selecting a format closes both, see the click handler in showExportMenu).
+  exportBtn.addEventListener('click',function(e){ if(!_openExportMenu) showExportMenu(e); });
+})();
 document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
 document.getElementById('expand-btn').addEventListener('click',expandAll);
 document.getElementById('collapse-btn').addEventListener('click',collapseAll);
