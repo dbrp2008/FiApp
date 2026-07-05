@@ -1058,9 +1058,6 @@ document.addEventListener('click',e=>{ if(_exportMenuEl && !e.target.closest('#e
 function showExportMenu(ev){
   if(_exportMenuEl) return;
   ev.stopPropagation();
-  // Anchor to the always-visible "..." overflow toggle, not the Export button (which sits
-  // inside the overflow dropdown that closes on click, leaving the menu floating detached).
-  const btn=document.getElementById('more-menu-toggle')||ev.currentTarget||document.getElementById('export-btn');
   const base='subscriptions-'+state.currentYear+'-'+String(state.currentMonth+1).padStart(2,'0');
   const menu=document.createElement('div'); menu.className='export-menu';
   const formats=[
@@ -1075,18 +1072,24 @@ function showExportMenu(ev){
     b.addEventListener('click',e=>{ e.stopPropagation(); f.fn(); closeExportMenu(); closeDropdown('dd-more'); });
     menu.appendChild(b);
   });
-  const rect=btn.getBoundingClientRect();
-  menu.style.top=(rect.bottom+4)+'px';
-  menu.style.left=rect.left+'px';
+  // Flyout beside the Export row itself, not up near the "..." toggle: the parent overflow
+  // menu now stays open while this submenu is shown (hover-driven), so there's no reason
+  // to anchor near the toggle anymore - that only made sense when opening Export used to
+  // close the parent list out from under it. Anchor to the right edge of the parent menu,
+  // vertically aligned with the Export row, like a native nested menu.
+  const exportRect=document.getElementById('export-btn').getBoundingClientRect();
+  const parentRect=document.getElementById('dd-more-menu').getBoundingClientRect();
+  menu.style.top=exportRect.top+'px';
+  menu.style.left=(parentRect.right+4)+'px';
   menu.addEventListener('mouseenter',_cancelExportClose);
   menu.addEventListener('mouseleave',_scheduleExportClose);
   document.body.appendChild(menu);
   _exportMenuEl=menu;
-  if(menu.getBoundingClientRect().bottom > window.innerHeight - 8){
-    menu.style.top=(rect.top - menu.offsetHeight - 4)+'px';
-  }
   if(menu.getBoundingClientRect().right > window.innerWidth - 8){
-    menu.style.left=Math.max(4, window.innerWidth - menu.offsetWidth - 8)+'px';
+    menu.style.left=Math.max(4, parentRect.left - menu.offsetWidth - 4)+'px';
+  }
+  if(menu.getBoundingClientRect().bottom > window.innerHeight - 8){
+    menu.style.top=Math.max(4, window.innerHeight - menu.offsetHeight - 8)+'px';
   }
 }
 
