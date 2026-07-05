@@ -1081,7 +1081,7 @@ function updateStatStrip(){
   if(prevSpent>0){
     var pct=Math.round((spent-prevSpent)/prevSpent*100);
     deltaEl.className='stat-delta '+(pct>0?'bad':pct<0?'good':'neutral');
-    deltaEl.innerHTML='<svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#'+(pct>=0?'fi-arrow-up-right':'fi-arrow-down-right')+'"/></svg>'+
+    deltaEl.innerHTML='<svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v='+(window.ASSET_V||'')+'#'+(pct>=0?'fi-arrow-up-right':'fi-arrow-down-right')+'"/></svg>'+
       (pct>=0?'+':'')+pct+'% vs last month';
   } else {
     deltaEl.className='stat-delta neutral';
