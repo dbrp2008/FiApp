@@ -1034,6 +1034,63 @@ function updateIncomeSummary(){
   }
 }
 
+// ── Batch D Wave 4: header stat strip (spent+delta, budget-left+bar, daily pace) ──
+function _prevMK(mk2){
+  var parts=mk2.split('-'); var py=parseInt(parts[0],10), pm=parseInt(parts[1],10)-1;
+  pm--; if(pm<0){py--;pm=11;}
+  return mk(py,pm);
+}
+function updateStatStrip(){
+  var spentEl=document.getElementById('stat-spent');
+  if(!spentEl) return; // page has no stat strip (shouldn't happen on expenses, guards anyway)
+  var mk2=currentMK();
+  var spent=_monthSpendTotal(mk2);
+  var prevSpent=_monthSpendTotal(_prevMK(mk2));
+  spentEl.textContent=fmt(spent);
+  var deltaEl=document.getElementById('stat-spent-delta');
+  if(prevSpent>0){
+    var pct=Math.round((spent-prevSpent)/prevSpent*100);
+    deltaEl.className='stat-delta '+(pct>0?'bad':pct<0?'good':'neutral');
+    deltaEl.innerHTML='<svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#'+(pct>=0?'fi-arrow-up-right':'fi-arrow-down-right')+'"/></svg>'+
+      (pct>=0?'+':'')+pct+'% vs last month';
+  } else {
+    deltaEl.className='stat-delta neutral';
+    deltaEl.textContent='';
+  }
+
+  var gross=parseFloat(document.getElementById('inp-gross').value)||0;
+  var tax=parseFloat(document.getElementById('inp-tax').value)||0;
+  var afterTax=Math.max(0,gross-tax);
+  var left=afterTax-spent;
+  var leftEl=document.getElementById('stat-budget-left');
+  var barWrap=document.getElementById('stat-budget-bar');
+  if(afterTax>0){
+    leftEl.textContent=fmt(Math.max(0,left));
+    var pctUsed=Math.min(100,Math.round(spent/afterTax*100));
+    barWrap.style.display='block';
+    barWrap.querySelector('span').style.width=pctUsed+'%';
+  } else {
+    leftEl.textContent='-';
+    barWrap.style.display='none';
+  }
+
+  var now=new Date();
+  var isCurrent=state.currentYear===now.getFullYear()&&state.currentMonth===now.getMonth();
+  var daysInMonth=new Date(state.currentYear,state.currentMonth+1,0).getDate();
+  var daysElapsed=isCurrent?now.getDate():daysInMonth;
+  var pace=spent/Math.max(1,daysElapsed);
+  document.getElementById('stat-pace').textContent=fmt(pace)+'/day';
+  var paceNote=document.getElementById('stat-pace-note');
+  if(afterTax>0){
+    var budgetPerDay=afterTax/daysInMonth;
+    paceNote.textContent=pace<=budgetPerDay?'on track for budget':'above budget pace';
+    paceNote.className='stat-delta '+(pace<=budgetPerDay?'good':'bad');
+  } else {
+    paceNote.textContent=isCurrent?daysElapsed+' of '+daysInMonth+' days':'';
+    paceNote.className='stat-delta neutral';
+  }
+}
+
 // Phase: overspend nudge — pace-vs-calendar projection for the live current
 // month. Fires only when spend is *materially* ahead of the calendar (not
 // just slightly), and the linear projection actually crosses the goal/income.
@@ -2332,6 +2389,7 @@ function render(){
     renderFooter(table);
   }
   updateIncomeSummary();
+  updateStatStrip();
   renderTemplatePrompt();
   updateGoalHint();
   if(chartVisible) renderChart();
@@ -3337,13 +3395,12 @@ document.getElementById('forecast-avg-btn').addEventListener('click',useAverages
 document.getElementById('apply-year-btn').addEventListener('click',applyIncomeToYear);
 document.getElementById('undo-btn').addEventListener('click',undo);
 document.getElementById('redo-btn').addEventListener('click',redo);
-document.getElementById('dd-table-toggle').addEventListener('click',function(e){toggleDropdown('dd-table',e);});
-document.getElementById('add-row-btn').addEventListener('click',function(){addRow();closeDropdown('dd-table');});
-document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-table');});
-document.getElementById('dd-share-toggle').addEventListener('click',function(e){toggleDropdown('dd-share',e);});
-document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-share');});
-document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-share');});
-document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-share');});
+document.getElementById('more-menu-toggle').addEventListener('click',function(e){toggleDropdown('dd-more',e);});
+document.getElementById('add-row-btn').addEventListener('click',function(){addRow();closeDropdown('dd-more');});
+document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-more');});
+document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-more');});
+document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-more');});
+document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
 document.getElementById('import-btn').addEventListener('click',function(){if(window.openImportWizard) openImportWizard();});
 document.getElementById('expand-btn').addEventListener('click',expandAll);
 document.getElementById('collapse-btn').addEventListener('click',collapseAll);
@@ -3378,6 +3435,78 @@ function toggleDropdown(id, e){
 function closeDropdown(id){ document.getElementById(id+'-menu').classList.remove('open'); }
 document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open')); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') document.querySelectorAll('.dropdown-menu.open').forEach(function(m){m.classList.remove('open');}); });
+
+// ── Batch D Wave 4: mobile quick-add sheet ──────────────────────────────
+// Picks the week-column matching today's date (or Week 1 for a non-current
+// month); Save is additive to whatever is already in that cell, per the
+// "I just spent X" mental model rather than overwriting a week's running total.
+function _qaCurrentWeekCol(){
+  var cols=getCols();
+  if(!cols.length) return null;
+  var now=new Date();
+  var isCurrent=state.currentYear===now.getFullYear()&&state.currentMonth===now.getMonth();
+  var day=isCurrent?now.getDate():1;
+  var idx=Math.min(cols.length-1,Math.floor((day-1)/7));
+  return cols[idx];
+}
+function openQuickAdd(){
+  var sheet=document.getElementById('qa-sheet');
+  var backdrop=document.getElementById('qa-backdrop');
+  if(!sheet||!backdrop) return;
+  var chips=document.getElementById('qa-chips');
+  chips.innerHTML='';
+  getRows().filter(function(r){return !r.parentId;}).forEach(function(row,i){
+    var chip=document.createElement('button');
+    chip.type='button'; chip.className='qa-chip'+(i===0?' selected':'');
+    chip.textContent=row.label; chip.dataset.rowId=row.id;
+    chip.addEventListener('click',function(){
+      chips.querySelectorAll('.qa-chip').forEach(function(c){c.classList.remove('selected');});
+      chip.classList.add('selected');
+    });
+    chips.appendChild(chip);
+  });
+  document.getElementById('qa-amount').value='';
+  backdrop.classList.add('open'); sheet.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(function(){ var a=document.getElementById('qa-amount'); if(a) a.focus(); },50);
+}
+function closeQuickAdd(){
+  var sheet=document.getElementById('qa-sheet');
+  var backdrop=document.getElementById('qa-backdrop');
+  if(sheet) sheet.classList.remove('open');
+  if(backdrop) backdrop.classList.remove('open');
+  document.body.style.overflow='';
+}
+function saveQuickAdd(){
+  var amt=parseFloat(document.getElementById('qa-amount').value);
+  if(!amt||amt<=0) return;
+  var chip=document.querySelector('.qa-chip.selected');
+  if(!chip) return;
+  var col=_qaCurrentWeekCol();
+  if(!col) return;
+  if(_isClosedMonth(currentMK())){ showToast('🔒 Month is locked.'); closeQuickAdd(); return; }
+  snapshot();
+  var key=ck(chip.dataset.rowId,col.id);
+  var existing=parseFloat(state.cells[key])||0;
+  state.cells[key]=(existing+amt).toFixed(2);
+  save(); render();
+  closeQuickAdd();
+}
+(function(){
+  var openBtn=document.getElementById('qa-open-btn');
+  if(openBtn) openBtn.addEventListener('click',function(){
+    if(window.innerWidth<640) openQuickAdd();
+    else { var wrap=document.getElementById('exp-sheet-wrap'); if(wrap) wrap.scrollIntoView({behavior:'smooth',block:'start'}); }
+  });
+  var fab=document.getElementById('add-fab');
+  if(fab) fab.addEventListener('click',openQuickAdd);
+  var cancelBtn=document.getElementById('qa-cancel-btn');
+  if(cancelBtn) cancelBtn.addEventListener('click',closeQuickAdd);
+  var saveBtn=document.getElementById('qa-save-btn');
+  if(saveBtn) saveBtn.addEventListener('click',saveQuickAdd);
+  var backdrop=document.getElementById('qa-backdrop');
+  if(backdrop) backdrop.addEventListener('click',closeQuickAdd);
+})();
 
 // ── Voice Input Bridge ──────────────────────────────────────────────────
 window._expVoiceBridge = {
