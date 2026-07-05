@@ -841,12 +841,34 @@ function updateCurrencyHint(){
     el.style.display='none';
   };
 }
+// Batch D Wave 4: stat-strip delta vs last month, alongside the pre-existing totals.
+function _prevMK(mk2){
+  var parts=mk2.split('-'); var py=parseInt(parts[0],10), pm=parseInt(parts[1],10)-1;
+  pm--; if(pm<0){py--;pm=11;}
+  return mk(py,pm);
+}
+function _prevMonthTotalUSD(mk2){
+  return getRows(mk2).filter(function(r){return !r.parentId;}).reduce(function(s,r){return s+rowTotalForMonthKey(r.id,mk2);},0);
+}
 function updateSummaryBar(){
-  const totalUSD=grandTotal(); 
+  const totalUSD=grandTotal();
   const el=document.getElementById('disp-total');
   const annualEl=document.getElementById('disp-annual');
   const convEl=document.getElementById('disp-conv');
   if(el) el.textContent=totalUSD>0?'$'+totalUSD.toFixed(2):'$0.00';
+  const deltaEl=document.getElementById('stat-total-delta');
+  if(deltaEl){
+    const prevUSD=_prevMonthTotalUSD(_prevMK(currentMK()));
+    if(prevUSD>0){
+      const pct=Math.round((totalUSD-prevUSD)/prevUSD*100);
+      deltaEl.className='stat-delta '+(pct>0?'good':pct<0?'bad':'neutral');
+      deltaEl.innerHTML='<svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v='+(window.ASSET_V||'')+'#'+(pct>=0?'fi-arrow-up-right':'fi-arrow-down-right')+'"/></svg>'+
+        (pct>=0?'+':'')+pct+'% vs last month';
+    } else {
+      deltaEl.className='stat-delta neutral';
+      deltaEl.textContent='';
+    }
+  }
   if(annualEl) annualEl.textContent=totalUSD>0?'$'+(totalUSD*12).toFixed(2):'-';
   if(convEl&&currentRate!==1){
     const cur=state.displayCurrency||'USD';
@@ -2181,10 +2203,10 @@ function showExportMenu(ev){
     btn.addEventListener('click',e=>{e.stopPropagation();closeExportMenu();f.fn();});
     menu.appendChild(btn);
   });
-  // Anchor to the always-visible "Share ▾" toggle, not the Export button: the Export
-  // button lives inside the Share dropdown, which closes on click, so anchoring to it
+  // Anchor to the always-visible "..." overflow toggle, not the Export button: the Export
+  // button lives inside the overflow dropdown, which closes on click, so anchoring to it
   // left the menu floating detached in the gap the closed dropdown left behind.
-  const rect=(document.getElementById('dd-share-toggle')||ev.currentTarget).getBoundingClientRect();
+  const rect=(document.getElementById('more-menu-toggle')||ev.currentTarget).getBoundingClientRect();
   menu.style.top=(rect.bottom+4)+'px';
   menu.style.left=rect.left+'px';
   document.body.appendChild(menu);
@@ -2387,14 +2409,97 @@ function openHelp(){ document.getElementById('help-modal').style.display='flex';
 function closeHelp(){ document.getElementById('help-modal').style.display='none'; }
 function toggleDropdown(id, e){
   e && e.stopPropagation();
+  const wrap = document.getElementById(id);
   const menu = document.getElementById(id+'-menu');
   const isOpen = menu.classList.contains('open');
-  document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open'));
+  // "Copy to" (#dd-copy-to) nests inside the "..." overflow menu (#dd-more-menu) so it can
+  // sit alongside the other copy actions. Its menu is position:absolute relative to its own
+  // #dd-copy-to wrapper, so if the ancestor dd-more-menu were closed (display:none) here,
+  // the nested menu would render invisible even with .open set. Skip closing any open menu
+  // that is itself an ancestor of the dropdown being toggled.
+  document.querySelectorAll('.dropdown-menu.open').forEach(m=>{ if(!wrap || !m.contains(wrap)) m.classList.remove('open'); });
   if(!isOpen) menu.classList.add('open');
 }
 function closeDropdown(id){ document.getElementById(id+'-menu').classList.remove('open'); }
 document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open')); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') document.querySelectorAll('.dropdown-menu.open').forEach(function(m){m.classList.remove('open');}); });
+
+// Batch D Wave 4: mobile quick-add sheet. Income's grid isn't a fixed weekly layout
+// like expenses (columns vary per row set), so the target is simply that row's first
+// column, written additively in the row's own currency (no cross-currency conversion -
+// the amount typed is assumed to already be in that row's set currency).
+function openQuickAdd(){
+  var sheet=document.getElementById('qa-sheet');
+  var backdrop=document.getElementById('qa-backdrop');
+  if(!sheet||!backdrop) return;
+  var chips=document.getElementById('qa-chips');
+  chips.innerHTML='';
+  getRows().filter(function(r){return !r.parentId;}).forEach(function(row,i){
+    var chip=document.createElement('button');
+    chip.type='button'; chip.className='qa-chip'+(i===0?' selected':'');
+    chip.textContent=row.label; chip.dataset.rowId=row.id;
+    chip.addEventListener('click',function(){
+      chips.querySelectorAll('.qa-chip').forEach(function(c){c.classList.remove('selected');});
+      chip.classList.add('selected');
+    });
+    chips.appendChild(chip);
+  });
+  document.getElementById('qa-amount').value='';
+  backdrop.classList.add('open'); sheet.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(function(){ var a=document.getElementById('qa-amount'); if(a) a.focus(); },50);
+}
+function closeQuickAdd(){
+  var sheet=document.getElementById('qa-sheet');
+  var backdrop=document.getElementById('qa-backdrop');
+  if(sheet) sheet.classList.remove('open');
+  if(backdrop) backdrop.classList.remove('open');
+  document.body.style.overflow='';
+}
+function saveQuickAdd(){
+  var amt=parseFloat(document.getElementById('qa-amount').value);
+  if(!amt||amt<=0) return;
+  var chip=document.querySelector('.qa-chip.selected');
+  if(!chip) return;
+  var col=getCols()[0];
+  if(!col) return;
+  if(_isClosedMonth(currentMK())){ showToast('🔒 Month is locked.'); closeQuickAdd(); return; }
+  snapshot();
+  var key=ck(chip.dataset.rowId,col.id);
+  var existing=parseFloat(state.cells[key])||0;
+  state.cells[key]=(existing+amt).toFixed(2);
+  save(); render();
+  closeQuickAdd();
+}
+(function(){
+  var openBtn=document.getElementById('qa-open-btn');
+  if(openBtn) openBtn.addEventListener('click',function(){
+    if(window.innerWidth<640){ openQuickAdd(); return; }
+    // Desktop already shows the whole spreadsheet - every cell is already one click
+    // away, so there's nothing to "jump to". The genuinely new action here is a new
+    // income source row (same as the overflow menu's "Add row").
+    addRow();
+    var wrap=document.getElementById('inc-sheet-wrap');
+    if(wrap) wrap.scrollIntoView({behavior:'smooth',block:'end'});
+    var rows=getRows().filter(function(r){return !r.parentId;});
+    var newRow=rows[rows.length-1];
+    if(newRow){
+      setTimeout(function(){
+        var tr=document.querySelector('[data-tr-row-id="'+newRow.id+'"]');
+        var label=tr&&tr.querySelector('.row-label');
+        if(label){ label.focus(); if(label.select) label.select(); }
+      },350);
+    }
+  });
+  var fab=document.getElementById('add-fab');
+  if(fab) fab.addEventListener('click',openQuickAdd);
+  var cancelBtn=document.getElementById('qa-cancel-btn');
+  if(cancelBtn) cancelBtn.addEventListener('click',closeQuickAdd);
+  var saveBtn=document.getElementById('qa-save-btn');
+  if(saveBtn) saveBtn.addEventListener('click',saveQuickAdd);
+  var backdrop=document.getElementById('qa-backdrop');
+  if(backdrop) backdrop.addEventListener('click',closeQuickAdd);
+})();
 
 // Static toolbar event wiring (replaces onclick= attributes)
 document.getElementById('help-open-btn').addEventListener('click',openHelp);
@@ -2403,21 +2508,20 @@ document.getElementById('month-jump').addEventListener('change',function(){jumpT
 document.getElementById('curr-sel').addEventListener('change',onCurrencyChange);
 document.getElementById('prev-btn').addEventListener('click',function(){shiftMonth(-1);});
 document.getElementById('next-btn').addEventListener('click',function(){shiftMonth(1);});
-document.getElementById('copy-prev-btn').addEventListener('click',copyStructureFromPrevMonth);
-document.getElementById('copy-month-btn').addEventListener('click',showMonthCopyPicker);
+document.getElementById('copy-prev-btn').addEventListener('click',function(){copyStructureFromPrevMonth();closeDropdown('dd-more');});
+document.getElementById('copy-month-btn').addEventListener('click',function(){showMonthCopyPicker();closeDropdown('dd-more');});
 document.getElementById('copy-to-toggle').addEventListener('click',function(e){openCopyToDropdown(e);});
 document.getElementById('forecast-copy-last-btn').addEventListener('click',copyLastMonth);
 document.getElementById('forecast-avg-btn').addEventListener('click',useAverages);
 document.getElementById('curr-other-btn').addEventListener('click',applyOtherCurrency);
 document.getElementById('undo-btn').addEventListener('click',undo);
 document.getElementById('redo-btn').addEventListener('click',redo);
-document.getElementById('dd-table-toggle').addEventListener('click',function(e){toggleDropdown('dd-table',e);});
-document.getElementById('add-row-btn').addEventListener('click',function(){addRow();closeDropdown('dd-table');});
-document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-table');});
-document.getElementById('dd-share-toggle').addEventListener('click',function(e){toggleDropdown('dd-share',e);});
-document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-share');});
-document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-share');});
-document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-share');});
+document.getElementById('more-menu-toggle').addEventListener('click',function(e){toggleDropdown('dd-more',e);});
+document.getElementById('add-row-btn').addEventListener('click',function(){addRow();closeDropdown('dd-more');});
+document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-more');});
+document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-more');});
+document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-more');});
+document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
 document.getElementById('expand-btn').addEventListener('click',expandAll);
 document.getElementById('collapse-btn').addEventListener('click',collapseAll);
 document.getElementById('reset-btn').addEventListener('click',resetAll);
