@@ -132,17 +132,17 @@
     <a href="/" class="rail-brand"><span class="rail-logo" aria-hidden="true"></span><span class="rail-wordmark">FiApp</span></a>
     <nav class="rail-nav">
       {% for path, icon, label in NAV_ITEMS %}
-      <a href="{{ path }}" class="rail-link" data-path="{{ path }}"><svg class="rail-ico fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#{{ NAV_ICON_IDS.get(path,'fi-home') }}"/></svg><span>{{ label }}</span></a>
+      <a href="{{ path }}" class="rail-link" data-path="{{ path }}"><svg class="rail-ico fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#{{ NAV_ICON_IDS.get(path,'fi-home') }}"/></svg><span>{{ label }}</span></a>
       {% endfor %}
     </nav>
     {% if current_user|default(none) %}
-    <a href="/account" class="rail-link rail-account" data-path="/account"><svg class="rail-ico fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-user"/></svg><span>Account</span></a>
+    <a href="/account" class="rail-link rail-account" data-path="/account"><svg class="rail-ico fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-user"/></svg><span>Account</span></a>
     {% endif %}
   </aside>
 
   <nav class="tab-bar" aria-label="Primary mobile navigation">
     {% for path, icon, label in NAV_ITEMS[:5] %}
-    <a href="{{ path }}" class="tab-item" data-path="{{ path }}"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#{{ NAV_ICON_IDS.get(path,'fi-home') }}"/></svg><span>{{ label }}</span></a>
+    <a href="{{ path }}" class="tab-item" data-path="{{ path }}"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#{{ NAV_ICON_IDS.get(path,'fi-home') }}"/></svg><span>{{ label }}</span></a>
     {% endfor %}
   </nav>
   <button class="tab-grabber" id="nav-drawer-grabber" aria-label="More options" aria-expanded="false" aria-controls="nav-drawer" aria-haspopup="dialog"></button>
@@ -150,16 +150,16 @@
   <div class="nav-drawer" id="nav-drawer" role="dialog" aria-modal="true" aria-label="More options">
     <div class="nav-drawer-grab" aria-hidden="true"></div>
     <div class="nav-drawer-grid">
-      <a href="/tax" class="nav-drawer-tile" data-path="/tax"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-receipt"/></svg></span>Tax calculator</a>
-      <a href="/currency" class="nav-drawer-tile" data-path="/currency"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-exchange"/></svg></span>Currency</a>
-      <a href="/interest" class="nav-drawer-tile" data-path="/interest"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-percent"/></svg></span>Interest</a>
+      <a href="/tax" class="nav-drawer-tile" data-path="/tax"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-receipt"/></svg></span>Tax calculator</a>
+      <a href="/currency" class="nav-drawer-tile" data-path="/currency"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-exchange"/></svg></span>Currency</a>
+      <a href="/interest" class="nav-drawer-tile" data-path="/interest"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-percent"/></svg></span>Interest</a>
       {% if current_user|default(none) %}
-      <a href="/account" class="nav-drawer-tile" data-path="/account"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-user"/></svg></span>Account</a>
+      <a href="/account" class="nav-drawer-tile" data-path="/account"><span class="icon-chip chip-accent chip-sm"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-user"/></svg></span>Account</a>
       {% endif %}
     </div>
-    <button class="nav-drawer-row" id="nav-drawer-help-btn" type="button"><span><svg class="fi-ico" aria-hidden="true" style="margin-right:8px;vertical-align:-3px;"><use href="/static/icons/ui-sprite.svg#fi-help"/></svg>Help &amp; guide</span></button>
+    <button class="nav-drawer-row" id="nav-drawer-help-btn" type="button"><span><svg class="fi-ico" aria-hidden="true" style="margin-right:8px;vertical-align:-3px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-help"/></svg>Help &amp; guide</span></button>
     <div class="nav-drawer-row">
-      <span><svg class="fi-ico" aria-hidden="true" style="margin-right:8px;vertical-align:-3px;"><use href="/static/icons/ui-sprite.svg#fi-palette"/></svg>Theme</span>
+      <span><svg class="fi-ico" aria-hidden="true" style="margin-right:8px;vertical-align:-3px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-palette"/></svg>Theme</span>
       <span class="nav-drawer-themes" id="nav-drawer-themes">
         <button class="nav-drawer-theme-dot" data-theme="light" style="background:linear-gradient(135deg,#7c3aed,#0891b2);" aria-label="Light theme"></button>
         <button class="nav-drawer-theme-dot" data-theme="dark" style="background:#0f172a;" aria-label="Dark theme"></button>
@@ -194,6 +194,7 @@
   </div>
   <script nonce="{{ csp_nonce }}">
   var _CSRF='{{ csrf_token|default("") }}';
+  window.ASSET_V='{{ ASSET_V }}';
   // Fetch with a hard timeout. A stalled connection (mobile with dead data) can
   // hang a bare fetch() forever; every boot-path fetch goes through this so the
   // page never blocks on the network.
