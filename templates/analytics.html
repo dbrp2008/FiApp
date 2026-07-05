@@ -74,7 +74,6 @@
       display: flex;
       align-items: center;
       gap: .6rem;
-      margin-bottom: 1rem;
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
       border-radius: 12px;
@@ -189,8 +188,11 @@
 {% endblock %}
 {% block content %}
 
-  <div class="page-header">
-    <h1>Analytics</h1>
+  <div class="tracker-head">
+    <div class="tracker-head-left">
+      <h1>Analytics</h1>
+    </div>
+    <div class="tracker-head-right" id="analytics-head-right"></div>
   </div>
   <div id="root"></div>
 {% endblock %}
@@ -207,6 +209,10 @@ const EXP_KEY  = 'fiapp_expenses_v4';
 const SUBS_KEY = 'fiapp_subs_v4';
 const INC_KEY  = 'fiapp_income_v1';
 const ANALYTICS_CURRENCIES = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'];
+
+// Batch D Wave 5: align chart typography with the rest of the app's self-hosted
+// Inter font instead of Chart.js's default sans-serif stack.
+if(typeof Chart!=='undefined') Chart.defaults.font.family="'Inter',system-ui,-apple-system,sans-serif";
 
 function themeColors(){
   const el=document.documentElement;
@@ -329,8 +335,11 @@ function renderAll(){
   _subTrendMonths = _allMonths;
 
   const root=document.getElementById('root');
+  const headRight=document.getElementById('analytics-head-right');
   const hasAnyData=_allMonths.length>0||_subRows.length>0;
   const hasSubData=_subRows.length>0||(_subs&&_subs.rows&&_subs.rows.length>0);
+
+  if(headRight) headRight.innerHTML='';
 
   if(!hasAnyData&&!hasSubData){
     root.innerHTML=`<div class="no-data">
@@ -343,8 +352,10 @@ function renderAll(){
 
   root.innerHTML='';
 
-  
-  if(_allMonths.length){
+  // Batch D Wave 5: the period selector now lives in the header row (beside the
+  // title) instead of as its own full-width bar, matching the month-pill pattern
+  // used by the trackers' headers.
+  if(_allMonths.length&&headRight){
     const periodRow=document.createElement('div');
     periodRow.className='period-row';
     periodRow.setAttribute('data-wt','analytics-period');
@@ -361,7 +372,7 @@ function renderAll(){
     periodRow.appendChild(lbl);
     periodRow.appendChild(sel);
 
-    root.appendChild(periodRow);
+    headRight.appendChild(periodRow);
   }
 
   
