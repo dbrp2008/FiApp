@@ -946,6 +946,7 @@ function updateGrandTotal(){
   const el=document.getElementById('gt'); if(el) el.textContent=fmt(grandTotal());
   getCols().forEach(col=>updateColFooter(col.id));
   updateIncomeSummary();
+  updateStatStrip();
 }
 function updateAll(rId){ updateRowTotal(rId); updateGrandTotal(); if(chartVisible) renderChart(); }
 
@@ -971,7 +972,7 @@ function onIncomeInput(){
   const tax=taxEl.value;
   const obj=monthIncomeObj(); obj.tax=tax;
   document.getElementById('apply-year-btn').style.display=tax?'inline-block':'none';
-  save(); updateIncomeSummary();
+  save(); updateIncomeSummary(); updateStatStrip();
 }
 function syncIncomeInputs(){
   const obj=monthIncomeObj();
@@ -980,6 +981,7 @@ function syncIncomeInputs(){
   document.getElementById('apply-year-btn').style.display=obj.tax?'inline-block':'none';
   document.getElementById('apply-year-lbl').textContent=state.currentYear;
   updateIncomeSummary();
+  updateStatStrip();
   syncFromIncomeTracker(currentMK());
 }
 function applyIncomeToYear(){
@@ -1266,7 +1268,7 @@ async function syncFromIncomeTracker(mk2){
       if(grossEl) grossEl.value='';
       if(icon){ icon.dataset.tip='No income set for this month - add it in the Income Tracker'; icon.style.display=''; }
     }
-    saveLocal(); updateIncomeSummary();
+    saveLocal(); updateIncomeSummary(); updateStatStrip();
   }catch(e){}
 }
 
