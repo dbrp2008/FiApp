@@ -1287,9 +1287,15 @@ function reRenderCharts(){
   // arrive in the background and re-render. A dead or stalled connection can
   // never leave this page stuck on a loading message.
   renderAll();
-  fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) reRenderCharts(); });
+  // renderAll() computes _monthTotals/_monthIncomes/_subRows via _coreToHome, which is a
+  // no-op until rates load (an unconverted foreign-currency amount is left as its raw
+  // number - e.g. 444,444 KRW counted as 444,444 EUR). So once rates arrive we must re-run
+  // renderAll() to recompute those aggregates, NOT just reRenderCharts() (which only redraws
+  // charts against the already-computed, still-unconverted totals). fmtMoney formatting
+  // alone was never the issue; the monthly totals themselves need reconverting.
+  fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) renderAll(); });
   // If rates failed (API down, rate-limited, etc.), retry once after 3s.
-  setTimeout(()=>{ if(!fiappCoreRatesLoaded()) fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) reRenderCharts(); }); },3000);
+  setTimeout(()=>{ if(!fiappCoreRatesLoaded()) fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) renderAll(); }); },3000);
 
   try{
     const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
