@@ -1046,10 +1046,17 @@ async function exportXlsx(filename){
   }
 }
 let _exportMenuEl=null;
+// Hover-to-open, click-to-select: the submenu opens on mouseenter and stays open while
+// the pointer is over either the Export button or the submenu itself, closing shortly
+// after the pointer leaves both - like a native nested menu, instead of requiring a
+// click just to see the options.
+let _exportCloseTimer=null;
+function _cancelExportClose(){ if(_exportCloseTimer){clearTimeout(_exportCloseTimer);_exportCloseTimer=null;} }
+function _scheduleExportClose(){ _exportCloseTimer=setTimeout(closeExportMenu,200); }
 function closeExportMenu(){ if(_exportMenuEl){ _exportMenuEl.remove(); _exportMenuEl=null; } }
 document.addEventListener('click',e=>{ if(_exportMenuEl && !e.target.closest('#export-btn') && !e.target.closest('.export-menu')) closeExportMenu(); });
 function showExportMenu(ev){
-  if(_exportMenuEl){ closeExportMenu(); return; }
+  if(_exportMenuEl) return;
   ev.stopPropagation();
   // Anchor to the always-visible "..." overflow toggle, not the Export button (which sits
   // inside the overflow dropdown that closes on click, leaving the menu floating detached).
@@ -1065,12 +1072,14 @@ function showExportMenu(ev){
   ];
   formats.forEach(f=>{
     const b=document.createElement('button'); b.textContent=f.label;
-    b.addEventListener('click',e=>{ e.stopPropagation(); f.fn(); closeExportMenu(); });
+    b.addEventListener('click',e=>{ e.stopPropagation(); f.fn(); closeExportMenu(); closeDropdown('dd-more'); });
     menu.appendChild(b);
   });
   const rect=btn.getBoundingClientRect();
   menu.style.top=(rect.bottom+4)+'px';
   menu.style.left=rect.left+'px';
+  menu.addEventListener('mouseenter',_cancelExportClose);
+  menu.addEventListener('mouseleave',_scheduleExportClose);
   document.body.appendChild(menu);
   _exportMenuEl=menu;
   if(menu.getBoundingClientRect().bottom > window.innerHeight - 8){
@@ -1719,7 +1728,15 @@ document.getElementById('redo-btn').addEventListener('click',redo);
 document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-more');});
 document.getElementById('more-menu-toggle').addEventListener('click',function(e){toggleDropdown('dd-more',e);});
 document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-more');});
-document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-more');});
+(function(){
+  var exportBtn=document.getElementById('export-btn');
+  exportBtn.addEventListener('mouseenter',function(e){ _cancelExportClose(); showExportMenu(e); });
+  exportBtn.addEventListener('mouseleave',_scheduleExportClose);
+  // Touch/keyboard fallback: hover events don't fire on tap, so a plain click still
+  // opens the submenu (parent overflow menu is left open so the format list is
+  // reachable - selecting a format closes both, see the click handler in showExportMenu).
+  exportBtn.addEventListener('click',function(e){ if(!_exportMenuEl) showExportMenu(e); });
+})();
 document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
 document.getElementById('reset-btn').addEventListener('click',resetAll);
 // Batch D Wave 4: header "+ Add" focuses the existing add-subscription selector
