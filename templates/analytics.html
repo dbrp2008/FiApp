@@ -184,6 +184,17 @@
       color: var(--muted);
       margin: .5rem 0 0;
     }
+
+
+    .ana-month-btn{background:none;border:none;padding:2px 6px;font-weight:600;font-size:.85rem;
+      color:var(--fg);cursor:pointer;font-family:inherit;white-space:nowrap;}
+    .ana-month-menu{position:fixed;z-index:9999;display:flex;flex-direction:column;gap:2px;
+      overflow-y:auto;padding:.4rem;}
+    .ana-month-item{background:none;border:none;text-align:left;padding:.45rem .7rem;
+      border-radius:8px;font-size:.85rem;color:var(--fg);cursor:pointer;font-family:inherit;
+      white-space:nowrap;}
+    .ana-month-item:hover{background:var(--hover-bg,rgba(0,0,0,.06));}
+    .ana-month-item.active{background:var(--accent);color:#fff;}
 </style>
 {% endblock %}
 {% block content %}
@@ -370,22 +381,19 @@ function renderAll(){
       pill.setAttribute('data-wt','analytics-period');
       const prevBtn=document.createElement('button');
       prevBtn.id='ana-prev-btn'; prevBtn.setAttribute('aria-label','Previous month'); prevBtn.textContent='‹';
-      const sel=document.createElement('select');
-      sel.id='ana-month-lbl';
-      _allMonths.forEach(function(m2){
-        const parts=m2.split('-'); const y=parseInt(parts[0],10), mo=parseInt(parts[1],10);
-        const opt=document.createElement('option');
-        opt.value=m2; opt.textContent=new Date(y,mo-1,1).toLocaleString('default',{month:'long'})+' '+y;
-        sel.appendChild(opt);
-      });
-      sel.addEventListener('change',function(){
-        _anaMK=sel.value; _updateAnaMonthLabel(); renderHeroStats();
-      });
+      // A native <select>'s closed control can be themed, but its open option list is
+      // rendered by the OS/browser and ignores CSS entirely (no background, no blur) -
+      // so a real glass look needs a custom-built menu instead, same as the export/
+      // copy-to menus elsewhere in the app.
+      const monthBtn=document.createElement('button');
+      monthBtn.type='button'; monthBtn.id='ana-month-lbl'; monthBtn.className='ana-month-btn';
+      monthBtn.setAttribute('aria-haspopup','listbox');
+      monthBtn.addEventListener('click',function(e){ e.stopPropagation(); toggleAnaMonthMenu(monthBtn); });
       const nextBtn=document.createElement('button');
       nextBtn.id='ana-next-btn'; nextBtn.setAttribute('aria-label','Next month'); nextBtn.textContent='›';
       prevBtn.addEventListener('click',()=>shiftAnaMonth(-1));
       nextBtn.addEventListener('click',()=>shiftAnaMonth(1));
-      pill.appendChild(prevBtn); pill.appendChild(sel); pill.appendChild(nextBtn);
+      pill.appendChild(prevBtn); pill.appendChild(monthBtn); pill.appendChild(nextBtn);
       headRight.appendChild(pill);
       _updateAnaMonthLabel();
     }
@@ -583,11 +591,50 @@ function shiftAnaMonth(d){
   _updateAnaMonthLabel();
   renderHeroStats();
 }
+function _anaMonthFullLabel(m2){
+  const parts=m2.split('-'); const y=parseInt(parts[0],10), mo=parseInt(parts[1],10);
+  return new Date(y,mo-1,1).toLocaleString('default',{month:'long'})+' '+y;
+}
+let _anaMonthMenuEl=null;
+function closeAnaMonthMenu(){
+  if(_anaMonthMenuEl){ _anaMonthMenuEl.remove(); _anaMonthMenuEl=null; }
+  document.removeEventListener('click',closeAnaMonthMenu,true);
+}
+function toggleAnaMonthMenu(btn){
+  if(_anaMonthMenuEl){ closeAnaMonthMenu(); return; }
+  const menu=document.createElement('div'); menu.className='ana-month-menu glass-panel'; menu.setAttribute('role','listbox');
+  _allMonths.forEach(function(m2){
+    const item=document.createElement('button');
+    item.type='button'; item.className='ana-month-item'+(m2===_anaMK?' active':'');
+    item.textContent=_anaMonthFullLabel(m2);
+    item.setAttribute('role','option');
+    item.addEventListener('click',function(e){
+      e.stopPropagation();
+      _anaMK=m2; _updateAnaMonthLabel(); renderHeroStats(); closeAnaMonthMenu();
+    });
+    menu.appendChild(item);
+  });
+  const rect=btn.getBoundingClientRect();
+  menu.style.top=(rect.bottom+4)+'px';
+  menu.style.left=rect.left+'px';
+  menu.style.minWidth=Math.max(160,rect.width)+'px';
+  document.body.appendChild(menu);
+  _anaMonthMenuEl=menu;
+  if(menu.getBoundingClientRect().bottom>window.innerHeight-8){
+    menu.style.maxHeight=Math.max(120,window.innerHeight-rect.bottom-16)+'px';
+  }
+  if(menu.getBoundingClientRect().right>window.innerWidth-8){
+    menu.style.left=Math.max(4,window.innerWidth-menu.offsetWidth-8)+'px';
+  }
+  const activeEl=menu.querySelector('.active');
+  if(activeEl) activeEl.scrollIntoView({block:'center'});
+  setTimeout(()=>document.addEventListener('click',closeAnaMonthMenu,true),0);
+}
 function _updateAnaMonthLabel(){
-  const sel=document.getElementById('ana-month-lbl');
-  if(!sel||!_anaMK) return;
+  const btn=document.getElementById('ana-month-lbl');
+  if(!btn||!_anaMK) return;
   const idx=_allMonths.indexOf(_anaMK);
-  sel.value=_anaMK;
+  btn.textContent=_anaMonthFullLabel(_anaMK);
   const prevBtn=document.getElementById('ana-prev-btn');
   const nextBtn=document.getElementById('ana-next-btn');
   if(prevBtn) prevBtn.disabled=idx<=0;
