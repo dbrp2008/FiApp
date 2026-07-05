@@ -170,12 +170,18 @@
 
     .auth-canvas{max-width:880px;margin:0 auto;}
     .auth-card .btn{width:100%;margin-top:.5rem;}
-    .login-shell{display:flex;justify-content:center;margin-top:2rem;}
-    .login-card{width:100%;max-width:340px;padding:1.5rem;}
+    .login-shell{margin-top:1.25rem;}
+    .login-card{padding:1.75rem 1.5rem;}
     .login-brand{display:flex;align-items:center;gap:.55rem;margin-bottom:1rem;}
-    .login-brand-mark{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--grad-from),var(--grad-to));}
+    .login-brand-mark{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--grad-from),var(--grad-to));flex-shrink:0;}
     .login-brand-wordmark{font-size:1.15rem;font-weight:500;color:var(--fg);letter-spacing:-.01em;}
-    body{max-width:440px;}
+    .auth-split{display:grid;grid-template-columns:1fr 1fr;border-radius:20px;overflow:hidden;box-shadow:var(--elev-2);}
+    .auth-brand{padding:2.25rem 2rem;display:flex;flex-direction:column;justify-content:center;color:#fff;background:linear-gradient(150deg,var(--grad-from),var(--grad-to));}
+    .auth-brand-mark{font-size:1.7rem;font-weight:500;letter-spacing:-.02em;}
+    .auth-brand-tag{font-size:1.05rem;font-weight:500;margin:.8rem 0 .45rem;line-height:1.35;}
+    .auth-brand-sub{font-size:.85rem;opacity:.85;line-height:1.55;margin:0;}
+    .auth-split .login-card{border-radius:0;box-shadow:none;border:none;}
+    @media(max-width:680px){ .auth-split{grid-template-columns:1fr;} .auth-brand{display:none;} }
 
     .pw-wrap { position: relative; }
     .pw-wrap input { padding-right: 2.5rem; width: 100%; box-sizing: border-box; }
@@ -221,11 +227,13 @@
   </script>
 
   <div class="login-shell aurora-bg">
-  <div class="glass-panel auth-card login-card">
-  <div class="login-brand">
-    <span class="login-brand-mark" aria-hidden="true"></span>
-    <span class="login-brand-wordmark">FiApp</span>
+  <div class="auth-split">
+  <div class="auth-brand">
+    <div class="auth-brand-mark">FiApp</div>
+    <p class="auth-brand-tag">Your money, beautifully tracked.</p>
+    <p class="auth-brand-sub">Income, expenses, subscriptions, tax and more. One calm dashboard.</p>
   </div>
+  <div class="glass-panel auth-card login-card">
   <div class="seg-toggle">
     <button class="seg-btn active" id="tab-login">Sign in</button>
     <button class="seg-btn" id="tab-register">Create account</button>
@@ -312,6 +320,7 @@
   </div>
   {% endif %}
   <p class="auth-trust"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg#fi-lock"/></svg> Encrypted in transit &middot; export your data anytime</p>
+  </div>
   </div>
   </div>
 
