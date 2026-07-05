@@ -484,6 +484,49 @@ function updateForecastUI(){
 }
 
 
+// Batch D Wave 4: header stat strip (monthly/yearly cost, active/paused/cancelled
+// counts, next renewal). mUSD/yUSD are passed in from recalcTotals - same figures
+// as the "Spending Summary" card below, just surfaced at a glance up top.
+function updateSubsStatStrip(mUSD,yUSD){
+  var mEl=document.getElementById('stat-monthly-cost');
+  if(!mEl) return;
+  mEl.textContent='$'+mUSD.toFixed(2);
+  var yEl=document.getElementById('stat-yearly-cost');
+  if(yEl) yEl.textContent='$'+yUSD.toFixed(2)+'/yr';
+
+  var statusCol=colByType('status');
+  var counts={Active:0,Trial:0,Paused:0,Cancelled:0};
+  (state.rows||[]).forEach(function(r){
+    var st=statusCol?(getCell(r.id,statusCol.id)||'Active'):'Active';
+    if(counts[st]===undefined) counts[st]=0;
+    counts[st]++;
+  });
+  var activeEl=document.getElementById('stat-active-count');
+  if(activeEl) activeEl.textContent=String(counts.Active+counts.Trial);
+  var inactiveEl=document.getElementById('stat-inactive-note');
+  if(inactiveEl){
+    var parts=[];
+    if(counts.Paused) parts.push(counts.Paused+' paused');
+    if(counts.Cancelled) parts.push(counts.Cancelled+' cancelled');
+    inactiveEl.textContent=parts.join(', ');
+  }
+
+  var renewals=upcomingRenewals(90);
+  var nextEl=document.getElementById('stat-next-renewal');
+  var nextCostEl=document.getElementById('stat-next-renewal-cost');
+  if(nextEl){
+    if(renewals.length){
+      var next=renewals[0];
+      nextEl.textContent=next.daysUntil<=0?'Today':next.daysUntil===1?'Tomorrow':'in '+next.daysUntil+' days';
+      if(nextCostEl) nextCostEl.textContent=next.name+' - '+_curSymbolSubs(next.currency)+next.cost.toFixed(2);
+    } else {
+      nextEl.textContent='-';
+      if(nextCostEl) nextCostEl.textContent='';
+    }
+  }
+}
+function _curSymbolSubs(c){ return c==='USD'?'$':c+' '; }
+
 let currentRate=1;
 function recalcTotals(){
   let mUSD=0,yUSD=0;
@@ -503,6 +546,7 @@ function recalcTotals(){
   }
   renderLeaderboard();
   renderRenewalAlert();
+  updateSubsStatStrip(mUSD,yUSD);
 }
 
 
@@ -1007,9 +1051,9 @@ document.addEventListener('click',e=>{ if(_exportMenuEl && !e.target.closest('#e
 function showExportMenu(ev){
   if(_exportMenuEl){ closeExportMenu(); return; }
   ev.stopPropagation();
-  // Anchor to the always-visible "Share ▾" toggle, not the Export button (which sits inside
-  // the Share dropdown that closes on click, leaving the menu floating detached).
-  const btn=document.getElementById('dd-share-toggle')||ev.currentTarget||document.getElementById('export-btn');
+  // Anchor to the always-visible "..." overflow toggle, not the Export button (which sits
+  // inside the overflow dropdown that closes on click, leaving the menu floating detached).
+  const btn=document.getElementById('more-menu-toggle')||ev.currentTarget||document.getElementById('export-btn');
   const base='subscriptions-'+state.currentYear+'-'+String(state.currentMonth+1).padStart(2,'0');
   const menu=document.createElement('div'); menu.className='export-menu';
   const formats=[
@@ -1672,9 +1716,16 @@ document.getElementById('slide-next-btn').addEventListener('click',function(){sl
 document.getElementById('curr-other-btn').addEventListener('click',applyOtherCurrency);
 document.getElementById('undo-btn').addEventListener('click',undo);
 document.getElementById('redo-btn').addEventListener('click',redo);
-document.getElementById('add-col-btn').addEventListener('click',addCol);
-document.getElementById('dd-share-toggle').addEventListener('click',function(e){toggleDropdown('dd-share',e);});
-document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-share');});
-document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-share');});
-document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-share');});
+document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-more');});
+document.getElementById('more-menu-toggle').addEventListener('click',function(e){toggleDropdown('dd-more',e);});
+document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-more');});
+document.getElementById('export-btn').addEventListener('click',function(e){showExportMenu(e);closeDropdown('dd-more');});
+document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
 document.getElementById('reset-btn').addEventListener('click',resetAll);
+// Batch D Wave 4: header "+ Add" focuses the existing add-subscription selector
+// (there's no blank "row" to add here without a service name, unlike the other
+// two trackers - the add-bar already does exactly what a quick-add sheet would).
+document.getElementById('qa-open-btn').addEventListener('click',function(){
+  var sel=document.getElementById('sub-sel');
+  if(sel){ sel.scrollIntoView({behavior:'smooth',block:'center'}); sel.focus(); }
+});
