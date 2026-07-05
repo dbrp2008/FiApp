@@ -416,17 +416,17 @@
   {% if current_user %}
   <div class="dash-hero-grid" id="snap-hero" style="display:none">
     <div class="gradient-card hero-net-card">
-      <span class="icon-chip chip-on-gradient" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-wallet"/></svg></span>
+      <span class="icon-chip chip-on-gradient" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-wallet"/></svg></span>
       <div class="stat-label" style="color:rgba(255,255,255,.85)">Net balance · this month</div>
       <div class="stat-value" id="hero-net" style="color:#fff">$0</div>
       <div class="hero-delta" id="hero-delta" style="color:rgba(255,255,255,.9)"></div>
     </div>
     <div class="stat-card">
-      <span class="icon-chip chip-success" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-trending-up"/></svg></span>
+      <span class="icon-chip chip-success" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-trending-up"/></svg></span>
       <div class="stat-label">Income</div><div class="stat-value" id="hero-income">$0</div>
     </div>
     <div class="stat-card">
-      <span class="icon-chip chip-danger" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-trending-down"/></svg></span>
+      <span class="icon-chip chip-danger" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-trending-down"/></svg></span>
       <div class="stat-label">Expenses</div><div class="stat-value" id="hero-expenses">$0</div>
     </div>
   </div>
@@ -449,9 +449,9 @@
     <div class="glass-panel dash-tools">
       <div class="dash-tools-title">Quick tools</div>
       <div class="dash-tools-list">
-        <a href="/interest" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-percent"/></svg>Interest</a>
-        <a href="/tax" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-receipt"/></svg>Income tax</a>
-        <a href="/currency" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-exchange"/></svg>Currency</a>
+        <a href="/interest" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-percent"/></svg>Interest</a>
+        <a href="/tax" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-receipt"/></svg>Income tax</a>
+        <a href="/currency" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-exchange"/></svg>Currency</a>
       </div>
       <a href="/expenses" class="btn btn-gradient dash-add-btn">+ Add expense</a>
       {% if current_user %}<div id="dash-alerts"><div id="snap-renewal-slot"></div><div id="snap-nudge-slot"></div></div>{% endif %}
@@ -662,7 +662,7 @@
     if(dEl){
       if(prevNet !== 0){ var pct = Math.round((net - prevNet) / Math.abs(prevNet) * 100);
         var arrowIco = pct >= 0 ? 'fi-arrow-up-right' : 'fi-arrow-down-right';
-        dEl.innerHTML = '<svg class="fi-ico" aria-hidden="true" style="vertical-align:-1px;margin-right:2px;"><use href="/static/icons/ui-sprite.svg#' + arrowIco + '"/></svg>' +
+        dEl.innerHTML = '<svg class="fi-ico" aria-hidden="true" style="vertical-align:-1px;margin-right:2px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#' + arrowIco + '"/></svg>' +
           (pct >= 0 ? '+' : '–') + ' ' + Math.abs(pct) + '% vs ' + escapeHtml(mkLabel(pmk)); }
       else { dEl.textContent = mkLabel(cmk); }
     }
@@ -1014,7 +1014,7 @@
     if(!wins.length) return;
     winSlot.innerHTML = '<div class="win-list">' + wins.map(function(w){
       return '<div class="win-item">' +
-        '<span class="icon-chip chip-sm chip-success"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#' + w.icon + '"/></svg></span>' +
+        '<span class="icon-chip chip-sm chip-success"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#' + w.icon + '"/></svg></span>' +
         '<span>' + escapeHtml(w.text) + '</span>' +
       '</div>';
     }).join('') + '</div>';
