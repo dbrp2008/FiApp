@@ -100,7 +100,7 @@ html.theme-ocean{
   --bg:#f0f9ff;
   --panel-bg:#e0f2fe;
   --panel-border:#bae6fd;
-  --hover-bg:#e0f2fe;
+  --hover-bg:#bae6fd;
   --input-focus:#e0f2fe;
   --total-bg:#cffafe;
   --total-fg:#164e63;
@@ -126,7 +126,7 @@ html.theme-forest{
   --bg:#f0fdf4;
   --panel-bg:#dcfce7;
   --panel-border:#bbf7d0;
-  --hover-bg:#dcfce7;
+  --hover-bg:#bbf7d0;
   --input-focus:#dcfce7;
   --total-bg:#bbf7d0;
   --total-fg:#14532d;
@@ -152,7 +152,7 @@ html.theme-sunset{
   --bg:#fff7ed;
   --panel-bg:#ffedd5;
   --panel-border:#fed7aa;
-  --hover-bg:#ffedd5;
+  --hover-bg:#fed7aa;
   --input-focus:#ffedd5;
   --total-bg:#fef3c7;
   --total-fg:#78350f;
@@ -218,7 +218,7 @@ html.theme-rose{
   --bg:#fff1f2;
   --panel-bg:#ffe4e6;
   --panel-border:#fecdd3;
-  --hover-bg:#ffe4e6;
+  --hover-bg:#fecdd3;
   --input-focus:#ffe4e6;
   --total-bg:#fecdd3;
   --total-fg:#881337;
@@ -244,7 +244,7 @@ html.theme-purple{
   --bg:#faf5ff;
   --panel-bg:#f3e8ff;
   --panel-border:#e9d5ff;
-  --hover-bg:#f3e8ff;
+  --hover-bg:#e9d5ff;
   --input-focus:#f3e8ff;
   --total-bg:#e9d5ff;
   --total-fg:#581c87;
@@ -270,7 +270,7 @@ html.theme-indigo{
   --bg:#eef2ff;
   --panel-bg:#e0e7ff;
   --panel-border:#c7d2fe;
-  --hover-bg:#e0e7ff;
+  --hover-bg:#c7d2fe;
   --input-focus:#e0e7ff;
   --total-bg:#c7d2fe;
   --total-fg:#312e81;
