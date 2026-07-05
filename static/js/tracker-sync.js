@@ -103,6 +103,17 @@ function _mergeTrackerBlobs(localBlob, serverBlob) {
   if (local.rowsByMonth || server.rowsByMonth) merged.rowsByMonth = _mergeArraysByMonth(local.rowsByMonth, server.rowsByMonth);
   if (local.colsByMonth || server.colsByMonth) merged.colsByMonth = _mergeArraysByMonth(local.colsByMonth, server.colsByMonth);
 
+  // expenses.js's per-month budget-panel figures (gross/tax/taxCurrency), keyed by
+  // month like rowsByMonth. This merge only runs while a local edit is unsynced
+  // (loadFromServer's dirty path, or a 409 during save) - taking it wholesale from
+  // the server like the fields below would silently discard whatever just changed
+  // locally (e.g. the tax calculator's "apply to month" carryover racing the boot-time
+  // server fetch: the tax gets set and saved locally, but since save() can't actually
+  // reach the server until _serverLoaded flips true, the local edit sits unsynced and
+  // this merge is exactly what's supposed to protect it). Per-month, local wins when
+  // both sides have the same month - same principle as the row/col id-union above.
+  if (local.income || server.income) merged.income = Object.assign({}, server.income || {}, local.income || {});
+
   var localCells  = local.cells      || {};
   var localTimes  = local.cellTimes  || {};
   var serverCells = server.cells     || {};
