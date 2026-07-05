@@ -3496,12 +3496,22 @@ function saveQuickAdd(){
   var openBtn=document.getElementById('qa-open-btn');
   if(openBtn) openBtn.addEventListener('click',function(){
     if(window.innerWidth<640){ openQuickAdd(); return; }
+    // Desktop already shows the whole spreadsheet - every cell is already visible
+    // and one click away, so there's nothing to "jump to". The one thing that's
+    // genuinely new to add here is a new category row (same action as the
+    // overflow menu's "Add row"), so that's what desktop Add does.
+    addRow();
     var wrap=document.getElementById('exp-sheet-wrap');
-    if(!wrap) return;
-    wrap.scrollIntoView({behavior:'smooth',block:'start'});
-    var inputs=Array.from(wrap.querySelectorAll('.num-input'));
-    var target=inputs.find(function(i){return !i.value;})||inputs[0];
-    if(target) setTimeout(function(){ target.focus(); target.select(); },350);
+    if(wrap) wrap.scrollIntoView({behavior:'smooth',block:'end'});
+    var rows=getRows().filter(function(r){return !r.parentId;});
+    var newRow=rows[rows.length-1];
+    if(newRow){
+      setTimeout(function(){
+        var tr=document.querySelector('[data-tr-row-id="'+newRow.id+'"]');
+        var label=tr&&tr.querySelector('.row-label');
+        if(label){ label.focus(); if(label.select) label.select(); }
+      },350);
+    }
   });
   var fab=document.getElementById('add-fab');
   if(fab) fab.addEventListener('click',openQuickAdd);
