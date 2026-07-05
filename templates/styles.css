@@ -1153,6 +1153,11 @@ html.dark .sync-pill.failed, html.theme-midnight .sync-pill.failed{color:#fca5a5
 .tracker-head-left{display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;}
 .tracker-head-left h1{font-size:1.35rem;font-weight:500;letter-spacing:-.01em;margin:0;}
 .tracker-head-right{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
+/* The "..." overflow toggle sits at the right edge of the header; its menu must open
+   right-aligned (anchored to the toggle button itself) at every viewport width, not
+   just mobile — left:0 (the shared .dropdown-menu default) pushes it off-screen past
+   the right edge of the page on desktop. */
+.tracker-head-right .dropdown-menu{left:auto;right:0;}
 .stat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem;}
 @media(max-width:640px){ .stat-strip{grid-template-columns:1fr 1fr;} }
 .stat-strip .stat-card{padding:.7rem .85rem;}
