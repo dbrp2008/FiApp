@@ -334,6 +334,9 @@
       background: var(--hover-bg);
       border-radius: 8px;
     }
+    .win-list { display:flex; flex-direction:column; gap:.55rem; margin:.4rem 0 .75rem; }
+    .win-item { display:flex; align-items:flex-start; gap:.55rem; font-size:.85rem; color:var(--fg); }
+    .win-item .icon-chip { margin-top:1px; }
     /* Checklist */
     .snap-checklist {
       background: var(--glass-bg);
@@ -413,12 +416,19 @@
   {% if current_user %}
   <div class="dash-hero-grid" id="snap-hero" style="display:none">
     <div class="gradient-card hero-net-card">
+      <span class="icon-chip chip-on-gradient" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-wallet"/></svg></span>
       <div class="stat-label" style="color:rgba(255,255,255,.85)">Net balance · this month</div>
       <div class="stat-value" id="hero-net" style="color:#fff">$0</div>
       <div class="hero-delta" id="hero-delta" style="color:rgba(255,255,255,.9)"></div>
     </div>
-    <div class="stat-card"><div class="stat-label">Income</div><div class="stat-value" id="hero-income">$0</div></div>
-    <div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-value" id="hero-expenses">$0</div></div>
+    <div class="stat-card">
+      <span class="icon-chip chip-success" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-trending-up"/></svg></span>
+      <div class="stat-label">Income</div><div class="stat-value" id="hero-income">$0</div>
+    </div>
+    <div class="stat-card">
+      <span class="icon-chip chip-danger" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-trending-down"/></svg></span>
+      <div class="stat-label">Expenses</div><div class="stat-value" id="hero-expenses">$0</div>
+    </div>
   </div>
 
   <button class="dash-insights-toggle" id="insights-toggle" aria-expanded="false" aria-controls="snapshot-wrap">
@@ -439,9 +449,9 @@
     <div class="glass-panel dash-tools">
       <div class="dash-tools-title">Quick tools</div>
       <div class="dash-tools-list">
-        <a href="/interest" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">📈</span>Interest</a>
-        <a href="/tax" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">🧾</span>Income tax</a>
-        <a href="/currency" class="dash-tool"><span class="dash-tool-ic" aria-hidden="true">💱</span>Currency</a>
+        <a href="/interest" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-percent"/></svg>Interest</a>
+        <a href="/tax" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-receipt"/></svg>Income tax</a>
+        <a href="/currency" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-exchange"/></svg>Currency</a>
       </div>
       <a href="/expenses" class="btn btn-gradient dash-add-btn">+ Add expense</a>
       {% if current_user %}<div id="dash-alerts"><div id="snap-renewal-slot"></div><div id="snap-nudge-slot"></div></div>{% endif %}
@@ -651,7 +661,9 @@
     var dEl = document.getElementById('hero-delta');
     if(dEl){
       if(prevNet !== 0){ var pct = Math.round((net - prevNet) / Math.abs(prevNet) * 100);
-        dEl.textContent = (pct >= 0 ? '+ ' : '– ') + Math.abs(pct) + '% vs ' + mkLabel(pmk); }
+        var arrowIco = pct >= 0 ? 'fi-arrow-up-right' : 'fi-arrow-down-right';
+        dEl.innerHTML = '<svg class="fi-ico" aria-hidden="true" style="vertical-align:-1px;margin-right:2px;"><use href="/static/icons/ui-sprite.svg#' + arrowIco + '"/></svg>' +
+          (pct >= 0 ? '+' : '–') + ' ' + Math.abs(pct) + '% vs ' + escapeHtml(mkLabel(pmk)); }
       else { dEl.textContent = mkLabel(cmk); }
     }
     heroEl.style.display = '';
@@ -953,7 +965,7 @@
         });
         if(rowTotal > 0 && rowTotal < goalAmt) underCount++;
       });
-      if(underCount >= 1) wins.push('🎯 You stayed under budget in ' + underCount + ' categor' + (underCount === 1 ? 'y' : 'ies') + ' last month.');
+      if(underCount >= 1) wins.push({icon:'fi-target', text:'You stayed under budget in ' + underCount + ' categor' + (underCount === 1 ? 'y' : 'ies') + ' last month.'});
     }
 
     // Win 2: Subscription cost dropped vs month before
@@ -964,7 +976,7 @@
       var subPP   = subCostPerMonth(subs, [ppk])[0] || 0;
       if(subPrev > 0 && subPP > 0 && subPP > subPrev) {
         var drop = subPP - subPrev;
-        wins.push('📉 Your subscriptions cost $' + drop.toFixed(0) + ' less than the month before.');
+        wins.push({icon:'fi-trending-down', text:'Your subscriptions cost $' + drop.toFixed(0) + ' less than the month before.'});
       }
     }
 
@@ -984,9 +996,9 @@
         prevSpent2 += rowTotal;
         if(!row.parentId && /sav/i.test(row.label || '')) savingsRowTotal += rowTotal;
       });
-      if(savingsRowTotal > 0) wins.push('💰 You set aside $' + savingsRowTotal.toFixed(0) + ' in savings last month.');
+      if(savingsRowTotal > 0) wins.push({icon:'fi-wallet', text:'You set aside $' + savingsRowTotal.toFixed(0) + ' in savings last month.'});
       var freeRate = (prevGross - prevSpent2) / prevGross;
-      if(freeRate > 0.20) wins.push('🟢 Only ' + Math.round((1 - freeRate) * 100) + '% of your income was budgeted last month.');
+      if(freeRate > 0.20) wins.push({icon:'fi-check', text:'Only ' + Math.round((1 - freeRate) * 100) + '% of your income was budgeted last month.'});
     }
 
     // Win 4: Positive cash-flow streak — consecutive complete months (ending
@@ -997,10 +1009,15 @@
       pcfStreak++;
       walkMk = prevMK(walkMk);
     }
-    if(pcfStreak >= 2) wins.push('📈 You spent less than you earned for ' + pcfStreak + ' months in a row.');
+    if(pcfStreak >= 2) wins.push({icon:'fi-trending-up', text:'You spent less than you earned for ' + pcfStreak + ' months in a row.'});
 
     if(!wins.length) return;
-    winSlot.innerHTML = '<div class="snap-win">' + wins.join(' ') + '</div>';
+    winSlot.innerHTML = '<div class="win-list">' + wins.map(function(w){
+      return '<div class="win-item">' +
+        '<span class="icon-chip chip-sm chip-success"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#' + w.icon + '"/></svg></span>' +
+        '<span>' + escapeHtml(w.text) + '</span>' +
+      '</div>';
+    }).join('') + '</div>';
   })();
 
   // Income vs expenses chart (dashboard row 2) — exposed as renderChart so a theme
