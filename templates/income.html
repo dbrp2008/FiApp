@@ -324,21 +324,40 @@
 </style>
 {% endblock %}
 {% block content %}
-  <div class="page-header">
-    <h1>Income Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
-  </div>
-
-  <div class="month-nav">
-    <button id="prev-btn">◀ Prev</button>
-    <select id="month-jump" class="month-jump"></select>
-    <button id="next-btn">Next ▶</button>
+  <div class="tracker-head">
+    <div class="tracker-head-left">
+      <h1>Income Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+      <div class="month-pill">
+        <button id="prev-btn" aria-label="Previous month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-left"/></svg></button>
+        <select id="month-jump" class="month-jump"></select>
+        <button id="next-btn" aria-label="Next month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg></button>
+      </div>
+    </div>
+    <div class="tracker-head-right">
+      <button class="btn-icon" id="undo-btn" disabled aria-label="Undo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-undo"/></svg></button>
+      <button class="btn-icon" id="redo-btn" disabled aria-label="Redo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-redo"/></svg></button>
+      <button class="btn btn-gradient btn-sm" id="qa-open-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-plus"/></svg> Add</button>
+      <div class="dropdown" id="dd-more">
+        <button class="btn-icon" id="more-menu-toggle" aria-label="More actions" data-wt="income-share"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-dots"/></svg></button>
+        <div class="dropdown-menu" id="dd-more-menu">
+          <button id="copy-prev-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-copy"/></svg>Copy rows/cols from previous month</button>
+          <button id="copy-month-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-copy"/></svg>Copy from a specific month…</button>
+          <div class="dropdown" id="dd-copy-to"><button id="copy-to-toggle"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-share"/></svg>Copy to a month…</button><div class="dropdown-menu copy-to-menu" id="dd-copy-to-menu"></div></div>
+          <button id="add-row-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-plus"/></svg>Add row</button>
+          <button id="add-col-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-table"/></svg>Add column</button>
+          <div id="del-col-items"></div>
+          <button id="share-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-share"/></svg>Share</button>
+          <button id="export-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-download"/></svg>Export</button>
+          <button id="paste-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-clipboard"/></svg>Paste</button>
+          <button id="expand-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-down"/></svg>Expand all</button>
+          <button id="collapse-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg>Collapse all</button>
+          <button id="reset-btn" style="color:#dc2626;">⚠ Reset</button>
+        </div>
+      </div>
+      <span id="export-flash" class="export-flash"></span>
+    </div>
   </div>
   <p class="month-context-note" id="month-context-note"></p>
-  <div style="margin-bottom:.5rem;">
-    <button class="btn btn-glass btn-ghost btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
-    <button class="btn btn-glass btn-ghost btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
-    <div class="dropdown" id="dd-copy-to"><button class="btn btn-glass btn-ghost btn-sm" id="copy-to-toggle">📤 Copy to ▾</button><div class="dropdown-menu copy-to-menu" id="dd-copy-to-menu"></div></div>
-  </div>
 
 
   <div class="forecast-bar glass-panel" id="forecast-bar">
@@ -348,28 +367,29 @@
   </div>
 
   
-  <div class="summary-bar glass-panel" id="summary-bar">
-    <h3>Income Summary - <span id="summary-month"></span></h3>
-    <div class="summary-grid">
-      <div class="summary-item">
-        <span class="summary-label">Total This Month (USD)</span>
-        <span class="summary-val" id="disp-total">$0.00</span>
+  <div class="glass-panel" id="summary-bar" style="padding:1rem 1.1rem;">
+    <h3 style="margin:0 0 .7rem;font-size:.9rem;color:var(--fg);">Income Summary - <span id="summary-month"></span></h3>
+    <div class="stat-strip" style="margin-bottom:0;">
+      <div class="stat-card">
+        <div class="stat-label">Total this month (USD)</div>
+        <div class="stat-value" id="disp-total">$0.00</div>
+        <div class="stat-delta" id="stat-total-delta"></div>
       </div>
-      <div class="summary-item" id="conv-wrap" style="display:none">
-        <span class="summary-label" id="conv-lbl">Total</span>
-        <span class="summary-val" id="disp-conv">-</span>
+      <div class="stat-card" id="conv-wrap" style="display:none">
+        <div class="stat-label" id="conv-lbl">Total</div>
+        <div class="stat-value" id="disp-conv">-</div>
       </div>
-      <div class="summary-item">
-        <span class="summary-label">Annual (×12, USD)</span>
-        <span class="summary-val" id="disp-annual">-</span>
+      <div class="stat-card">
+        <div class="stat-label">Annual (×12, USD)</div>
+        <div class="stat-value" id="disp-annual">-</div>
       </div>
-      <div class="summary-item" style="display:flex;flex-direction:column;gap:4px;">
+      <div class="stat-card" style="display:flex;flex-direction:column;gap:5px;justify-content:center;">
         <a class="summary-link" href="/expenses">→ Expense Tracker</a>
         <a class="summary-link" id="tax-calc-link" data-wt="income-tax-link" href="/tax" style="color:#d97706;">🧾 Calculate Income Tax</a>
       </div>
     </div>
-    
-    <div class="curr-row" style="margin-top:.6rem;">
+
+    <div class="curr-row" style="margin-top:.8rem;">
       <label style="font-size:.78rem;font-weight:600;color:var(--muted);margin-right:.4rem;">Display currency:</label>
       <select id="curr-sel" data-wt="income-currency" style="padding:.25rem .5rem;border:1px solid var(--input-border);border-radius:5px;font-size:.82rem;background:var(--input-bg);color:var(--fg);">
         <option value="AED">AED</option><option value="AUD">AUD</option><option value="BRL">BRL</option>
@@ -389,31 +409,6 @@
         style="display:none;padding:.25rem .6rem;font-size:.8rem;margin-left:.25rem;">OK</button>
       <span id="curr-note" style="font-size:.75rem;color:var(--muted);margin-left:.5rem;"></span>
     </div>
-  </div>
-
-  <div class="toolbar-row-1">
-    <button class="btn btn-glass btn-sm" id="undo-btn" disabled>↩ Undo</button>
-    <button class="btn btn-glass btn-sm" id="redo-btn" disabled>↪ Redo</button>
-    <div class="dropdown" id="dd-table">
-      <button class="btn btn-glass btn-sm" id="dd-table-toggle">Table ▾</button>
-      <div class="dropdown-menu" id="dd-table-menu">
-        <button id="add-row-btn">+ Row</button>
-        <button id="add-col-btn">+ Column</button>
-        <div id="del-col-items"></div>
-      </div>
-    </div>
-    <div class="dropdown" id="dd-share" data-wt="income-share">
-      <button class="btn btn-glass btn-sm" id="dd-share-toggle">Share ▾</button>
-      <div class="dropdown-menu" id="dd-share-menu">
-        <button id="share-btn">📤 Share</button>
-        <button id="export-btn">📥 Export</button>
-        <button id="paste-btn">📋 Paste</button>
-      </div>
-    </div>
-    <button class="btn btn-glass btn-sm btn-ghost" id="expand-btn" style="display:none">▾ Expand All</button>
-    <button class="btn btn-glass btn-sm btn-ghost" id="collapse-btn" style="display:none">▸ Collapse All</button>
-    <span id="export-flash" class="export-flash"></span>
-    <button class="btn btn-sm btn-reset" id="reset-btn">⚠ Reset</button>
   </div>
 
   <div class="chart-section" id="chart-section">
@@ -455,6 +450,19 @@
       </ul>
     </div>
     <div class="share-actions"><button class="btn btn-sm" id="help-close-btn">✕ Close</button></div>
+  </div>
+</div>
+
+<button class="add-fab" id="add-fab" aria-label="Quick add income"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-plus"/></svg></button>
+<div class="quick-add-backdrop" id="qa-backdrop"></div>
+<div class="quick-add-sheet" id="qa-sheet" role="dialog" aria-modal="true" aria-label="Add income">
+  <div class="qa-grab" aria-hidden="true"></div>
+  <input type="number" id="qa-amount" class="qa-amount-input" inputmode="decimal" step="0.01" min="0" placeholder="0.00" aria-label="Amount">
+  <p class="qa-label">Source</p>
+  <div class="qa-chips" id="qa-chips"></div>
+  <div class="qa-actions">
+    <button class="btn btn-gradient" id="qa-save-btn" style="flex:2;">Save</button>
+    <button class="btn btn-glass" id="qa-cancel-btn" style="flex:1;">Cancel</button>
   </div>
 </div>
 {% endblock %}
