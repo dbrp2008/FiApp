@@ -819,6 +819,14 @@ function _homePfx(){ var c=_homeCur(); return c==='USD'?'$':c+' '; }
 // USD -> home-currency multiplier (expRatesCache is a USD-based table). 1 when home is
 // USD or rates haven't loaded yet.
 function _homeRate(){ var c=_homeCur(); return c==='USD'?1:(expRatesCache[c]||1); }
+// Converts a plain amount between two currencies via the USD-based expRatesCache table.
+// A no-op (returns amount unchanged) until rates have loaded - callers that care should
+// check Object.keys(expRatesCache).length first.
+function _convBetween(amount,fromCur,toCur){
+  if(!amount||fromCur===toCur) return amount;
+  var usd=fromCur==='USD'?amount:(expRatesCache[fromCur]?amount/expRatesCache[fromCur]:amount);
+  return toCur==='USD'?usd:usd*(expRatesCache[toCur]||1);
+}
 // Currency symbols (verified renderable against the app's 'Inter' font stack).
 // JPY/CNY and the $-family currencies use their standard international disambiguation
 // prefixes (JP¥/CN¥, US$/HK$/S$/C$/A$/Mex$) since a bare ¥ or $ would be ambiguous
@@ -957,7 +965,7 @@ function monthIncomeObj(){
     for(let m=0;m<12;m++){
       const k=mk(state.currentYear,m);
       if(k!==key&&state.income[k]&&(state.income[k].gross||state.income[k].tax)){
-        return state.income[key]={gross:state.income[k].gross||'',tax:state.income[k].tax||''};
+        return state.income[key]={gross:state.income[k].gross||'',tax:state.income[k].tax||'',taxCurrency:state.income[k].taxCurrency||''};
       }
     }
     state.income[key]={gross:'',tax:''};
@@ -970,12 +978,23 @@ function onIncomeInput(){
   const grossNum=parseFloat(document.getElementById('inp-gross').value)||0;
   if(grossNum>0 && (parseFloat(taxEl.value)||0)>grossNum) taxEl.value=grossNum.toFixed(2);
   const tax=taxEl.value;
-  const obj=monthIncomeObj(); obj.tax=tax;
+  const obj=monthIncomeObj(); obj.tax=tax; obj.taxCurrency=_homeCur();
   document.getElementById('apply-year-btn').style.display=tax?'inline-block':'none';
   save(); updateIncomeSummary(); updateStatStrip();
 }
 function syncIncomeInputs(){
   const obj=monthIncomeObj();
+  // Tax is hand-entered (unlike gross, which always mirrors the Income Tracker live), so
+  // it's stamped with the currency it was entered in. If the home/analytics currency has
+  // since changed (e.g. on the account page), rebase the stored figure into the new
+  // currency here instead of silently treating the old number as if it were already in
+  // the new currency (that mismatch could make tax exceed income - see bug report).
+  const homeCur=_homeCur();
+  if(obj.tax && obj.taxCurrency && obj.taxCurrency!==homeCur && Object.keys(expRatesCache).length){
+    obj.tax=_convBetween(parseFloat(obj.tax)||0,obj.taxCurrency,homeCur).toFixed(2);
+    obj.taxCurrency=homeCur;
+    saveLocal();
+  }
   document.getElementById('inp-gross').value=obj.gross||'';
   document.getElementById('inp-tax').value  =obj.tax  ||'';
   document.getElementById('apply-year-btn').style.display=obj.tax?'inline-block':'none';
@@ -993,6 +1012,7 @@ function applyIncomeToYear(){
     const k=mk(state.currentYear,m);
     if(!state.income[k]) state.income[k]={gross:'',tax:''};
     state.income[k].tax=obj.tax;
+    state.income[k].taxCurrency=obj.taxCurrency||_homeCur();
   }
   save();
   const f=document.getElementById('apply-flash');
@@ -1202,6 +1222,7 @@ async function loadTaxCarryover(){
     targetMonths.forEach(mk2=>{
       if(!state.income[mk2]) state.income[mk2]={};
       state.income[mk2].tax=monthlyTax;
+      state.income[mk2].taxCurrency=home;
     });
 
     t.consumed=true;
@@ -3383,7 +3404,7 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
     try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
   }
 
-  fetchExpRates().then(()=>{ if(getRows().some(r=>r.linked==='subscriptions')) render(); }).catch(()=>{});
+  fetchExpRates().then(()=>{ syncIncomeInputs(); if(getRows().some(r=>r.linked==='subscriptions')) render(); }).catch(()=>{});
 
   syncFromIncomeTracker(currentMK()).catch(()=>{});
 
