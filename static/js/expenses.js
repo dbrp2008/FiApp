@@ -2284,7 +2284,7 @@ function renderTableBody(table){
     etd.style.cssText='text-align:center;padding:1.1rem .75rem;color:var(--muted);font-size:.88rem;border:none;';
     etd.textContent='Add your first row to start tracking.';etr.appendChild(etd);tbody.appendChild(etr);
   }
-  const atr=document.createElement('tr');const atd=document.createElement('td');atd.colSpan=getCols().length+3;atd.style.cssText='border:none;padding:3px 0;';
+  const atr=document.createElement('tr');const atd=document.createElement('td');atd.colSpan=getCols().length+3;atd.style.cssText='border:none;padding:6px 0 6px 8px;';
   const arb=document.createElement('button');arb.className='btn-add-row';arb.textContent='+ Add Row';arb.addEventListener('click',addRow);
   atd.appendChild(arb);atr.appendChild(atd);tbody.appendChild(atr);
   table.appendChild(tbody);
@@ -3495,8 +3495,13 @@ function saveQuickAdd(){
 (function(){
   var openBtn=document.getElementById('qa-open-btn');
   if(openBtn) openBtn.addEventListener('click',function(){
-    if(window.innerWidth<640) openQuickAdd();
-    else { var wrap=document.getElementById('exp-sheet-wrap'); if(wrap) wrap.scrollIntoView({behavior:'smooth',block:'start'}); }
+    if(window.innerWidth<640){ openQuickAdd(); return; }
+    var wrap=document.getElementById('exp-sheet-wrap');
+    if(!wrap) return;
+    wrap.scrollIntoView({behavior:'smooth',block:'start'});
+    var inputs=Array.from(wrap.querySelectorAll('.num-input'));
+    var target=inputs.find(function(i){return !i.value;})||inputs[0];
+    if(target) setTimeout(function(){ target.focus(); target.select(); },350);
   });
   var fab=document.getElementById('add-fab');
   if(fab) fab.addEventListener('click',openQuickAdd);
