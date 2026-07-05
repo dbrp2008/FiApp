@@ -40,34 +40,36 @@
       margin: 0;
     }
 
-    .tab-bar {
+    /* Segmented Sign in / Create account toggle (Batch D fidelity contract) */
+    .seg-toggle {
       display: flex;
-      border-bottom: 2px solid var(--panel-border);
+      background: rgba(17,24,39,.06);
+      border-radius: 999px;
+      padding: 3px;
       margin-bottom: 1.5rem;
     }
-    .tab-btn {
+    html.dark .seg-toggle, html.theme-midnight .seg-toggle { background: rgba(255,255,255,.08); }
+    .seg-btn {
       flex: 1;
-      padding: .6rem;
+      padding: .5rem 0;
       background: none;
       border: none;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
-      font-size: .95rem;
-      font-weight: 600;
+      border-radius: 999px;
+      font-size: .81rem;
+      font-weight: 500;
       color: var(--muted);
       cursor: pointer;
-      transition: color .15s, border-color .15s;
+      font-family: inherit;
+      transition: background .15s, color .15s, box-shadow .15s;
     }
-    .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
+    .seg-btn.active {
+      background: var(--panel-bg);
+      color: var(--fg);
+      box-shadow: 0 2px 6px rgba(31,41,55,.08);
     }
 
     .login-panel {
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      padding: 1.75rem 1.5rem;
+      padding: 0;
     }
 
     .form-group {
@@ -77,14 +79,16 @@
       margin-bottom: 1rem;
     }
     .form-group label {
-      font-size: .85rem;
+      font-size: .68rem;
       font-weight: 600;
-      color: var(--fg);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
     }
     .form-group input {
       padding: .55rem .75rem;
       border: 1px solid var(--input-border);
-      border-radius: 8px;
+      border-radius: 12px;
       background: var(--input-bg);
       color: var(--fg);
       font-size: .95rem;
@@ -115,18 +119,9 @@
 
     .login-btn {
       width: 100%;
-      padding: .65rem;
-      background: var(--accent-strong);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity .15s;
+      font-size: .92rem;
       margin-top: .25rem;
     }
-    .login-btn:hover { opacity: .88; }
     .login-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     .auth-or { display:flex; align-items:center; gap:.6rem; margin:1rem 0 .25rem; color:var(--muted); font-size:.8rem; }
@@ -134,12 +129,17 @@
     .google-btn {
       display:flex; align-items:center; justify-content:center; gap:.6rem;
       width:100%; box-sizing: border-box; padding:.6rem; margin-top:.5rem;
-      background:var(--input-bg); color:var(--fg); border:1px solid var(--input-border);
-      border-radius:8px; font-size:.95rem; font-weight:600; cursor:pointer; text-decoration:none;
+      background:var(--glass-bg); color:var(--fg); border:1px solid var(--glass-border);
+      border-radius:999px; font-size:.87rem; font-weight:500; cursor:pointer; text-decoration:none;
+      box-shadow: var(--elev-1);
       transition:background .15s, border-color .15s;
     }
     .google-btn:hover { border-color:var(--accent); background:var(--input-focus); }
     .google-btn img { display:block; }
+
+    .auth-trust {
+      text-align:center; font-size:.68rem; color:var(--muted); margin:1rem 0 0;
+    }
 
     .auth-error {
       background: var(--error-bg);
@@ -170,13 +170,12 @@
 
     .auth-canvas{max-width:880px;margin:0 auto;}
     .auth-card .btn{width:100%;margin-top:.5rem;}
-    .auth-split{display:grid;grid-template-columns:1fr 1fr;border-radius:18px;overflow:hidden;border:1px solid var(--glass-border);margin-top:1.25rem;box-shadow:var(--shadow);}
-    .auth-brand{padding:2.25rem 2rem;display:flex;flex-direction:column;justify-content:center;color:#fff;background:linear-gradient(150deg,var(--grad-from),var(--grad-to));}
-    .auth-brand-mark{font-size:2rem;font-weight:600;letter-spacing:-.02em;}
-    .auth-brand-tag{font-size:1.05rem;font-weight:500;margin:.8rem 0 .45rem;line-height:1.35;}
-    .auth-brand-sub{font-size:.85rem;opacity:.85;line-height:1.55;margin:0;}
-    .auth-split .auth-card{margin-top:0;border:none;border-radius:0;box-shadow:none;}
-    @media(max-width:680px){ body{max-width:440px;} .auth-split{grid-template-columns:1fr;} .auth-brand{display:none;} }
+    .login-shell{display:flex;justify-content:center;margin-top:2rem;}
+    .login-card{width:100%;max-width:340px;padding:1.5rem;}
+    .login-brand{display:flex;align-items:center;gap:.55rem;margin-bottom:1rem;}
+    .login-brand-mark{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--grad-from),var(--grad-to));}
+    .login-brand-wordmark{font-size:1.15rem;font-weight:500;color:var(--fg);letter-spacing:-.01em;}
+    body{max-width:440px;}
 
     .pw-wrap { position: relative; }
     .pw-wrap input { padding-right: 2.5rem; width: 100%; box-sizing: border-box; }
@@ -209,12 +208,6 @@
     ✓ Account deleted. All your data has been permanently removed.
   </div>
 
-  <div class="auth-split">
-  <div class="auth-brand">
-    <div class="auth-brand-mark">FiApp</div>
-    <p class="auth-brand-tag">Your money, beautifully tracked.</p>
-    <p class="auth-brand-sub">Income, expenses, subscriptions, tax and more. One calm dashboard.</p>
-  </div>
   <script nonce="{{ csp_nonce }}">
   var _qp=new URLSearchParams(window.location.search);
   if(_qp.get('deleted')==='1'){
@@ -227,10 +220,15 @@
   }
   </script>
 
-  <div class="glass-panel auth-card aurora-bg">
-  <div class="tab-bar">
-    <button class="tab-btn active" id="tab-login">Log In</button>
-    <button class="tab-btn" id="tab-register">Register</button>
+  <div class="login-shell aurora-bg">
+  <div class="glass-panel auth-card login-card">
+  <div class="login-brand">
+    <span class="login-brand-mark" aria-hidden="true"></span>
+    <span class="login-brand-wordmark">FiApp</span>
+  </div>
+  <div class="seg-toggle">
+    <button class="seg-btn active" id="tab-login">Sign in</button>
+    <button class="seg-btn" id="tab-register">Create account</button>
   </div>
 
 
@@ -313,6 +311,7 @@
     <div class="back-link"><a href="/login">← Use a different method</a></div>
   </div>
   {% endif %}
+  <p class="auth-trust"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg#fi-lock"/></svg> Encrypted in transit &middot; export your data anytime</p>
   </div>
   </div>
 
