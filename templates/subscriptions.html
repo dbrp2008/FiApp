@@ -223,14 +223,49 @@
 </style>
 {% endblock %}
 {% block content %}
-  <div class="page-header">
-    <h1>Subscription Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+  <div class="tracker-head">
+    <div class="tracker-head-left">
+      <h1>Subscription Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+      <div class="month-pill">
+        <button id="prev-btn" aria-label="Previous month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-left"/></svg></button>
+        <select id="month-jump" class="month-jump"></select>
+        <button id="next-btn" aria-label="Next month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg></button>
+      </div>
+    </div>
+    <div class="tracker-head-right">
+      <button class="btn-icon" id="undo-btn" disabled aria-label="Undo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-undo"/></svg></button>
+      <button class="btn-icon" id="redo-btn" disabled aria-label="Redo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-redo"/></svg></button>
+      <button class="btn btn-gradient btn-sm" id="qa-open-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-plus"/></svg> Add</button>
+      <div class="dropdown" id="dd-more">
+        <button class="btn-icon" id="more-menu-toggle" aria-label="More actions" data-wt="subs-share"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-dots"/></svg></button>
+        <div class="dropdown-menu" id="dd-more-menu">
+          <button id="add-col-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-table"/></svg>Add column</button>
+          <button id="share-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-share"/></svg>Share</button>
+          <button id="export-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-download"/></svg>Export</button>
+          <button id="paste-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-clipboard"/></svg>Paste</button>
+          <button id="reset-btn" style="color:#dc2626;">⚠ Reset</button>
+        </div>
+      </div>
+      <span id="export-flash" class="export-flash"></span>
+    </div>
   </div>
 
-  <div class="month-nav">
-    <button id="prev-btn">◀ Prev</button>
-    <select id="month-jump" class="month-jump"></select>
-    <button id="next-btn">Next ▶</button>
+  <div class="stat-strip" id="subs-stat-strip">
+    <div class="stat-card">
+      <div class="stat-label">Monthly cost</div>
+      <div class="stat-value" id="stat-monthly-cost">$0.00</div>
+      <div class="stat-delta neutral" id="stat-yearly-cost"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active</div>
+      <div class="stat-value" id="stat-active-count">0</div>
+      <div class="stat-delta neutral" id="stat-inactive-note"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Next renewal</div>
+      <div class="stat-value" id="stat-next-renewal">-</div>
+      <div class="stat-delta neutral" id="stat-next-renewal-cost"></div>
+    </div>
   </div>
 
   <div class="forecast-bar" id="forecast-bar">
@@ -309,21 +344,6 @@
   </div>
 
   <div id="renewal-alert-subs"></div>
-  <div class="toolbar-row-1">
-    <button class="btn btn-sm" id="undo-btn" disabled>↩ Undo</button>
-    <button class="btn btn-sm" id="redo-btn" disabled>↪ Redo</button>
-    <button class="btn btn-sm" id="add-col-btn">+ Column</button>
-    <div class="dropdown" id="dd-share" data-wt="subs-share">
-      <button class="btn btn-sm" id="dd-share-toggle">Share ▾</button>
-      <div class="dropdown-menu" id="dd-share-menu">
-        <button id="share-btn">📤 Share</button>
-        <button id="export-btn">📥 Export</button>
-        <button id="paste-btn">📋 Paste</button>
-      </div>
-    </div>
-    <span id="export-flash" class="export-flash"></span>
-    <button class="btn btn-sm btn-reset" id="reset-btn">⚠ Reset</button>
-  </div>
 
 <div class="sheet-wrap"><table class="sheet" id="sheet"></table></div>
 {% endblock %}
