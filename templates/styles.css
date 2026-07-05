@@ -6,7 +6,7 @@
   src:url('/static/fonts/inter-variable.woff2') format('woff2');
 }
 :root{
-  --bg:#ffffff;
+  --bg:#f1f2f8;
   --fg:#1f2937;
   --muted:#5b616b;
   --panel-bg:#f9fafb;
@@ -44,7 +44,7 @@
   --secondary-hover:#d1d5db;
   --grad-from:#7c3aed; --grad-to:#0891b2;
   --glow-1:rgba(124,58,237,.20); --glow-2:rgba(8,145,178,.16);
-  --glass-bg:rgba(255,255,255,.62); --glass-border:rgba(17,24,39,.08); --glass-blur:12px;
+  --glass-bg:rgba(255,255,255,.72); --glass-border:rgba(255,255,255,.65); --glass-blur:12px;
   --shell-rail-bg:rgba(255,255,255,.72);
 }
 
@@ -289,6 +289,45 @@ html.theme-indigo{
   --shell-rail-bg:rgba(224,231,255,.80);
 }
 
+/* ── Batch D Wave 0: design-language tokens (elevation, radius, tab bar) ──
+   Elevation ladder: --elev-1 pills/small controls, --elev-2 floating cards,
+   --elev-3 sheets/toasts, --elev-hero gradient hero, --elev-cta primary button.
+   Shadow tints follow each theme's gradient; dark themes use deeper black. */
+:root{
+  --r-sm:10px; --r-md:14px; --r-lg:18px;
+  --elev-1:0 2px 8px rgba(31,41,55,.06);
+  --elev-2:0 8px 24px rgba(31,41,55,.08);
+  --elev-3:0 12px 32px rgba(31,41,55,.12);
+  --elev-hero:0 10px 28px rgba(124,58,237,.30);
+  --elev-cta:0 6px 16px rgba(124,58,237,.28);
+  --tabbar-bg:rgba(255,255,255,.92);
+  --track-bg:rgba(17,24,39,.08);
+}
+html.dark{
+  --elev-1:0 2px 8px rgba(0,0,0,.35);
+  --elev-2:0 8px 24px rgba(0,0,0,.45);
+  --elev-3:0 12px 32px rgba(0,0,0,.55);
+  --elev-hero:0 10px 28px rgba(168,85,247,.35);
+  --elev-cta:0 6px 16px rgba(168,85,247,.30);
+  --tabbar-bg:rgba(13,13,22,.94);
+  --track-bg:rgba(255,255,255,.10);
+}
+html.theme-ocean{ --elev-hero:0 10px 28px rgba(8,145,178,.30); --elev-cta:0 6px 16px rgba(8,145,178,.28); }
+html.theme-forest{ --elev-hero:0 10px 28px rgba(5,150,105,.30); --elev-cta:0 6px 16px rgba(5,150,105,.28); }
+html.theme-sunset{ --elev-hero:0 10px 28px rgba(234,88,12,.30); --elev-cta:0 6px 16px rgba(234,88,12,.28); }
+html.theme-midnight{
+  --elev-1:0 2px 8px rgba(0,0,0,.5);
+  --elev-2:0 8px 24px rgba(0,0,0,.6);
+  --elev-3:0 12px 32px rgba(0,0,0,.7);
+  --elev-hero:0 10px 28px rgba(59,130,246,.35);
+  --elev-cta:0 6px 16px rgba(59,130,246,.30);
+  --tabbar-bg:rgba(15,23,42,.94);
+  --track-bg:rgba(255,255,255,.10);
+}
+html.theme-rose{ --elev-hero:0 10px 28px rgba(225,29,72,.30); --elev-cta:0 6px 16px rgba(225,29,72,.28); }
+html.theme-purple{ --elev-hero:0 10px 28px rgba(147,51,234,.30); --elev-cta:0 6px 16px rgba(147,51,234,.28); }
+html.theme-indigo{ --elev-hero:0 10px 28px rgba(79,70,229,.30); --elev-cta:0 6px 16px rgba(79,70,229,.28); }
+
 body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   max-width: 800px;
@@ -362,13 +401,14 @@ textarea:focus-visible {
 .btn{
   background: var(--accent-strong);
   color: #fff;
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 1.15rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 999px;
   cursor: pointer;
   display: inline-block;
   font-family: inherit;
   font-size: .95rem;
+  font-weight: 500;
   text-decoration: none;
 }
 .btn:hover{ filter: brightness(1.08); }
@@ -731,32 +771,36 @@ h1, h2, h3, h4 { color: var(--fg); }
    native-lock.js mounts its overlay, so no real content flashes. Removed as soon as the
    overlay is shown. See static/js/native-lock.js. */
 html.fiapp-lock-pending body { visibility: hidden !important; }
-/* ── Redesign component layer ───────────────────────────────── */
+/* ── Redesign component layer (Batch D soft-depth values) ────── */
 .gradient-card{
   background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
-  color:#fff;border-radius:16px;padding:1.1rem 1.25rem;border:none;
+  color:#fff;border-radius:var(--r-lg);padding:1.1rem 1.25rem;border:none;
+  box-shadow:var(--elev-hero);
 }
 .glass-panel{
   background:var(--panel-bg);              /* opaque fallback first */
   background:var(--glass-bg);
   border:1px solid var(--glass-border);
-  border-radius:16px;padding:1.1rem 1.25rem;
+  border-radius:var(--r-lg);padding:1.1rem 1.25rem;
   backdrop-filter:blur(var(--glass-blur));
   -webkit-backdrop-filter:blur(var(--glass-blur));
+  box-shadow:var(--elev-2);
 }
 .stat-card{
   background:var(--glass-bg);border:1px solid var(--glass-border);
-  border-radius:14px;padding:.9rem 1rem;backdrop-filter:blur(var(--glass-blur));
+  border-radius:var(--r-lg);padding:.9rem 1rem;backdrop-filter:blur(var(--glass-blur));
   -webkit-backdrop-filter:blur(var(--glass-blur));
+  box-shadow:var(--elev-2);
 }
-.stat-label{font-size:.72rem;color:var(--muted);margin:0 0 .15rem;}
-.stat-value{font-size:1.6rem;font-weight:500;letter-spacing:-.02em;color:var(--fg);
+.stat-label{font-size:.69rem;color:var(--muted);margin:0 0 .15rem;
+  text-transform:uppercase;letter-spacing:.04em;}
+.stat-value{font-size:1.35rem;font-weight:500;letter-spacing:-.02em;color:var(--fg);
   font-variant-numeric:tabular-nums;line-height:1.1;}
 .page-header{display:flex;align-items:center;justify-content:space-between;
   gap:1rem;margin:0 0 1.25rem;flex-wrap:wrap;}
 .page-header h1{font-size:1.5rem;font-weight:500;letter-spacing:-.01em;margin:0;}
 .field{margin-bottom:1rem;}
-.btn.btn-gradient{background:linear-gradient(135deg,var(--grad-from),var(--grad-to));border:none;}
+.btn.btn-gradient{background:linear-gradient(135deg,var(--grad-from),var(--grad-to));border:none;box-shadow:var(--elev-cta);}
 .btn.btn-glass{background:var(--glass-bg);border:1px solid var(--glass-border);color:var(--fg);
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
 .aurora-bg{position:relative;}
@@ -809,7 +853,6 @@ html.personality-playful .stat-card,
 html.personality-playful .gradient-card,
 html.personality-playful .hero-net-card{border-radius:20px;}
 html.personality-playful .dash-tool{border-radius:14px;}
-html.personality-playful .btn{border-radius:12px;}
 @media (prefers-reduced-motion: no-preference){
   html.personality-playful .dash-tool:hover{transform:translateY(-3px);}
   html.personality-playful .app-card:hover{transform:translateY(-5px);}
@@ -890,10 +933,12 @@ body{max-width:none;margin:0;padding:0;}
 @media (min-width:900px){ .nav, .home-nav{margin-top:.25rem;} }
 
 /* ── Wave A: global control & surface polish ──────────────────── */
-/* Buttons — give ghost/glass real definition + responsive hover/press */
+/* Buttons — glass pills (Batch D soft-depth form) + responsive hover/press */
 .btn-ghost, .btn-glass{
-  background:var(--secondary-bg);
-  border:1px solid var(--panel-border);
+  background:var(--glass-bg);
+  border:1px solid var(--glass-border);
+  border-radius:999px;
+  box-shadow:var(--elev-1);
   transition:background .14s ease, border-color .14s ease, transform .1s ease, filter .14s ease;
 }
 .btn-ghost:hover, .btn-glass:hover{ background:var(--hover-bg); border-color:var(--accent); color:var(--fg); }
@@ -902,7 +947,7 @@ body{max-width:none;margin:0;padding:0;}
 .btn:active{ transform:translateY(1px); }
 
 /* Inputs — softer radius + theme-tinted focus ring (replaces the hard accent ring) */
-input, select, textarea{ border-radius:10px; transition:border-color .14s ease, box-shadow .14s ease; }
+input, select, textarea{ border-radius:12px; transition:border-color .14s ease, box-shadow .14s ease; }
 input:focus-visible, select:focus-visible, textarea:focus-visible{
   outline:none; border-color:var(--grad-from); box-shadow:0 0 0 3px var(--glow-1);
 }
@@ -919,7 +964,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 
 /* ── Wave B: tracker grid polish (CSS-only, render JS untouched) ── */
 .sheet tbody tr:hover td{ background:var(--hover-bg); }
-.sheet thead th{ border-bottom:2px solid var(--grad-from); }
+.sheet thead th{ border-bottom:2px solid color-mix(in srgb, var(--grad-from) 35%, transparent); }
 
 /* ── Wave E: flourishes ───────────────────────────────────────── */
 @media (min-width:900px){
@@ -931,3 +976,89 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
   .app-canvas{ animation:canvas-fade .26s ease; }
   @keyframes canvas-fade{ from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:none;} }
 }
+
+/* ── Batch D Wave 0: component layer ──────────────────────────
+   Values transcribed from the approved mockups (docs/redesign-mockups/) -
+   see the "Fidelity contract" in the Batch D plan before changing any. */
+
+/* Icons (self-hosted sprite: /static/icons/ui-sprite.svg) */
+.fi-ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:-.125em;display:inline-block;}
+
+/* Icon chips: 32px rounded square, semantic tint at ~10-13% */
+.icon-chip{display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:11px;font-size:17px;flex-shrink:0;}
+.icon-chip.chip-sm{width:26px;height:26px;border-radius:9px;font-size:14px;}
+.chip-accent{background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent-strong);}
+.chip-success{background:rgba(4,120,87,.12);color:#047857;}
+.chip-danger{background:rgba(185,28,28,.10);color:#b91c1c;}
+.chip-neutral{background:rgba(107,114,128,.12);color:#4b5563;}
+.chip-on-gradient{background:rgba(255,255,255,.20);color:#fff;}
+html.dark .chip-success, html.theme-midnight .chip-success{background:rgba(110,231,183,.12);color:#6ee7b7;}
+html.dark .chip-danger, html.theme-midnight .chip-danger{background:rgba(252,165,165,.12);color:#fca5a5;}
+html.dark .chip-neutral, html.theme-midnight .chip-neutral{background:rgba(203,213,225,.10);color:#cbd5e1;}
+
+/* Stat delta line: always icon + text, never colour alone */
+.stat-delta{display:flex;align-items:center;gap:.25rem;font-size:.72rem;margin-top:3px;color:var(--muted);}
+.stat-delta .fi-ico{font-size:12px;}
+.stat-delta.good{color:#15803d;}
+.stat-delta.bad{color:#b91c1c;}
+html.dark .stat-delta.good, html.theme-midnight .stat-delta.good{color:#86efac;}
+html.dark .stat-delta.bad, html.theme-midnight .stat-delta.bad{color:#fca5a5;}
+
+/* Status pills (subscriptions + generic ok/warn) */
+.status-pill{display:inline-block;font-size:.66rem;font-weight:500;padding:3px 10px;border-radius:999px;white-space:nowrap;}
+.status-pill.status-active, .status-pill.status-ok{background:rgba(21,128,61,.10);color:#15803d;}
+.status-pill.status-paused, .status-pill.status-warn{background:rgba(217,119,6,.12);color:#b45309;}
+.status-pill.status-cancelled{background:rgba(107,114,128,.12);color:#6b7280;}
+html.dark .status-pill.status-active, html.theme-midnight .status-pill.status-active,
+html.dark .status-pill.status-ok, html.theme-midnight .status-pill.status-ok{background:rgba(134,239,172,.12);color:#86efac;}
+html.dark .status-pill.status-paused, html.theme-midnight .status-pill.status-paused,
+html.dark .status-pill.status-warn, html.theme-midnight .status-pill.status-warn{background:rgba(252,211,77,.12);color:#fcd34d;}
+html.dark .status-pill.status-cancelled, html.theme-midnight .status-pill.status-cancelled{background:rgba(148,163,184,.12);color:#94a3b8;}
+
+/* Month navigation pill: chevrons + label/select in one glass pill */
+.month-pill{display:inline-flex;align-items:center;gap:2px;
+  background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:999px;
+  padding:4px 6px;box-shadow:var(--elev-1);
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+.month-pill button{background:none;border:none;cursor:pointer;color:var(--muted);
+  display:inline-flex;align-items:center;justify-content:center;padding:4px;border-radius:999px;
+  font-size:15px;font-family:inherit;min-width:28px;min-height:28px;}
+.month-pill button:hover{background:var(--hover-bg);color:var(--fg);}
+.month-pill select{width:auto;border:none;background:none;box-shadow:none;
+  font-weight:500;font-size:.78rem;color:var(--fg);padding:2px 4px;cursor:pointer;}
+.month-pill select:focus-visible{box-shadow:none;outline:2px solid var(--grad-from);outline-offset:1px;}
+
+/* Progress bar: gradient fill on a soft track */
+.progress-bar{height:5px;border-radius:3px;background:var(--track-bg);overflow:hidden;margin-top:7px;}
+.progress-bar>span{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--grad-from),var(--grad-to));transition:width .3s ease;}
+@media (prefers-reduced-motion: reduce){ .progress-bar>span{transition:none;} }
+
+/* Sync trust pill (applied to #sync-status in Wave 1) */
+.sync-pill{display:inline-flex;align-items:center;gap:.3rem;
+  background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:999px;
+  padding:4px 11px;font-size:.72rem;font-weight:500;box-shadow:var(--elev-1);color:var(--muted);}
+.sync-pill .fi-ico{font-size:13px;}
+.sync-pill.synced{color:#15803d;}
+.sync-pill.failed{color:#dc2626;}
+html.dark .sync-pill.synced, html.theme-midnight .sync-pill.synced{color:#86efac;}
+html.dark .sync-pill.failed, html.theme-midnight .sync-pill.failed{color:#fca5a5;}
+
+/* Round icon-only glass button (overflow menus etc.) */
+.btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:999px;background:var(--glass-bg);border:1px solid var(--glass-border);
+  box-shadow:var(--elev-1);color:var(--fg);cursor:pointer;font-family:inherit;font-size:16px;
+  transition:background .14s ease, border-color .14s ease, transform .1s ease;}
+.btn-icon:hover{background:var(--hover-bg);border-color:var(--accent);}
+.btn-icon:active{transform:translateY(1px);}
+.btn-icon:disabled{opacity:.4;cursor:not-allowed;}
+
+/* Undo toast (calm trust affordance) */
+.undo-toast{position:fixed;bottom:calc(1.5rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);
+  background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:var(--r-md);
+  padding:.5rem .9rem;font-size:.78rem;color:var(--fg);box-shadow:var(--elev-3);z-index:99999;
+  max-width:calc(100vw - 2rem);box-sizing:border-box;}
+.undo-toast button{background:none;border:none;color:var(--accent-strong);font-weight:500;
+  font-family:inherit;font-size:.78rem;cursor:pointer;margin-left:.6rem;padding:0;}
