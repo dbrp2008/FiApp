@@ -350,19 +350,57 @@
 </style>
 {% endblock %}
 {% block content %}
-  <div class="page-header">
-    <h1>Expense Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
-  </div>
-
-  <div class="month-nav">
-    <button id="prev-btn">◀ Prev</button>
-    <select id="month-jump" class="month-jump"></select>
-    <button id="next-btn">Next ▶</button>
+  <div class="tracker-head">
+    <div class="tracker-head-left">
+      <h1>Expense Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+      <div class="month-pill">
+        <button id="prev-btn" aria-label="Previous month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-chevron-left"/></svg></button>
+        <select id="month-jump" class="month-jump"></select>
+        <button id="next-btn" aria-label="Next month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-chevron-right"/></svg></button>
+      </div>
+    </div>
+    <div class="tracker-head-right">
+      <button class="btn-icon" id="undo-btn" disabled aria-label="Undo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-undo"/></svg></button>
+      <button class="btn-icon" id="redo-btn" disabled aria-label="Redo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-redo"/></svg></button>
+      <button class="btn btn-gradient btn-sm" id="qa-open-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg#fi-plus"/></svg> Add</button>
+      <div class="dropdown" id="dd-more">
+        <button class="btn-icon" id="more-menu-toggle" aria-label="More actions" data-wt="expenses-share expenses-import"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-dots"/></svg></button>
+        <div class="dropdown-menu" id="dd-more-menu">
+          <button id="copy-prev-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-copy"/></svg>Copy rows/cols from previous month</button>
+          <button id="copy-month-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-copy"/></svg>Copy from a specific month…</button>
+          <button id="add-row-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-plus"/></svg>Add row</button>
+          <button id="add-col-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-table"/></svg>Add column</button>
+          <div id="del-col-items"></div>
+          <button id="share-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-share"/></svg>Share</button>
+          <button id="export-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-download"/></svg>Export</button>
+          <button id="paste-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-clipboard"/></svg>Paste</button>
+          <button id="import-btn" data-wt="expenses-import"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-folder"/></svg>Import</button>
+          <button id="expand-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-chevron-down"/></svg>Expand all</button>
+          <button id="collapse-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-chevron-right"/></svg>Collapse all</button>
+          <button id="reset-btn" style="color:#dc2626;">⚠ Reset</button>
+        </div>
+      </div>
+      <span id="export-flash" class="export-flash"></span>
+    </div>
   </div>
   <p class="month-context-note" id="month-context-note"></p>
-  <div style="margin-bottom:.5rem;">
-    <button class="btn btn-glass btn-sm" id="copy-prev-btn">📋 Copy rows/cols from previous month</button>
-    <button class="btn btn-glass btn-sm" id="copy-month-btn">📋 Copy from a specific month…</button>
+
+  <div class="stat-strip" id="exp-stat-strip">
+    <div class="stat-card">
+      <div class="stat-label">Spent this month</div>
+      <div class="stat-value" id="stat-spent">$0.00</div>
+      <div class="stat-delta" id="stat-spent-delta"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Budget left</div>
+      <div class="stat-value" id="stat-budget-left">-</div>
+      <div class="progress-bar" id="stat-budget-bar" style="display:none;"><span></span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Daily pace</div>
+      <div class="stat-value" id="stat-pace">-</div>
+      <div class="stat-delta neutral" id="stat-pace-note"></div>
+    </div>
   </div>
 
   <!-- Monthly Close Bar -->
@@ -427,34 +465,6 @@
   </div>
   <div id="eom-projection" style="display:none;font-size:.8rem;font-style:italic;color:var(--muted);margin:-.4rem 0 .6rem .2rem;"></div>
 
-  <div class="toolbar-row-1">
-    <button class="btn btn-sm" id="undo-btn" disabled>↩ Undo</button>
-    <button class="btn btn-sm" id="redo-btn" disabled>↪ Redo</button>
-
-    <div class="dropdown" id="dd-table">
-      <button class="btn btn-sm" id="dd-table-toggle">Table ▾</button>
-      <div class="dropdown-menu" id="dd-table-menu">
-        <button id="add-row-btn">+ Row</button>
-        <button id="add-col-btn">+ Column</button>
-        <div id="del-col-items"></div>
-      </div>
-    </div>
-
-    <div class="dropdown" id="dd-share" data-wt="expenses-share">
-      <button class="btn btn-sm" id="dd-share-toggle">Share ▾</button>
-      <div class="dropdown-menu" id="dd-share-menu">
-        <button id="share-btn">📤 Share</button>
-        <button id="export-btn">📥 Export</button>
-        <button id="paste-btn">📋 Paste</button>
-      </div>
-    </div>
-    <button class="btn btn-sm" id="import-btn" data-wt="expenses-import">📂 Import</button>
-    <button class="btn btn-sm btn-ghost" id="expand-btn" style="display:none">▾ Expand All</button>
-    <button class="btn btn-sm btn-ghost" id="collapse-btn" style="display:none">▸ Collapse All</button>
-    <span id="export-flash" class="export-flash"></span>
-    <button class="btn btn-sm btn-reset" id="reset-btn">⚠ Reset</button>
-  </div>
-
   <div class="chart-section" id="chart-section">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.4rem;margin-bottom:.5rem;">
       <div class="chart-mode-btns" style="margin-bottom:0;">
@@ -489,19 +499,32 @@
     <h3>How to use the Expense Tracker</h3>
     <div class="help-body">
       <ul>
-        <li>Add expense categories as rows via <strong>Table ▾ → + Row</strong>; add subcategories with <strong>+Sub</strong> on any row.</li>
-        <li>Enter spending amounts per cell and navigate months with the <strong>◀ Prev / Next ▶</strong> buttons.</li>
-        <li><strong>Undo/Redo</strong> via Ctrl+Z / Ctrl+Y or the ↩↪ toolbar buttons (history persists across page visits).</li>
-        <li>Use the <strong>Share ▾</strong> menu to share a snapshot, export to CSV/JSON, or paste a FiApp data blob.</li>
-        <li>Use the <strong>📂 Import</strong> button to bring in transactions from a bank export (.ofx/.qfx/.qif) or a spreadsheet (.csv) - map columns, assign categories once, and FiApp remembers your choices for next time.</li>
+        <li>Add expense categories as rows via the <strong>⋯ menu → Add row</strong>; add subcategories with <strong>+Sub</strong> on any row.</li>
+        <li>Enter spending amounts per cell, or tap <strong>+ Add</strong> for a quick amount + category entry on mobile. Navigate months with the month pill.</li>
+        <li><strong>Undo/Redo</strong> via Ctrl+Z / Ctrl+Y or the ↩ ↪ icon buttons (history persists across page visits).</li>
+        <li>Open the <strong>⋯ menu</strong> to share a snapshot, export to CSV/JSON, paste a FiApp data blob, or import transactions.</li>
+        <li><strong>Import</strong> brings in transactions from a bank export (.ofx/.qfx/.qif) or a spreadsheet (.csv) - map columns, assign categories once, and FiApp remembers your choices for next time.</li>
         <li>Set your gross income and monthly tax in the <strong>Monthly Budget</strong> panel above the table to track remaining budget.</li>
         <li>Click <strong>🎯</strong> next to any row total to set a monthly spending limit - the total turns <span style="color:#22c55e;font-weight:700">green</span> / <span style="color:#f59e0b;font-weight:700">amber</span> / <span style="color:#ef4444;font-weight:700">red</span> as spending approaches or exceeds your goal.</li>
         <li><strong>Forecast mode</strong>: future months let you project spend or copy/average last month's values.</li>
-        <li><strong>Each month has its own categories and columns</strong> - adding, renaming, or removing a row in one month doesn't change any other month. Use <strong>📋 Copy rows/cols from previous month</strong> to bring a setup forward instead of rebuilding it.</li>
+        <li><strong>Each month has its own categories and columns</strong> - adding, renaming, or removing a row in one month doesn't change any other month. Use <strong>⋯ menu → Copy rows/cols from previous month</strong> to bring a setup forward instead of rebuilding it.</li>
         <li>A row marked <strong>→ Subscriptions</strong> is <strong>linked</strong>: its amount is filled in automatically from your Subscription Tracker, so you don't enter it twice - edit it there, not here.</li>
       </ul>
     </div>
     <div class="share-actions"><button class="btn btn-sm" id="help-close-btn">✕ Close</button></div>
+  </div>
+</div>
+
+<button class="add-fab" id="add-fab" aria-label="Quick add expense"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-plus"/></svg></button>
+<div class="quick-add-backdrop" id="qa-backdrop"></div>
+<div class="quick-add-sheet" id="qa-sheet" role="dialog" aria-modal="true" aria-label="Add expense">
+  <div class="qa-grab" aria-hidden="true"></div>
+  <input type="number" id="qa-amount" class="qa-amount-input" inputmode="decimal" step="0.01" min="0" placeholder="0.00" aria-label="Amount">
+  <p class="qa-label">Category</p>
+  <div class="qa-chips" id="qa-chips"></div>
+  <div class="qa-actions">
+    <button class="btn btn-gradient" id="qa-save-btn" style="flex:2;">Save</button>
+    <button class="btn btn-glass" id="qa-cancel-btn" style="flex:1;">Cancel</button>
   </div>
 </div>
 {% endblock %}
