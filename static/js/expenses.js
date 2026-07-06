@@ -1874,6 +1874,7 @@ function renderTop3(data,label){
 
 let resetTimer=null;
 function resetAll(e){
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   const btn=document.getElementById('reset-btn');
   if(btn.dataset.arm){
     clearTimeout(resetTimer); delete btn.dataset.arm; btn.textContent='⚠ Reset'; btn.classList.remove('armed');
