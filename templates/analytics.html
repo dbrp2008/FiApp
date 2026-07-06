@@ -914,7 +914,7 @@ function renderBreakdownChart(){
     const colors=sorted.map(e=>e[1].color);
     const total =vals.reduce((a,b)=>a+b,0);
     const cfg=catBreakType==='doughnut'
-      ? {type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:2,borderColor:_cTc.panel,borderAlign:'inner',hoverOffset:8}]},
+      ? {type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:1,borderColor:_cTc.panel,borderAlign:'inner',hoverOffset:8}]},
           options:{responsive:true,maintainAspectRatio:false,plugins:{
             legend:{display:true,position:'right',labels:{color:_cTc.fg,boxWidth:14,padding:10,font:{size:12}}},
             tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+fmtMoney(ctx.parsed)+' ('+(ctx.parsed/total*100).toFixed(1)+'%)'}}
@@ -1027,7 +1027,7 @@ function renderSubBreakChart(){
   const names =sorted.map(r=>r.name);
   const total =vals.reduce((a,b)=>a+b,0);
   const subCfg=subBreakType==='doughnut'
-    ? {type:'doughnut',data:{labels:names,datasets:[{data:vals,backgroundColor:colors,borderWidth:2,borderColor:_cTc.panel,hoverOffset:8}]},
+    ? {type:'doughnut',data:{labels:names,datasets:[{data:vals,backgroundColor:colors,borderWidth:1,borderColor:_cTc.panel,hoverOffset:8}]},
         options:{responsive:true,maintainAspectRatio:false,plugins:{
           legend:{display:true,position:'right',labels:{color:_cTc.fg,boxWidth:14,padding:10,font:{size:12}}},
           tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+fmtMoney(ctx.parsed)+'/mo ('+(ctx.parsed/total*100).toFixed(1)+'%)'}}
