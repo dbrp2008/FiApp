@@ -300,8 +300,12 @@ let _rowMonthIdx = {};
 
 // Batch D Wave 5: single-month cursor for the hero stat strip (Net/Savings rate/Top
 // category), navigated via the header's month-pill - independent of the Period
-// selector below, which still controls the multi-month trend charts.
+// selector below, which still controls the multi-month trend charts. Persisted so
+// the selected month survives navigating away and back (device-local view state,
+// same treatment as each tracker's own currentYear/currentMonth).
+const ANA_MONTH_KEY = 'fiapp_analytics_month';
 let _anaMK = null;
+function _saveAnaMK(){ try{ localStorage.setItem(ANA_MONTH_KEY,_anaMK); }catch(_){} }
 
 
 let _cm=[], _cTc={fg:'#1f2937',muted:'#6b7280',grid:'rgba(0,0,0,.07)',panel:'#f9fafb'},
@@ -374,6 +378,7 @@ function renderAll(){
   // secondary control further down that only scopes the multi-month trend charts -
   // the two are independent so switching the hero month never resets chart range.
   if(_allMonths.length){
+    if(!_anaMK){ try{ _anaMK=localStorage.getItem(ANA_MONTH_KEY); }catch(_){} }
     if(!_anaMK||!_allMonths.includes(_anaMK)) _anaMK=_allMonths[_allMonths.length-1];
     if(headRight){
       const pill=document.createElement('div');
@@ -588,6 +593,7 @@ function shiftAnaMonth(d){
   const newIdx=idx+d;
   if(newIdx<0||newIdx>=_allMonths.length) return;
   _anaMK=_allMonths[newIdx];
+  _saveAnaMK();
   _updateAnaMonthLabel();
   renderHeroStats();
 }
@@ -610,7 +616,7 @@ function toggleAnaMonthMenu(btn){
     item.setAttribute('role','option');
     item.addEventListener('click',function(e){
       e.stopPropagation();
-      _anaMK=m2; _updateAnaMonthLabel(); renderHeroStats(); closeAnaMonthMenu();
+      _anaMK=m2; _saveAnaMK(); _updateAnaMonthLabel(); renderHeroStats(); closeAnaMonthMenu();
     });
     menu.appendChild(item);
   });
