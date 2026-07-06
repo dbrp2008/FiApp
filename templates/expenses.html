@@ -354,30 +354,30 @@
     <div class="tracker-head-left">
       <h1>Expense Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
       <div class="month-pill">
-        <button id="prev-btn" aria-label="Previous month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-chevron-left"/></svg></button>
+        <button id="prev-btn" aria-label="Previous month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-left"/></svg></button>
         <select id="month-jump" class="month-jump"></select>
-        <button id="next-btn" aria-label="Next month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-chevron-right"/></svg></button>
+        <button id="next-btn" aria-label="Next month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg></button>
       </div>
     </div>
     <div class="tracker-head-right">
-      <button class="btn-icon" id="undo-btn" disabled aria-label="Undo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-undo"/></svg></button>
-      <button class="btn-icon" id="redo-btn" disabled aria-label="Redo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-redo"/></svg></button>
-      <button class="btn btn-gradient btn-sm" id="qa-open-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg#fi-plus"/></svg> Add</button>
+      <button class="btn-icon" id="undo-btn" disabled aria-label="Undo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-undo"/></svg></button>
+      <button class="btn-icon" id="redo-btn" disabled aria-label="Redo"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-redo"/></svg></button>
+      <button class="btn btn-gradient btn-sm" id="qa-open-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-plus"/></svg> Add</button>
       <div class="dropdown" id="dd-more">
-        <button class="btn-icon" id="more-menu-toggle" aria-label="More actions" data-wt="expenses-share expenses-import"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-dots"/></svg></button>
+        <button class="btn-icon" id="more-menu-toggle" aria-label="More actions" data-wt="expenses-share expenses-import"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-dots"/></svg></button>
         <div class="dropdown-menu" id="dd-more-menu">
-          <button id="copy-prev-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-copy"/></svg>Copy rows/cols from previous month</button>
-          <button id="copy-month-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-copy"/></svg>Copy from a specific month…</button>
-          <button id="add-row-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-plus"/></svg>Add row</button>
-          <button id="add-col-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-table"/></svg>Add column</button>
+          <button id="copy-prev-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-copy"/></svg>Copy rows/cols from previous month</button>
+          <button id="copy-month-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-copy"/></svg>Copy from a specific month…</button>
+          <button id="add-row-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-plus"/></svg>Add row</button>
+          <button id="add-col-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-table"/></svg>Add column</button>
           <div id="del-col-items"></div>
-          <button id="share-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-share"/></svg>Share</button>
-          <button id="export-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-download"/></svg>Export</button>
-          <button id="paste-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-clipboard"/></svg>Paste</button>
-          <button id="import-btn" data-wt="expenses-import"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-folder"/></svg>Import</button>
-          <button id="expand-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-chevron-down"/></svg>Expand all</button>
-          <button id="collapse-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg#fi-chevron-right"/></svg>Collapse all</button>
-          <button id="reset-btn" style="color:#dc2626;">⚠ Reset</button>
+          <button id="share-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-share"/></svg>Share</button>
+          <button id="export-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-download"/></svg>Export</button>
+          <button id="paste-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-clipboard"/></svg>Paste</button>
+          <button id="import-btn" data-wt="expenses-import"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-folder"/></svg>Import</button>
+          <button id="expand-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-down"/></svg>Expand all</button>
+          <button id="collapse-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg>Collapse all</button>
+          <button id="reset-btn" class="btn btn-reset">⚠ Reset</button>
         </div>
       </div>
       <span id="export-flash" class="export-flash"></span>
@@ -515,7 +515,7 @@
   </div>
 </div>
 
-<button class="add-fab" id="add-fab" aria-label="Quick add expense"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg#fi-plus"/></svg></button>
+<button class="add-fab" id="add-fab" aria-label="Quick add expense"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-plus"/></svg></button>
 <div class="quick-add-backdrop" id="qa-backdrop"></div>
 <div class="quick-add-sheet" id="qa-sheet" role="dialog" aria-modal="true" aria-label="Add expense">
   <div class="qa-grab" aria-hidden="true"></div>
