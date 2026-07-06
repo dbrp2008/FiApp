@@ -547,7 +547,8 @@ function populateMonthJump(){
       if(y===minY&&m2<minM) continue;
       if(y===maxY&&m2>maxM) continue;
       const opt=document.createElement('option');
-      opt.value=mk(y,m2); opt.textContent=MONTHS_FULL[m2]+' '+y;
+      const isClosed=_isClosedMonth(mk(y,m2));
+      opt.value=mk(y,m2); opt.textContent=(isClosed?'🔒 ':'')+MONTHS_FULL[m2]+' '+y;
       if(mk(y,m2)===curMk) opt.selected=true;
       sel.appendChild(opt);
     }
@@ -611,16 +612,15 @@ function _isPastMonth(){
   return currentMK()<nowMk;
 }
 function _isClosedMonth(mk2){
-  return false; // Income tracker months are never locked
+  return !!(state.closedMonths&&state.closedMonths[mk2]);
 }
-function updateCloseBar(){
-  const bar=document.getElementById('close-bar');
-  if(!bar) return;
+function reopenMonth(){
   const mk2=currentMK();
-  if(!_isPastMonth()||!_hasDataForMonth(mk2)||_isClosedMonth(mk2)){
-    bar.style.display='none'; return;
-  }
-  // Compute income total for the display
+  if(state.closedMonths) delete state.closedMonths[mk2];
+  saveLocal(); save();
+  updateCloseBar(); populateMonthJump(); render();
+}
+function _incomeTotalForMonth(mk2){
   let total=0;
   const rows=getRows(mk2);
   rows.filter(r=>!r.parentId).forEach(row=>{
@@ -628,21 +628,49 @@ function updateCloseBar(){
     if(kids.length){ kids.forEach(child=>{ (state.cols||[]).forEach(col=>{ total+=parseFloat((state.cells||{})[mk2+'|'+child.id+'|'+col.id]||0)||0; }); }); }
     else { (state.cols||[]).forEach(col=>{ total+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); }
   });
+  return total;
+}
+function updateCloseBar(){
+  const bar=document.getElementById('close-bar');
+  if(!bar) return;
+  const mk2=currentMK();
+  const btn=bar.querySelector('button');
+  if(_isClosedMonth(mk2)){
+    document.getElementById('close-bar-text').innerHTML='🔒 <strong>Closed</strong> - this month is locked.';
+    if(btn){ btn.textContent='Reopen ↩'; btn.onclick=reopenMonth; }
+    bar.style.display='flex'; return;
+  }
+  if(!_isPastMonth()||!_hasDataForMonth(mk2)){
+    bar.style.display='none'; return;
+  }
+  if(btn){ btn.textContent='Review & close ✓'; btn.onclick=openCloseModal; }
+  const total=_incomeTotalForMonth(mk2);
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
   document.getElementById('close-bar-text').textContent='📋 Close '+label+'? - $'+total.toFixed(2)+' income logged';
   bar.style.display='flex';
 }
 function openCloseModal(){
   const mk2=currentMK();
-  let total=0;
+  const total=_incomeTotalForMonth(mk2);
+  let py=state.currentYear, pm=state.currentMonth-1;
+  if(pm<0){py--;pm=11;}
+  const pmk2=mk(py,pm);
+  const prevTotal=_incomeTotalForMonth(pmk2);
+  const delta=prevTotal>0?total-prevTotal:null;
+  const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
+  let details='<strong>'+escapeHtml(label)+'</strong><br>Income logged: $'+total.toFixed(2);
+  if(delta!==null){ details+='<br><span style="color:var(--muted);font-size:.85rem">'+(delta>=0?'↑ $'+delta.toFixed(2)+' vs prev month':'↓ $'+Math.abs(delta).toFixed(2)+' vs prev month')+'</span>'; }
+  let topRow='', topVal=0;
   const rows=getRows(mk2);
   rows.filter(r=>!r.parentId).forEach(row=>{
     const kids=rows.filter(c=>c.parentId===row.id);
-    if(kids.length){ kids.forEach(child=>{ (state.cols||[]).forEach(col=>{ total+=parseFloat((state.cells||{})[mk2+'|'+child.id+'|'+col.id]||0)||0; }); }); }
-    else { (state.cols||[]).forEach(col=>{ total+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); }
+    let rowTotal=0;
+    if(kids.length){ kids.forEach(child=>{ (state.cols||[]).forEach(col=>{ rowTotal+=parseFloat((state.cells||{})[mk2+'|'+child.id+'|'+col.id]||0)||0; }); }); }
+    else { (state.cols||[]).forEach(col=>{ rowTotal+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); }
+    if(rowTotal>topVal){ topVal=rowTotal; topRow=row.label; }
   });
-  const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
-  document.getElementById('close-modal-body').innerHTML='<strong>'+escapeHtml(label)+'</strong><br>Income logged: $'+total.toFixed(2);
+  if(topRow) details+='<br><span style="color:var(--muted);font-size:.85rem">Top source: '+escapeHtml(topRow)+' ($'+topVal.toFixed(2)+')</span>';
+  document.getElementById('close-modal-body').innerHTML=details;
   const overlay=document.getElementById('close-modal-overlay');
   if(!overlay) return;
   overlay.style.display='flex';
@@ -656,6 +684,14 @@ function confirmClose(){
   _closeModalOverlay();
   updateCloseBar();
   populateMonthJump();
+  if(window.fiappCelebrate){
+    const total=_incomeTotalForMonth(mk2);
+    let py=state.currentYear, pm=state.currentMonth-1;
+    if(pm<0){py--;pm=11;}
+    const prevTotal=_incomeTotalForMonth(mk(py,pm));
+    const _up=prevTotal>0&&total>prevTotal;
+    fiappCelebrate({confetti:true, big:_up, mascot:_up?'Month closed - income is up. Nice.':'Month closed.'});
+  }
 }
 function cancelClose(){
   _closeModalOverlay();
@@ -1452,6 +1488,7 @@ function renderTableBody(table){
       } else {
         const wrap=document.createElement('div'); wrap.className='cost-wrap';
         const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='0.01';inp.inputMode='decimal';inp.className='num-input c-num';
+        if(_isClosedMonth(currentMK())) inp.disabled=true;
         const stored=getRawCell(row.id,col.id);inp.value=stored!==''?stored:'';
         inp.addEventListener('input',()=>{ inp.value=inp.value.replace(/[^0-9.]/g,''); });
         inp.addEventListener('focus',()=>snapshot());
@@ -2515,6 +2552,8 @@ function saveQuickAdd(){
   if(backdrop) backdrop.addEventListener('click',closeQuickAdd);
 })();
 
+(function(){var b=document.getElementById('close-modal-cancel');if(b)b.addEventListener('click',cancelClose);})();
+(function(){var b=document.getElementById('close-modal-confirm');if(b)b.addEventListener('click',confirmClose);})();
 // Static toolbar event wiring (replaces onclick= attributes)
 document.getElementById('help-open-btn').addEventListener('click',openHelp);
 document.getElementById('guide-btn').addEventListener('click',function(){wtStartEnhanced('income');});
