@@ -1873,7 +1873,7 @@ function renderTop3(data,label){
 
 
 let resetTimer=null;
-function resetAll(){
+function resetAll(e){
   const btn=document.getElementById('reset-btn');
   if(btn.dataset.arm){
     clearTimeout(resetTimer); delete btn.dataset.arm; btn.textContent='⚠ Reset'; btn.classList.remove('armed');
@@ -1885,6 +1885,7 @@ function resetAll(){
     if(state.goals) Object.keys(state.goals).forEach(k=>{ if(k.startsWith(mk+'|')) delete state.goals[k]; });
     save(); render(); syncIncomeInputs();
   } else {
+    if(e) e.stopPropagation();
     btn.dataset.arm='1'; btn.textContent='⚠ Sure?'; btn.classList.add('armed');
     resetTimer=setTimeout(()=>{delete btn.dataset.arm;btn.textContent='⚠ Reset';btn.classList.remove('armed');},2500);
   }
