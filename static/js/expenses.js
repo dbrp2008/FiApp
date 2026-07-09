@@ -2110,6 +2110,7 @@ function renderTableHeader(table){
     });
     inner.appendChild(cdh);
     const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;
+    if(_isClosedMonth(currentMK())) lbl.disabled=true;
     lbl.addEventListener('blur',()=>{col.label=lbl.value.trim()||col.label;save();});
     lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
     inner.appendChild(lbl);
@@ -2196,6 +2197,7 @@ function renderTableBody(table){
       }
     } else {
       rowLabel.type='text';rowLabel.size=1;rowLabel.value=row.label;
+      if(_isClosedMonth(currentMK())) rowLabel.disabled=true;
       rowLabel.addEventListener('blur',()=>{row.label=rowLabel.value.trim()||row.label;save();_hideLabelSuggest();});
       rowLabel.addEventListener('input',()=>_showLabelSuggest(rowLabel));
       rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
