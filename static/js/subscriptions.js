@@ -1295,6 +1295,7 @@ function render(){
   state.cols.forEach(col=>{
     const th=document.createElement('th');
     th.dataset.colId=col.id;
+    if(col.ctype==='status') th.setAttribute('data-wt','subs-status');
     const inner=document.createElement('div');inner.className='th-inner';
     const cdh=document.createElement('span');cdh.className='col-drag-handle';cdh.textContent='⠿';cdh.title='Drag to reorder column';
     cdh.addEventListener('pointerdown',e=>{
