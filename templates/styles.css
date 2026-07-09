@@ -1031,7 +1031,7 @@ html.dark .status-pill.status-warn, html.theme-midnight .status-pill.status-warn
 html.dark .status-pill.status-cancelled, html.theme-midnight .status-pill.status-cancelled{background:rgba(148,163,184,.12);color:#94a3b8;}
 
 /* Month navigation pill: chevrons + label/select in one glass pill */
-.month-pill{display:inline-flex;align-items:center;gap:2px;
+.month-pill{position:relative;display:inline-flex;align-items:center;gap:2px;
   background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:999px;
   padding:4px 6px;box-shadow:var(--elev-1);
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
