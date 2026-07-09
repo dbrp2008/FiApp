@@ -1388,6 +1388,7 @@ function renderTableHeader(table){
     });
     inner.appendChild(cdh);
     const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;
+    if(_isClosedMonth(currentMK())) lbl.disabled=true;
     lbl.addEventListener('blur',()=>{col.label=lbl.value.trim()||col.label;save();});
     lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
     inner.appendChild(lbl);
@@ -1460,6 +1461,7 @@ function renderTableBody(table){
     tcWrap.appendChild(textSwatch);tcWrap.appendChild(tcInp);
     const rowLabel=document.createElement('input');rowLabel.type='text';rowLabel.className='row-label';rowLabel.size=1;rowLabel.value=row.label;
     rowLabel.style.color=row.textColor||'#1f2937';
+    if(_isClosedMonth(currentMK())) rowLabel.disabled=true;
     rowLabel.addEventListener('blur',()=>{row.label=rowLabel.value.trim()||row.label;save();});
     rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}});
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
@@ -1504,6 +1506,7 @@ function renderTableBody(table){
         wrap.appendChild(inp);
         const cur=rowCurrency(currentMK(), row.id);
         const sel=document.createElement('select'); sel.className='cell-curr-sel'; sel.title='Currency for this row';
+        if(_isClosedMonth(currentMK())) sel.disabled=true;
         const codes=getAllUsedCurrencies();
         if(!codes.includes(cur)) codes.push(cur);
         codes.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; if(c===cur) o.selected=true; sel.appendChild(o); });
