@@ -2,13 +2,23 @@
 
 {% block title %}Account - FiApp{% endblock %}
 
+{% block canvas_class %}canvas-wide{% endblock %}
+
 {% block head_styles %}
   <style>
-    .app-canvas { max-width: 600px; }
-
-    /* Glass reskin: space the stacked settings panels (global .glass-panel
-       has no sibling margin). Appearance comes from the global component. */
+    /* Settings cards flow in a two-column grid on desktop (single column on phones);
+       full-width rows (Theme Studio, danger zone) sit outside the grid below it. */
+    .account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
+    @media (max-width: 900px) { .account-grid { grid-template-columns: 1fr; } }
+    .account-grid .glass-panel { margin-bottom: 0; }
     .glass-panel { margin-bottom: 1.25rem; }
+
+    #rev-details summary {
+      cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--accent-strong);
+      padding: .2rem 0; list-style-position: inside;
+    }
+    #rev-details summary:hover { text-decoration: underline; }
+    #rev-details[open] summary { margin-bottom: .6rem; }
 
     .glass-panel h2 {
       font-size: 1rem;
@@ -208,6 +218,8 @@
     <h1>Account</h1>
   </div>
 
+  <div class="account-grid">
+
   <div class="glass-panel">
     <h2>Account Info</h2>
     <div class="info-row">
@@ -318,14 +330,17 @@
   <div class="glass-panel">
     <h2>🕐 Version History</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">FiApp keeps your last 20 saves of each tracker. If something looks wrong, step back to an earlier version - your current data stays in this list too, so this can itself be undone.</p>
-    <label for="rev-tracker-select" style="font-size:.85rem;font-weight:600;color:var(--fg);display:block;margin-bottom:.3rem;">Tracker</label>
-    <select id="rev-tracker-select">
-      <option value="expenses">Expenses</option>
-      <option value="subs">Subscriptions</option>
-      <option value="income">Income</option>
-    </select>
-    <div id="rev-list" style="margin-top:.85rem;"></div>
-    <div class="change-feedback" id="rev-feedback"></div>
+    <details id="rev-details">
+      <summary>Show version history</summary>
+      <label for="rev-tracker-select" style="font-size:.85rem;font-weight:600;color:var(--fg);display:block;margin-bottom:.3rem;">Tracker</label>
+      <select id="rev-tracker-select">
+        <option value="expenses">Expenses</option>
+        <option value="subs">Subscriptions</option>
+        <option value="income">Income</option>
+      </select>
+      <div id="rev-list" style="margin-top:.85rem;"></div>
+      <div class="change-feedback" id="rev-feedback"></div>
+    </details>
   </div>
 
   <div class="glass-panel">
@@ -490,6 +505,8 @@
       When off, high-confidence entries log instantly without a confirmation sheet.
     </p>
   </div>
+
+  </div><!-- /.account-grid -->
 
   <div class="glass-panel danger-card">
     <h2>⚠ Delete Account</h2>
@@ -1077,8 +1094,20 @@ document.addEventListener('DOMContentLoaded',function(){
     });
   }
   var revSelect=document.getElementById('rev-tracker-select');
+  var revDetails=document.getElementById('rev-details');
   if(revSelect){
-    loadRevisions(revSelect.value);
+    // The 20-revision list is collapsed by default; fetch on first expand instead of on
+    // every page load, so the account page stays light and short.
+    if(revDetails){
+      revDetails.addEventListener('toggle',function(){
+        if(revDetails.open && !revDetails.dataset.loaded){
+          revDetails.dataset.loaded='1';
+          loadRevisions(revSelect.value);
+        }
+      });
+    } else {
+      loadRevisions(revSelect.value);
+    }
     revSelect.addEventListener('change',function(){ loadRevisions(revSelect.value); });
   }
   var wtBtn=document.getElementById('wt-acct-btn');
