@@ -29,11 +29,7 @@
     .btn-sm{padding:.35rem .7rem;font-size:.85rem;}
     .btn-ghost{background:var(--secondary-bg);color:var(--secondary-fg);border:none;border-radius:6px;cursor:pointer;padding:.35rem .7rem;font-size:.85rem;}
     .btn-ghost:hover{background:var(--secondary-hover);}
-    .month-nav{display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;}
-    .month-nav button{background:var(--secondary-bg);color:var(--fg);border:none;border-radius:6px;cursor:pointer;padding:.3rem .8rem;font-size:.9rem;}
-    .month-nav button:hover{background:var(--secondary-hover);}
-    .month-nav button:disabled{opacity:.35;cursor:not-allowed;}
-    
+
     .forecast-badge{padding:.15rem .45rem;border-radius:4px;font-size:.7rem;font-weight:700;letter-spacing:.04em;background:#fef3c7;color:#92400e;border:1px solid #fde68a;margin-left:.5rem;vertical-align:middle;}
     html.dark .forecast-badge{background:#451a03;color:#fde68a;border-color:#78350f;}
     html.theme-midnight .forecast-badge{background:#451a03;color:#fde68a;border-color:#78350f;}
@@ -225,10 +221,10 @@
 {% block content %}
   <div class="tracker-head">
     <div class="tracker-head-left">
-      <h1>Subscription Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+      <h1>Subscription Tracker <button class="help-btn" id="help-open-btn" aria-label="Help">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide"><span aria-hidden="true">📖</span> Guide</button></h1>
       <div class="month-pill">
         <button id="prev-btn" aria-label="Previous month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-left"/></svg></button>
-        <select id="month-jump" class="month-jump"></select>
+        <select id="month-jump" class="month-jump" aria-label="Jump to month"></select>
         <button id="next-btn" aria-label="Next month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg></button>
       </div>
     </div>
@@ -329,7 +325,7 @@
           <option value="ZAR">ZAR</option>
           <option value="__other__">Other…</option>
         </select>
-        <input type="text" id="curr-other-inp" placeholder="e.g. VND" maxlength="5"
+        <input type="text" id="curr-other-inp" placeholder="e.g. VND" maxlength="5" aria-label="Custom currency code"
           style="display:none;width:72px;padding:3px 7px;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;">
         <button id="curr-other-btn" class="btn btn-sm"
           style="display:none;padding:.25rem .6rem;font-size:.8rem;">OK</button>
