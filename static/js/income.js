@@ -186,7 +186,21 @@ function loadState(){
       // navigating Back doesn't wipe their entry. Session flag set by save(), cleared by _restore().
       if(localStorage.getItem('fiapp_income_wt_session')==='1'){
         const r=localStorage.getItem(STORAGE_KEY);
-        if(r){try{const s=JSON.parse(r);if(s&&Array.isArray(s.rows))return s;}catch(_){}}
+        if(r){try{
+          const s=JSON.parse(r);
+          if(s&&Array.isArray(s.rows)){
+            // Same defensive backfill as the normal path below - a walkthrough
+            // sandbox blob missing a field (e.g. state.collapsed) would otherwise
+            // crash render() instead of falling back to a default.
+            if(!s.cells) s.cells={};
+            if(!s.cellTimes) s.cellTimes={};
+            if(!s.collapsed) s.collapsed={};
+            if(!s.monthRowCurrencies) s.monthRowCurrencies={};
+            if(!s.rowsByMonth) s.rowsByMonth={};
+            if(!s.colsByMonth) s.colsByMonth={};
+            return s;
+          }
+        }catch(_){}}
       }
       return freshState();
     }
@@ -232,6 +246,7 @@ function forkCurrentMonth(){
   if(!state.colsByMonth[mk2]) state.colsByMonth[mk2]=(state.cols||[]).map(c=>({...c}));
 }
 function copyStructureFromPrevMonth(){
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   const mk2=currentMK();
   const [y,mo]=mk2.split('-').map(Number);
   const prev=new Date(y,mo-2);
@@ -249,6 +264,7 @@ function copyStructureFromPrevMonth(){
 }
 function copyStructureFromMonth(sourceMk){
   const mk2=currentMK();
+  if(_isClosedMonth(mk2)){showToast('🔒 Month is locked.');return;}
   if(sourceMk===mk2){showToast('Already on that month.');return;}
   const srcRows=getRows(sourceMk),srcCols=getCols(sourceMk);
   if(!srcRows.length){showToast('No rows in that month.');return;}
@@ -684,6 +700,8 @@ function confirmClose(){
   _closeModalOverlay();
   updateCloseBar();
   populateMonthJump();
+  // Re-render so the month's read-only state applies immediately, not only after nav.
+  render();
   if(window.fiappCelebrate){
     const total=_incomeTotalForMonth(mk2);
     let py=state.currentYear, pm=state.currentMonth-1;
@@ -938,6 +956,7 @@ function _closeGearMenu(){ if(_gearMenuEl){_gearMenuEl.remove();_gearMenuEl=null
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.row-gear-menu')&&!e.target.closest('.row-gear-btn')) _closeGearMenu(); });
 
 function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
+  if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   _closeGearMenu();
   document.querySelectorAll('input[data-gear-clr]').forEach(el=>el.remove());
 
@@ -1311,6 +1330,7 @@ function resetAll(e){
 
 function attachColResize(handle,col){
   handle.addEventListener('mousedown',e=>{
+    if(_isClosedMonth(currentMK()))return;
     e.preventDefault();handle.classList.add('dragging');
     const sx=e.clientX,sw=col.width,cEl=document.getElementById('cg-'+col.id);
     const mv=e=>{col.width=Math.max(55,sw+e.clientX-sx);if(cEl)cEl.style.width=col.width+'px';};
@@ -1329,6 +1349,7 @@ function attachHdrResize(handle){
 }
 function attachRowResize(handle,row,tr){
   handle.addEventListener('mousedown',e=>{
+    if(_isClosedMonth(currentMK()))return;
     e.preventDefault();handle.classList.add('dragging');
     const sy=e.clientY,sh=row.height||36;
     const mv=e=>{row.height=Math.max(26,sh+e.clientY-sy);tr.style.height=row.height+'px';};
@@ -1363,6 +1384,7 @@ function renderTableHeader(table){
     const inner=document.createElement('div');inner.className='th-inner';
     const cdh=document.createElement('span');cdh.className='col-drag-handle';cdh.textContent='⠿';cdh.title='Drag to reorder column';cdh.setAttribute('aria-label','Drag to reorder column');cdh.setAttribute('role','img');
     cdh.addEventListener('pointerdown',e=>{
+      if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
       e.preventDefault();cdh.setPointerCapture(e.pointerId);_dragColId=col.id;
       const onMove=e=>{
         document.querySelectorAll('.th-drop-before,.th-drop-after').forEach(el=>el.classList.remove('th-drop-before','th-drop-after'));
@@ -1417,6 +1439,7 @@ function renderTableBody(table){
     if(!isChild){
       const dh=document.createElement('span');dh.className='drag-handle';dh.textContent='⠿';dh.title='Drag to reorder';dh.setAttribute('aria-label','Drag to reorder');dh.setAttribute('role','img');
       dh.addEventListener('pointerdown',e=>{
+        if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
         e.preventDefault();dh.setPointerCapture(e.pointerId);
         _dragRowId=row.id;tr.classList.add('tr-dragging');
         const onMove=e=>{
@@ -1450,12 +1473,14 @@ function renderTableBody(table){
     const colorWrap=document.createElement('div');colorWrap.className='color-swatch-wrap tip-host';colorWrap.dataset.tip='Row background colour';
     const swatch=document.createElement('div');swatch.className='color-swatch';swatch.style.backgroundColor=row.color;
     const cInp=document.createElement('input');cInp.type='color';cInp.className='color-inp-overlay';cInp.value=row.color;
+    if(_isClosedMonth(currentMK())) cInp.disabled=true;
     cInp.addEventListener('input',()=>{row.color=cInp.value;rhTd.style.backgroundColor=cInp.value;swatch.style.backgroundColor=cInp.value;textSwatch.style.backgroundColor=cInp.value;});
     cInp.addEventListener('change',save);
     colorWrap.appendChild(swatch);colorWrap.appendChild(cInp);
     const tcWrap=document.createElement('div');tcWrap.className='color-swatch-wrap tip-host';tcWrap.dataset.tip='Row text colour';
     const textSwatch=document.createElement('div');textSwatch.className='text-color-swatch';textSwatch.textContent='A';textSwatch.style.color=row.textColor||'#1f2937';textSwatch.style.backgroundColor=row.color||'#ffffff';
     const tcInp=document.createElement('input');tcInp.type='color';tcInp.className='color-inp-overlay';tcInp.value=row.textColor||'#1f2937';
+    if(_isClosedMonth(currentMK())) tcInp.disabled=true;
     tcInp.addEventListener('input',()=>{row.textColor=tcInp.value;rowLabel.style.color=tcInp.value;textSwatch.style.color=tcInp.value;});
     tcInp.addEventListener('change',save);
     tcWrap.appendChild(textSwatch);tcWrap.appendChild(tcInp);
@@ -2059,6 +2084,7 @@ function _mergeRowsCols(blobRows, blobCols){
 
 function importIncMonth(blob){
   const mk2=currentMK();
+  if(_isClosedMonth(mk2)){showToast('🔒 Month is locked.');return;}
   Object.keys(state.cells).forEach(k=>{ if(k.startsWith(mk2+'|')) delete state.cells[k]; });
   const {blobRowIdMap, blobColIdMap}=_mergeRowsCols(blob.rows||[], blob.cols||[]);
   Object.entries(blob.cells||{}).forEach(([k,v])=>{
