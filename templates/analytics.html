@@ -186,6 +186,11 @@
     }
 
 
+    /* The month-pill carries a backdrop-filter, which makes it a stacking context that
+       traps its dropdown's z-index. Since the header sits before #root in the DOM, the
+       hero stat cards (also stacking contexts) would otherwise paint over the open menu.
+       Lifting the whole header into its own stacking context above #root fixes that. */
+    .tracker-head{position:relative;z-index:20;}
     .ana-month-btn{background:none;border:none;padding:2px 6px;font-weight:600;font-size:.85rem;
       color:var(--fg);cursor:pointer;font-family:inherit;white-space:nowrap;}
     .ana-month-menu{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
@@ -450,7 +455,7 @@ function renderAll(){
     const pLbl=document.createElement('span');
     pLbl.className='period-label'; pLbl.textContent='Period:';
     const pSel=document.createElement('select');
-    pSel.id='period-global'; pSel.className='period-select';
+    pSel.id='period-global'; pSel.className='period-select'; pSel.setAttribute('aria-label','Chart period');
     periodOptions(_allMonths).forEach(o=>{
       const opt=document.createElement('option');
       opt.value=o.value; opt.textContent=o.label;
