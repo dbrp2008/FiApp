@@ -100,6 +100,12 @@ function loadState(){
       if(!s.cellTimes)       s.cellTimes={};
       if(!s.displayCurrency) s.displayCurrency='USD';
       if(!s.rowCurrencies)   s.rowCurrencies={};
+      // A blob that arrives without the month cursor (e.g. a partial server payload) would
+      // otherwise make render()'s `new Date(currentYear, currentMonth, ...)` an Invalid Date
+      // and throw "Invalid time value". Default to the current month, same as freshState().
+      const _now=new Date();
+      if(typeof s.currentYear!=='number'||isNaN(s.currentYear))  s.currentYear=_now.getFullYear();
+      if(typeof s.currentMonth!=='number'||isNaN(s.currentMonth)) s.currentMonth=_now.getMonth();
       return s;
     }
   }catch(e){ console.warn('FiApp: loadState failed, using fresh state -',e.message); }
@@ -1202,7 +1208,7 @@ function makeCellEl(row,col){
   }
 
   if(ct==='status'){
-    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='status';
+    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='status'; sel.setAttribute('aria-label','Status');
     STATUS_OPTS.forEach(o=>{const opt=document.createElement('option');opt.value=o;opt.textContent=o;opt.style.color=STATUS_CLR[o];if(v===o)opt.selected=true;sel.appendChild(opt);});
     if(!v) sel.value='Active';
     sel.style.color=STATUS_CLR[sel.value]||'inherit';
@@ -1224,21 +1230,21 @@ function makeCellEl(row,col){
     return sel;
   }
   if(ct==='billing'){
-    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='billing';
+    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='billing'; sel.setAttribute('aria-label','Billing cycle');
     BILLING_OPTS.forEach(o=>{const opt=document.createElement('option');opt.value=o;opt.textContent=o;if(v===o)opt.selected=true;sel.appendChild(opt);});
     if(!v) sel.value='Monthly';
     sel.addEventListener('change',()=>{snapshot();setCell(row.id,col.id,sel.value);recalcTotals();renderChart();});
     return sel;
   }
   if(ct==='trial'){
-    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='trial';
+    const sel=document.createElement('select'); sel.className='c-sel'; sel.dataset.ctype='trial'; sel.setAttribute('aria-label','Free trial');
     TRIAL_OPTS.forEach(o=>{const opt=document.createElement('option');opt.value=o.v;opt.textContent=o.l;if(v===o.v)opt.selected=true;sel.appendChild(opt);});
     if(!v) sel.value='none';
     sel.addEventListener('change',()=>{snapshot();setCell(row.id,col.id,sel.value);recalcTotals();renderChart();});
     return sel;
   }
   if(ct==='date'){
-    const inp=document.createElement('input'); inp.type='date'; inp.className='c-date'; inp.value=v;
+    const inp=document.createElement('input'); inp.type='date'; inp.className='c-date'; inp.value=v; inp.setAttribute('aria-label','Start date');
     const _first=new Date(state.currentYear,state.currentMonth,1);
     const _last=new Date(state.currentYear,state.currentMonth+1,0);
     inp.min=toDateStr(_first);
@@ -1257,7 +1263,7 @@ function makeCellEl(row,col){
   if(ct==='canceldate'){
     const statusCol=colByType('status'); const st=statusCol?getCell(row.id,statusCol.id):'Active';
     const startCol=colByType('date'); const startStr=startCol?getCell(row.id,startCol.id):'';
-    const inp=document.createElement('input'); inp.type='date'; inp.className='c-date'; inp.value=v;
+    const inp=document.createElement('input'); inp.type='date'; inp.className='c-date'; inp.value=v; inp.setAttribute('aria-label','Cancellation date');
     inp.disabled=(st!=='Cancelled'); inp.title=st!=='Cancelled'?'Set status to Cancelled to enable':'';
     if(st==='Cancelled'&&!v){ inp.classList.add('cancel-date-missing'); inp.title='Set a cancellation date'; }
 
@@ -1329,7 +1335,7 @@ function render(){
       cdh.addEventListener('pointermove',onMove);cdh.addEventListener('pointerup',onUp);
     });
     inner.appendChild(cdh);
-    const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;
+    const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;lbl.setAttribute('aria-label','Column name');
     lbl.addEventListener('focus',()=>snapshot());
     lbl.addEventListener('input',()=>{
       _measureCtx.font=getComputedStyle(lbl).font;
