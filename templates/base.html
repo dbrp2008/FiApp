@@ -19,11 +19,18 @@
   <meta charset="utf-8" />
   <title>{% block title %}FiApp{% endblock %}</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <script src="/static/js/theme-core.js?v={{ ASSET_V }}"></script>
   <script nonce="{{ csp_nonce }}">
     (function(){
+      // theme-core.js (sync, above) supplies fiappThemeBoot: applies light/dark/custom
+      // themes and migrates legacy names (ocean/rose/...) to custom themes pre-paint.
+      // __fiappSrvDark covers the one soft case: a fresh device whose server theme is a
+      // custom id with no local cache yet - base luminance applies now, exact tokens
+      // arrive with the prefs convergence fetch.
+      window.__fiappSrvDark={{ theme_dark|default(false)|tojson }};
       var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';
-      if(t==='dark') document.documentElement.classList.add('dark');
-      else if(t!=='light') document.documentElement.classList.add('theme-'+t);
+      if(window.fiappThemeBoot){ t=fiappThemeBoot(t); }
+      else if(t==='dark'||localStorage.getItem('fiapp_theme_mode')==='dark') document.documentElement.classList.add('dark');
       var p=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
       if(p==='quiet') document.documentElement.classList.add('personality-quiet');
       else if(p==='playful') document.documentElement.classList.add('personality-playful');
@@ -66,9 +73,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="FiApp">
   <script src="/static/js/sw-register.js?v={{ ASSET_V }}"></script>
-  <script nonce="{{ csp_nonce }}">
-    var THEME_LABELS={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
-  </script>
   <script src="/static/js/glass-picker.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/celebrate.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/native-lock-guard.js?v={{ ASSET_V }}"></script>
@@ -162,9 +166,7 @@
       <span class="nav-drawer-themes" id="nav-drawer-themes">
         <button class="nav-drawer-theme-dot" data-theme="light" style="background:linear-gradient(135deg,#7c3aed,#0891b2);" aria-label="Light theme"></button>
         <button class="nav-drawer-theme-dot" data-theme="dark" style="background:#0f172a;" aria-label="Dark theme"></button>
-        <button class="nav-drawer-theme-dot" data-theme="ocean" style="background:#0891b2;" aria-label="Ocean theme"></button>
-        <button class="nav-drawer-theme-dot" data-theme="forest" style="background:#059669;" aria-label="Forest theme"></button>
-        <button class="nav-drawer-theme-dot" data-theme="sunset" style="background:#ea580c;" aria-label="Sunset theme"></button>
+        {% if current_user|default(none) %}<a class="nav-drawer-theme-more" href="/account#theme-studio" aria-label="Open Theme Studio">More…</a>{% endif %}
       </span>
     </div>
   </div>
@@ -176,7 +178,7 @@
     <span id="auth-badge-container" style="display:none"></span>
     <div class="topbar-right">
       <button class="btn-ghost btn-sm topbar-help" id="topbar-help-btn" aria-label="Help and walkthrough">?</button>
-      <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn" aria-label="Change theme">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div>
+      <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn" aria-label="Change theme">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><div id="theme-dropdown-customs"></div>{% if current_user|default(none) %}<a class="theme-opt theme-opt-new" href="/account#theme-studio">＋ New theme</a>{% else %}<a class="theme-opt theme-opt-new" href="/login">＋ New theme</a>{% endif %}</div></div>
       {% if current_user|default(none) %}
         <div class="acct-menu-wrap">
           <button class="acct-avatar" id="acct-menu-btn" aria-label="Account menu">{{ current_user[0]|upper }}</button>
@@ -189,7 +191,7 @@
         <a class="btn-ghost btn-sm" href="/login">Log in</a>
       {% endif %}
     </div>
-    <script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b)b.textContent=THEME_LABELS[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
+    <script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b&&window.fiappThemeLabel)b.textContent=fiappThemeLabel(t);document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
   <script nonce="{{ csp_nonce }}">
   var _CSRF='{{ csrf_token|default("") }}';
@@ -204,14 +206,90 @@
       .finally(function(){clearTimeout(t);});
   };
 
+  // Rebuild the "Your themes" section of the topbar dropdown from the local cache.
+  // Called at boot, after prefs convergence, and whenever the Theme Studio saves
+  // (it dispatches 'fiapp-themes-changed').
+  function renderThemeDropdown(){
+    var box=document.getElementById('theme-dropdown-customs');
+    if(!box||!window.fiappThemesCache) return;
+    var themes=fiappThemesCache.read().themes;
+    var active=localStorage.getItem('fiapp_theme')||'light';
+    box.innerHTML='';
+    themes.forEach(function(t){
+      if(!t||!t.id||!t.name) return;
+      var b=document.createElement('button');
+      b.className='theme-opt'+((('custom:'+t.id)===active)?' active':'');
+      b.dataset.theme='custom:'+t.id;
+      var dot=document.createElement('span');
+      dot.className='theme-opt-dot';
+      var acc=(t.tokens&&t.tokens['--accent'])||'#7c3aed';
+      dot.style.background=acc;
+      b.appendChild(dot);
+      b.appendChild(document.createTextNode(t.name));
+      box.appendChild(b);
+    });
+  }
+  window.renderThemeDropdown=renderThemeDropdown;
+  window.addEventListener('fiapp-themes-changed',renderThemeDropdown);
   (function(){
+    // Theme convergence. Custom themes add two cases on top of the old string sync:
+    //  - the active theme is custom but its tokens are missing locally (fresh device):
+    //    pull the server list, adopt it wholesale (server wins), re-apply exact tokens.
+    //  - the studio saved or a legacy migration ran (dirty flag): push the full list up
+    //    once. The list is never PATCHed on plain page loads, which keeps the
+    //    last-writer-wins replace semantics rare in practice.
+    // Before pushing a freshly-migrated theme, adopt a server twin with the same preset
+    // flag if one exists (a second device already migrated it) to avoid duplicates.
     var _lsT=localStorage.getItem('fiapp_theme');
     var _srvT='{{ theme|default("light") }}';
-    if(_CSRF&&!_lsT){
-      // Fresh browser (no local key) + logged in: write server theme to localStorage so
-      // subsequent loads use it and the PATCH sync below never fires with a stale 'light' fallback.
+    if(!_CSRF){ return; }
+    var isCustom=_lsT&&_lsT.indexOf('custom:')===0;
+    var missing=isCustom&&window.fiappThemesCache&&!fiappThemesCache.get(_lsT.slice(7));
+    var dirty=localStorage.getItem('fiapp_themes_dirty')==='1';
+    if(!_lsT){
       localStorage.setItem('fiapp_theme',_srvT);
-    } else if(_CSRF&&_lsT&&_lsT!==_srvT){
+      if(_srvT.indexOf('custom:')===0){ missing=!fiappThemesCache.get(_srvT.slice(7)); _lsT=_srvT; isCustom=true; }
+    }
+    if(missing||dirty){
+      fiappFetchTimeout('/api/prefs',8000,{headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(srv){
+        var srvThemes=(srv&&srv.themes_custom&&srv.themes_custom.themes)||[];
+        var cache=fiappThemesCache.read();
+        var changed=false;
+        if(dirty){
+          // Adopt-server-twin: swap any locally-minted preset theme for the server's
+          // existing copy of the same preset before pushing, then merge additions.
+          cache.themes.forEach(function(loc){
+            if(!loc||!loc.preset) return;
+            srvThemes.forEach(function(rem){
+              if(rem&&rem.preset===loc.preset&&rem.id!==loc.id){
+                if(('custom:'+loc.id)===localStorage.getItem('fiapp_theme')){
+                  localStorage.setItem('fiapp_theme','custom:'+rem.id);
+                }
+                loc.id=rem.id; changed=true;
+              }
+            });
+          });
+          var ids={};
+          cache.themes.forEach(function(t){ if(t) ids[t.id]=1; });
+          srvThemes.forEach(function(t){ if(t&&!ids[t.id]){ cache.themes.push(t); changed=true; } });
+          if(changed) fiappThemesCache.write(cache);
+          fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},
+            body:JSON.stringify({theme:localStorage.getItem('fiapp_theme'),themes_custom:fiappThemesCache.read()})})
+            .then(function(r){ if(r.ok) localStorage.removeItem('fiapp_themes_dirty'); }).catch(function(){});
+        } else if(missing&&srvThemes.length){
+          fiappThemesCache.write({v:1,themes:srvThemes});
+        }
+        if(window.fiappApplyTheme) fiappApplyTheme(localStorage.getItem('fiapp_theme')||'light');
+        renderThemeDropdown();
+        var b=document.getElementById('theme-btn');
+        if(b&&window.fiappThemeLabel) b.textContent=fiappThemeLabel(localStorage.getItem('fiapp_theme')||'light');
+      }).catch(function(){});
+    } else if(_lsT&&_lsT!==_srvT&&!isCustom){
+      // Plain light/dark drift (the pre-custom behavior): push the string up.
+      fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
+    } else if(isCustom&&_lsT!==_srvT){
+      // Custom active locally, server points elsewhere, list already synced: string-only
+      // PATCH (the id exists server-side, so this is accepted without resending the list).
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
     }
   })();
@@ -243,18 +321,18 @@
     if(_CSRF){ fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({personality:name})}).catch(function(){}); }
   }
   function setTheme(name){
-    document.documentElement.classList.remove('dark','theme-ocean','theme-forest',
-      'theme-sunset','theme-midnight','theme-rose','theme-purple','theme-indigo');
-    if(name==='dark') document.documentElement.classList.add('dark');
-    else if(name!=='light') document.documentElement.classList.add('theme-'+name);
+    // 'light' | 'dark' | 'custom:<id>' - theme-core.js owns class + token application.
+    if(window.fiappApplyTheme) fiappApplyTheme(name);
+    else document.documentElement.classList.toggle('dark',name==='dark');
     localStorage.setItem('fiapp_theme',name);
     var _tb=document.getElementById('theme-btn');
-    if(_tb) _tb.textContent=THEME_LABELS[name]||name;
+    if(_tb) _tb.textContent=window.fiappThemeLabel?fiappThemeLabel(name):name;
     var _td=document.querySelector('.theme-dropdown');
     if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
     if(typeof renderChart==='function') renderChart();
     if(_CSRF){ fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:name})}).catch(function(){}); }
   }
+  window.setTheme=setTheme;
   var toggleThemeMenu=toggleAcctMenu;
   var FIAPP_USER_KEYS=['fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
     'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
@@ -349,9 +427,14 @@
     if(logoutBtn) logoutBtn.addEventListener('click',function(e){logOutStep(e.currentTarget);});
     var themeBtn=document.getElementById('theme-btn');
     if(themeBtn) themeBtn.addEventListener('click',function(e){toggleThemeMenu(e.currentTarget);});
-    document.querySelectorAll('.theme-opt').forEach(function(btn){
-      btn.addEventListener('click',function(){setTheme(btn.dataset.theme);});
+    // Delegated so custom-theme entries rendered later by renderThemeDropdown work too.
+    document.querySelectorAll('.theme-dropdown').forEach(function(dd){
+      dd.addEventListener('click',function(e){
+        var btn=e.target.closest('.theme-opt');
+        if(btn&&btn.dataset.theme) setTheme(btn.dataset.theme);
+      });
     });
+    renderThemeDropdown();
     var drawerOverlay=document.getElementById('drawer-overlay');
     if(drawerOverlay) drawerOverlay.addEventListener('click',closeDrawer);
     var drawerClose=document.getElementById('drawer-close-btn');
