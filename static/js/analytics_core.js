@@ -1,8 +1,8 @@
 /**
  * analytics_core.js
- * Shared analytics utilities used by analytics.html, index.html (snapshot),
- * and voice.js. Loaded via <script src="/static/js/analytics_core.js"> before
- * any page script that needs these functions.
+ * Shared analytics utilities used by analytics.html and index.html (snapshot).
+ * Loaded via <script src="/static/js/analytics_core.js"> before any page script
+ * that needs these functions.
  *
  * Currency note: _ratesCache is populated lazily by fiappCoreLoadRates().
  * calcSubCostForMonth gracefully degrades to the raw cost if rates aren't loaded.
