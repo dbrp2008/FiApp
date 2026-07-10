@@ -1025,7 +1025,11 @@
   window.renderChart = function(){
     var cv = document.getElementById('dash-ive-chart'); if(!cv || typeof Chart === 'undefined') return;
     var months = (typeof allSpendingMonths === 'function') ? allSpendingMonths(exp, subs) : [];
-    months = months.slice(-6);
+    // Never chart future/forecast months - drop anything past the current month, then keep
+    // the last 5 (4 past + the present) so the emphasis stays on actuals.
+    var _cur = (typeof todayMK === 'function') ? todayMK() : null;
+    if(_cur) months = months.filter(function(m){ return m <= _cur; });
+    months = months.slice(-5);
     if(!months.length) return;
     var css = getComputedStyle(document.documentElement);
     var incCol = css.getPropertyValue('--grad-to').trim() || '#22d3ee';
