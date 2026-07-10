@@ -46,6 +46,21 @@
   --glow-1:rgba(124,58,237,.20); --glow-2:rgba(8,145,178,.16);
   --glass-bg:rgba(255,255,255,.72); --glass-border:rgba(255,255,255,.65); --glass-blur:12px;
   --shell-rail-bg:rgba(255,255,255,.72);
+  /* Semantic status colours (foreground + tint). Deliberately theme-stable so
+     "good/warn/bad/neutral" stay legible AS status on every theme rather than
+     blending into each theme's accent. Only light-vs-dark contrast varies -
+     the two dark themes share the lighter palette in the rule just below; the
+     light custom themes (ocean/forest/etc.) inherit these light values. */
+  --sem-ok:#15803d;      --sem-ok-bg:rgba(21,128,61,.10);
+  --sem-warn:#b45309;    --sem-warn-bg:rgba(217,119,6,.12);
+  --sem-bad:#b91c1c;     --sem-bad-bg:rgba(185,28,28,.10);
+  --sem-neutral:#4b5563; --sem-neutral-bg:rgba(107,114,128,.12);
+}
+html.dark, html.theme-midnight{
+  --sem-ok:#86efac;      --sem-ok-bg:rgba(134,239,172,.12);
+  --sem-warn:#fcd34d;    --sem-warn-bg:rgba(252,211,77,.12);
+  --sem-bad:#fca5a5;     --sem-bad-bg:rgba(252,165,165,.12);
+  --sem-neutral:#cbd5e1; --sem-neutral-bg:rgba(203,213,225,.10);
 }
 
 html.dark{
@@ -494,10 +509,8 @@ h1, h2, h3, h4 { color: var(--fg); }
   opacity: 0;
 }
 #sync-status:not(:empty) { opacity: 1; }
-#sync-status.synced { color: #15803d; }
-html.dark #sync-status.synced, html.theme-midnight #sync-status.synced { color: #86efac; }
-#sync-status.failed { color: #dc2626; }
-html.dark #sync-status.failed, html.theme-midnight #sync-status.failed { color: #fca5a5; }
+#sync-status.synced { color: var(--sem-ok); }
+#sync-status.failed { color: var(--sem-bad); }
 #sync-revision-note {
   font-size: .75rem;
   color: var(--muted);
@@ -646,6 +659,9 @@ html.dark #sync-status.failed, html.theme-midnight #sync-status.failed { color: 
   0%,100% { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 0 rgba(0,0,0,.3); }
   50%     { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 18px rgba(0,0,0,0); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .voice-fab.listening { animation: none; }
+}
 .voice-fab.drag-ready,
 .voice-fab.dragging {
   transform: scale(1.18);
@@ -670,6 +686,9 @@ html.dark #sync-status.failed, html.theme-midnight #sync-status.failed { color: 
 @keyframes voice-ring {
   0%,100% { transform: scale(1); opacity: 1; }
   50%     { transform: scale(1.35); opacity: .4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-pulse-ring { animation: none; }
 }
 .voice-live-transcript {
   color: #fff; font-size: 1rem; font-weight: 600;
@@ -1003,32 +1022,22 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
   width:32px;height:32px;border-radius:11px;font-size:17px;flex-shrink:0;}
 .icon-chip.chip-sm{width:26px;height:26px;border-radius:9px;font-size:14px;}
 .chip-accent{background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent-strong);}
-.chip-success{background:rgba(4,120,87,.12);color:#047857;}
-.chip-danger{background:rgba(185,28,28,.10);color:#b91c1c;}
-.chip-neutral{background:rgba(107,114,128,.12);color:#4b5563;}
+.chip-success{background:var(--sem-ok-bg);color:var(--sem-ok);}
+.chip-danger{background:var(--sem-bad-bg);color:var(--sem-bad);}
+.chip-neutral{background:var(--sem-neutral-bg);color:var(--sem-neutral);}
 .chip-on-gradient{background:rgba(255,255,255,.20);color:#fff;}
-html.dark .chip-success, html.theme-midnight .chip-success{background:rgba(110,231,183,.12);color:#6ee7b7;}
-html.dark .chip-danger, html.theme-midnight .chip-danger{background:rgba(252,165,165,.12);color:#fca5a5;}
-html.dark .chip-neutral, html.theme-midnight .chip-neutral{background:rgba(203,213,225,.10);color:#cbd5e1;}
 
 /* Stat delta line: always icon + text, never colour alone */
 .stat-delta{display:flex;align-items:center;gap:.25rem;font-size:.72rem;margin-top:3px;color:var(--muted);}
 .stat-delta .fi-ico{font-size:12px;}
-.stat-delta.good{color:#15803d;}
-.stat-delta.bad{color:#b91c1c;}
-html.dark .stat-delta.good, html.theme-midnight .stat-delta.good{color:#86efac;}
-html.dark .stat-delta.bad, html.theme-midnight .stat-delta.bad{color:#fca5a5;}
+.stat-delta.good{color:var(--sem-ok);}
+.stat-delta.bad{color:var(--sem-bad);}
 
 /* Status pills (subscriptions + generic ok/warn) */
 .status-pill{display:inline-block;font-size:.66rem;font-weight:500;padding:3px 10px;border-radius:999px;white-space:nowrap;}
-.status-pill.status-active, .status-pill.status-ok{background:rgba(21,128,61,.10);color:#15803d;}
-.status-pill.status-paused, .status-pill.status-warn{background:rgba(217,119,6,.12);color:#b45309;}
-.status-pill.status-cancelled{background:rgba(107,114,128,.12);color:#6b7280;}
-html.dark .status-pill.status-active, html.theme-midnight .status-pill.status-active,
-html.dark .status-pill.status-ok, html.theme-midnight .status-pill.status-ok{background:rgba(134,239,172,.12);color:#86efac;}
-html.dark .status-pill.status-paused, html.theme-midnight .status-pill.status-paused,
-html.dark .status-pill.status-warn, html.theme-midnight .status-pill.status-warn{background:rgba(252,211,77,.12);color:#fcd34d;}
-html.dark .status-pill.status-cancelled, html.theme-midnight .status-pill.status-cancelled{background:rgba(148,163,184,.12);color:#94a3b8;}
+.status-pill.status-active, .status-pill.status-ok{background:var(--sem-ok-bg);color:var(--sem-ok);}
+.status-pill.status-paused, .status-pill.status-warn{background:var(--sem-warn-bg);color:var(--sem-warn);}
+.status-pill.status-cancelled{background:var(--sem-neutral-bg);color:var(--sem-neutral);}
 
 /* Month navigation pill: chevrons + label/select in one glass pill */
 .month-pill{position:relative;display:inline-flex;align-items:center;gap:2px;
@@ -1054,10 +1063,8 @@ html.dark .status-pill.status-cancelled, html.theme-midnight .status-pill.status
   background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:999px;
   padding:4px 11px;font-size:.72rem;font-weight:500;box-shadow:var(--elev-1);color:var(--muted);}
 .sync-pill .fi-ico{font-size:13px;}
-.sync-pill.synced{color:#15803d;}
-.sync-pill.failed{color:#dc2626;}
-html.dark .sync-pill.synced, html.theme-midnight .sync-pill.synced{color:#86efac;}
-html.dark .sync-pill.failed, html.theme-midnight .sync-pill.failed{color:#fca5a5;}
+.sync-pill.synced{color:var(--sem-ok);}
+.sync-pill.failed{color:var(--sem-bad);}
 
 /* Round icon-only glass button (overflow menus etc.) */
 .btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;
