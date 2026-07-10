@@ -413,6 +413,7 @@
       <span id="home-currency-note" style="font-size:.78rem;color:var(--muted);"></span>
     </div>
   </div>
+  <script src="/static/rates-utils.js?v={{ ASSET_V }}"></script>
   <script nonce="{{ csp_nonce }}">
   (function(){
     var sel=document.getElementById('home-currency-sel');
@@ -429,17 +430,15 @@
     sel.addEventListener('change', function(){
       if(sel.value==='__other__'){
         otherInp.style.display='inline-block'; otherBtn.style.display='inline-block';
-        note.textContent='Enter a code (2–5 letters) and click OK.';
+        note.textContent='Enter a 3-letter currency code (e.g. THB) and click OK.';
         otherInp.focus();
         return;
       }
       otherInp.style.display='none'; otherBtn.style.display='none'; note.textContent='';
       persist(sel.value);
     });
-    function applyOther(){
-      var raw=otherInp.value.trim().toUpperCase();
-      if(!raw){ note.textContent='Enter a currency code.'; return; }
-      if(!/^[A-Z]{2,5}$/.test(raw)){ note.textContent='Use 2–5 letters (e.g. THB, VND).'; return; }
+    // Commit a verified code: add it as an option (once), select it, and persist.
+    function applyCode(raw){
       var opt=Array.prototype.find.call(sel.options, function(o){ return o.value===raw; });
       if(!opt){
         opt=document.createElement('option');
@@ -450,6 +449,27 @@
       otherInp.style.display='none'; otherBtn.style.display='none'; note.textContent='';
       otherInp.value='';
       persist(raw);
+    }
+    function applyOther(){
+      var raw=otherInp.value.trim().toUpperCase();
+      if(!raw){ note.textContent='Enter a currency code.'; return; }
+      // Real ISO 4217 codes are exactly 3 letters, so this alone rejects things like DDDDD.
+      if(!/^[A-Z]{3}$/.test(raw)){ note.textContent='Use a 3-letter currency code (e.g. THB, VND).'; return; }
+      // Format-valid but maybe not a real currency (e.g. VNB): confirm the exchange-rate
+      // provider actually quotes it, since every conversion depends on that.
+      if(typeof fiappGetRates!=='function'){ note.textContent='Couldn\'t verify the code right now. Please try again.'; return; }
+      otherBtn.disabled=true; note.textContent='Checking '+raw+'...';
+      fiappGetRates('USD').then(function(obj){
+        otherBtn.disabled=false;
+        if(obj&&obj.rates&&Object.prototype.hasOwnProperty.call(obj.rates,raw)){
+          applyCode(raw);
+        } else {
+          note.textContent=raw+' is not a currency we can convert. Try a standard 3-letter code.';
+        }
+      }).catch(function(){
+        otherBtn.disabled=false;
+        note.textContent='Couldn\'t verify the code right now - check your connection and try again.';
+      });
     }
     otherBtn.addEventListener('click', applyOther);
     otherInp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); applyOther(); } });
