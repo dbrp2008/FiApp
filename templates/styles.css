@@ -889,8 +889,10 @@ html.personality-playful .dash-tool{border-radius:14px;}
   html.personality-playful .dash-tool:hover{transform:translateY(-3px);}
   html.personality-playful .app-card:hover{transform:translateY(-5px);}
   /* 3D press-tilt on gradient CTAs: replaces the flat .btn:active scale above for
-     .btn-gradient only (later rule, same specificity tier via the class chain). */
-  html.personality-playful .btn-gradient:active{transform:perspective(600px) rotateX(4deg) scale(.97);}
+     .btn-gradient only (higher specificity than the shared .btn:active rule, so this
+     wins regardless of source order). Pronounced enough to read in the ~100-150ms an
+     :active state is actually visible during a real click. */
+  html.personality-playful .btn-gradient:active{transform:perspective(300px) rotateX(14deg) translateY(1px) scale(.94);}
 }
 
 /* ── Coin flip (big celebrations; element built by celebrate.js _fireCoin) ──
