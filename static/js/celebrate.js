@@ -79,6 +79,30 @@
     requestAnimationFrame(draw);
   }
 
+  // ---- Coin flip (big celebrations only) -------------------------------------
+  // A small pure-CSS 3D coin (rotateY flip + rise-and-fall arc; classes + keyframes in
+  // styles.css) fired alongside the big confetti burst on month close. Same gates as
+  // confetti: playful-only (via the fiappCelebrate _meets check) + reduced-motion bail.
+  function _fireCoin(){
+    if (_reducedMotion()) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'fi-coin-wrap';
+    wrap.setAttribute('aria-hidden', 'true');
+    var coin = document.createElement('div');
+    coin.className = 'fi-coin';
+    var front = document.createElement('div');
+    front.className = 'fi-coin-face'; front.textContent = '¤';
+    var back = document.createElement('div');
+    back.className = 'fi-coin-face fi-coin-back'; back.textContent = '🧭';
+    coin.appendChild(front); coin.appendChild(back);
+    wrap.appendChild(coin);
+    (document.body || document.documentElement).appendChild(wrap);
+    var done = false;
+    function cleanup(){ if (done) return; done = true; wrap.remove(); }
+    coin.addEventListener('animationend', cleanup);
+    setTimeout(cleanup, 2200); // fallback if animationend never fires
+  }
+
   // ---- Mascot bubble --------------------------------------------------------
   var _bubble = null, _txt = null, _close = null, _timer = null;
   function _ensureBubble(){
@@ -132,6 +156,7 @@
     opts = opts || {};
     if (!_meets(opts.minLevel)) return;
     if (opts.confetti) _fireConfetti(!!opts.big);   // confetti bails on reduced motion
+    if (opts.confetti && opts.big) _fireCoin();     // coin joins big bursts only; same gates
     if (opts.mascot)   _showBubble(opts.mascot, 4200, false);  // informational; shows even under reduced motion
   }
 
