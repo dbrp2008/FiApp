@@ -31,7 +31,6 @@ except ImportError:
 _rates_cache: dict = {}
 _rates_ts: dict = {}
 RATES_TTL = 3600
-RATES_TTL_DB = 7 * 24 * 3600
 
 # In-memory only (per-Gunicorn-worker, like _rates_cache above) — light-touch cache so
 # repeat (income, status) lookups against the same income/status don't re-hit
@@ -50,6 +49,15 @@ MAX_COLS = 12
 # the JSONB blob with oversized numbers or an unbounded number of month keys.
 MAX_INCOME_MONTHS = 600
 MAX_INCOME_VALUE = 1_000_000_000
+
+# rowsByMonth/colsByMonth are dicts keyed by month — _within_limits bounded each array's
+# length but not how many month keys could exist, nor the cells dict size or string
+# lengths within the blob. 600 months = 50 years, matching MAX_INCOME_MONTHS's precedent.
+# MAX_CELLS is set to comfortably exceed the legitimate worst case (600 months *
+# MAX_ROWS * MAX_COLS = 144,000) while still bounding a forged payload.
+MAX_TRACKED_MONTHS = MAX_INCOME_MONTHS
+MAX_CELLS = 200_000
+MAX_LABEL_LEN = 200
 
 # Sync conflict detection (W3): how many revisions to retain per (user, tracker).
 _REVISION_KEEP = 20
@@ -448,12 +456,29 @@ def _within_limits(data):
     cols = data.get('cols')
     if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
         return False
-    for arr in (data.get('rowsByMonth') or {}).values():
+    rows_by_month = data.get('rowsByMonth') or {}
+    cols_by_month = data.get('colsByMonth') or {}
+    if len(rows_by_month) > MAX_TRACKED_MONTHS or len(cols_by_month) > MAX_TRACKED_MONTHS:
+        return False
+    for arr in rows_by_month.values():
         if isinstance(arr, list) and len(arr) > MAX_ROWS:
             return False
-    for arr in (data.get('colsByMonth') or {}).values():
+        for row in (arr or []):
+            if isinstance(row, dict) and isinstance(row.get('label'), str) and len(row['label']) > MAX_LABEL_LEN:
+                return False
+    for arr in cols_by_month.values():
         if isinstance(arr, list) and len(arr) > MAX_COLS:
             return False
+        for col in (arr or []):
+            if isinstance(col, dict) and isinstance(col.get('label'), str) and len(col['label']) > MAX_LABEL_LEN:
+                return False
+    cells = data.get('cells')
+    if cells is not None:
+        if not isinstance(cells, dict) or len(cells) > MAX_CELLS:
+            return False
+        for val in cells.values():
+            if isinstance(val, str) and len(val) > MAX_LABEL_LEN:
+                return False
     income = data.get('income')
     if income is not None:
         if not isinstance(income, dict) or len(income) > MAX_INCOME_MONTHS:
@@ -582,6 +607,10 @@ def currency():
         currency_o = request.form.get('currency_o', '').upper()
         currency_a_raw = request.form.get('currency_a')
 
+        if not _CCY_RE.match(currency_i) or not _CCY_RE.match(currency_o):
+            flash('Invalid currency code.', 'error')
+            return render_template('currency.html', currency_i=currency_i,
+                currency_o=currency_o, currency_a=currency_a_raw or '', **_ctx())
         if not currency_a_raw:
             flash('Please enter a valid number for amount.', 'error')
             return render_template('currency.html', currency_i=currency_i,
@@ -787,6 +816,7 @@ def auth_login():
         release_db(conn)
 
 @app.route('/auth/logout', methods=['POST'])
+@csrf_required
 def auth_logout():
     # session.clear() is sufficient for Flask's signed-cookie sessions.
     # If migrating to server-side sessions, add explicit token invalidation here.
@@ -937,9 +967,15 @@ def _google_apply_link(sub, email):
             cur.execute("SELECT id FROM users WHERE email=%s AND id<>%s", (email, user_id))
             if cur.fetchone():
                 return redirect(url_for('account', google='email_in_use'))
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("UPDATE users SET google_sub=%s, email=%s WHERE id=%s", (sub, email, user_id))
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE users SET google_sub=%s, email=%s WHERE id=%s", (sub, email, user_id))
+        except psycopg2.errors.UniqueViolation:
+            # Pre-check above passed, but a concurrent request claimed the same
+            # google_sub/email between the SELECT and this UPDATE - surface it as
+            # the same "in use" outcome instead of a raw 500.
+            return redirect(url_for('account', google='in_use'))
         session.pop('change_authorized_at', None)  # one-time use
         return redirect(url_for('account', google='linked'))
     finally:
@@ -1063,9 +1099,14 @@ def google_native_link():
             cur.execute("SELECT id FROM users WHERE email=%s AND id<>%s", (email, user_id))
             if cur.fetchone():
                 return jsonify({"error": "email_in_use"}), 409
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("UPDATE users SET google_sub=%s, email=%s WHERE id=%s", (sub, email, user_id))
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE users SET google_sub=%s, email=%s WHERE id=%s", (sub, email, user_id))
+        except psycopg2.errors.UniqueViolation:
+            # Pre-check above passed, but a concurrent request claimed the same
+            # google_sub/email between the SELECT and this UPDATE.
+            return jsonify({"error": "in_use"}), 409
         session.pop('change_authorized_at', None)  # one-time use
         return jsonify({"ok": True})
     finally:
@@ -1312,6 +1353,7 @@ def _parse_save_body(body):
 @app.route('/api/save/expenses', methods=['POST'])
 @login_required
 @csrf_required
+@_rl("60 per minute")
 def save_expenses():
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
@@ -1333,6 +1375,7 @@ def load_expenses():
 @app.route('/api/save/subs', methods=['POST'])
 @login_required
 @csrf_required
+@_rl("60 per minute")
 def save_subs():
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
@@ -1340,7 +1383,7 @@ def save_subs():
     data, base_version, force = _parse_save_body(body)
     if not isinstance(data, dict) or 'rows' not in data:
         return jsonify({"error": "Missing required field: rows"}), 400
-    if len(data.get('rows', [])) > MAX_SUBS:
+    if not isinstance(data.get('rows'), list) or len(data['rows']) > MAX_SUBS:
         return jsonify({"error": f"Subscription limit ({MAX_SUBS}) exceeded"}), 400
     cols = data.get('cols')
     if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
@@ -1357,6 +1400,7 @@ def load_subs():
 @app.route('/api/save/income', methods=['POST'])
 @login_required
 @csrf_required
+@_rl("60 per minute")
 def save_income():
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
@@ -1401,6 +1445,7 @@ def list_revisions(tracker):
 @app.route('/api/revisions/<tracker>/restore', methods=['POST'])
 @login_required
 @csrf_required
+@_rl("10 per minute")
 def restore_revision(tracker):
     """Restore one of the user's trackers to a prior revision (force-saved as a new version)."""
     if tracker not in _TRACKER_COLUMNS:
@@ -1536,6 +1581,7 @@ def fetch(currency_i: str, force: bool = False) -> tuple:
 @app.route('/api/prefs', methods=['PATCH'])
 @login_required
 @csrf_required
+@_rl("30 per minute")
 def save_prefs():
     data = request.get_json(silent=True) or {}
     set_clauses, params = [], []
