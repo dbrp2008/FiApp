@@ -233,7 +233,9 @@ if(typeof Chart!=='undefined') Chart.defaults.font.family="'Inter',system-ui,-ap
 
 function themeColors(){
   const el=document.documentElement;
-  const isDark=el.classList.contains('dark')||el.classList.contains('theme-midnight');
+  // Dark custom themes (incl. the migrated Midnight preset) always carry the .dark class,
+  // so the class check alone is authoritative now.
+  const isDark=el.classList.contains('dark');
   const style=getComputedStyle(el);
   return {
     fg:    style.getPropertyValue('--fg').trim()||(isDark?'#e2e8f0':'#1f2937'),
