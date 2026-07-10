@@ -31,10 +31,6 @@
     .btn-sm{padding:.35rem .7rem;font-size:.85rem;}
     .btn-ghost{background:var(--secondary-bg);color:var(--secondary-fg);border:none;border-radius:6px;cursor:pointer;padding:.35rem .7rem;font-size:.85rem;}
     .btn-ghost:hover{background:var(--secondary-hover);}
-    .month-nav{display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;}
-    .month-nav button{background:var(--secondary-bg);color:var(--fg);border:none;border-radius:6px;cursor:pointer;padding:.3rem .8rem;font-size:.9rem;}
-    .month-nav button:hover{background:var(--secondary-hover);}
-    .month-nav button:disabled{opacity:.35;cursor:not-allowed;}
     /* W2: quiet one-line context note explaining the per-month "fork" —
        deliberately plain text, not a banner, so it doesn't compete with
        forecast-bar/close-bar (which need attention; this is just orientation). */
@@ -341,10 +337,7 @@
     .mc-esave{flex:1;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}
     .mc-ecancel{flex:1;background:var(--panel-bg);color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
 
-    /* ── Modern-UI chrome polish: glass month-nav + toolbar ── */
-    .month-nav{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:.4rem .55rem;backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
-    .month-nav button{background:var(--glass-bg);border:1px solid var(--glass-border);}
-    .month-nav button:hover{background:var(--secondary-hover);}
+    /* ── Modern-UI chrome polish: glass toolbar ── */
     .month-jump{background:var(--glass-bg);border:1px solid var(--glass-border);}
     .dropdown-menu{background:var(--panel-bg);border:1px solid var(--glass-border);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
 </style>
@@ -352,10 +345,10 @@
 {% block content %}
   <div class="tracker-head">
     <div class="tracker-head-left">
-      <h1>Expense Tracker <button class="help-btn" id="help-open-btn">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide">📖 Guide</button></h1>
+      <h1>Expense Tracker <button class="help-btn" id="help-open-btn" aria-label="Help">?</button> <button class="wt-enhanced-btn" id="guide-btn" title="Feature guide"><span aria-hidden="true">📖</span> Guide</button></h1>
       <div class="month-pill">
         <button id="prev-btn" aria-label="Previous month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-left"/></svg></button>
-        <select id="month-jump" class="month-jump"></select>
+        <select id="month-jump" class="month-jump" aria-label="Jump to month"></select>
         <button id="next-btn" aria-label="Next month"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg></button>
       </div>
     </div>
@@ -476,7 +469,7 @@
         <button class="chart-mode-btn" id="chart-type-doughnut">🥧 Pie</button>
       </div>
     </div>
-    <div class="chart-wrap"><canvas id="exp-chart"></canvas></div>
+    <div class="chart-wrap"><canvas id="exp-chart" role="img" aria-label="Spending trend chart"></canvas></div>
     <div class="top3" id="top3"></div>
   </div>
 
