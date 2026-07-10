@@ -888,7 +888,31 @@ html.personality-playful .dash-tool{border-radius:14px;}
 @media (prefers-reduced-motion: no-preference){
   html.personality-playful .dash-tool:hover{transform:translateY(-3px);}
   html.personality-playful .app-card:hover{transform:translateY(-5px);}
+  /* 3D press-tilt on gradient CTAs: replaces the flat .btn:active scale above for
+     .btn-gradient only (later rule, same specificity tier via the class chain). */
+  html.personality-playful .btn-gradient:active{transform:perspective(600px) rotateX(4deg) scale(.97);}
 }
+
+/* ── Coin flip (big celebrations; element built by celebrate.js _fireCoin) ──
+   Pure-CSS 3D coin: two stacked faces with backface-visibility so the flip reads as a
+   real coin. JS bails on reduced motion; the media override below is belt-and-braces. */
+.fi-coin-wrap{position:fixed;left:50%;top:34%;z-index:9599;pointer-events:none;perspective:600px;}
+.fi-coin{position:relative;width:72px;height:72px;margin-left:-36px;transform-style:preserve-3d;
+  animation:fi-coin-flip 1.25s cubic-bezier(.3,.7,.4,1) both;}
+.fi-coin-face{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:2rem;color:#fff;backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
+  box-shadow:0 8px 22px rgba(0,0,0,.22), inset 0 0 0 4px rgba(255,255,255,.28);}
+.fi-coin-back{transform:rotateY(180deg);}
+@keyframes fi-coin-flip{
+  0%{transform:translateY(14px) rotateY(0) scale(.4);opacity:0;}
+  15%{opacity:1;}
+  50%{transform:translateY(-42px) rotateY(360deg) scale(1);}
+  82%{opacity:1;}
+  100%{transform:translateY(8px) rotateY(720deg) scale(.9);opacity:0;}
+}
+@media (prefers-reduced-motion: reduce){ .fi-coin{animation:none;display:none;} }
 /* ── App shell ──────────────────────────────────────────────── */
 body{max-width:none;margin:0;padding:0;}
 .app-rail{display:none;}
