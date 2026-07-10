@@ -182,6 +182,12 @@
     .auth-brand-sub{font-size:.85rem;opacity:.85;line-height:1.55;margin:0;}
     .auth-split .login-card{border-radius:0;box-shadow:none;border:none;}
     @media(max-width:680px){ .auth-split{grid-template-columns:1fr;} .auth-brand{display:none;} }
+    /* Pointer-tracking 3D tilt on the brand copy (desktop pointers only; the JS below also
+       gates on hover+fine-pointer and reduced motion). The tilt lives on an inner wrapper,
+       not the panel itself, because .auth-split clips with overflow:hidden. */
+    .auth-brand{perspective:700px;}
+    .auth-brand-inner{transform-style:preserve-3d;transition:transform .35s ease;will-change:transform;}
+    @media (prefers-reduced-motion: reduce){ .auth-brand-inner{transition:none;transform:none !important;} }
 
     .pw-wrap { position: relative; }
     .pw-wrap input { padding-right: 2.5rem; width: 100%; box-sizing: border-box; }
@@ -229,9 +235,11 @@
   <div class="login-shell aurora-bg">
   <div class="auth-split">
   <div class="auth-brand">
+    <div class="auth-brand-inner">
     <div class="auth-brand-mark">FiApp</div>
     <p class="auth-brand-tag">Your money, beautifully tracked.</p>
     <p class="auth-brand-sub">Income, expenses, subscriptions, tax and more. One calm dashboard.</p>
+    </div>
   </div>
   <div class="glass-panel auth-card login-card">
   <div class="seg-toggle">
@@ -319,7 +327,7 @@
     <div class="back-link"><a href="/login">← Use a different method</a></div>
   </div>
   {% endif %}
-  <p class="auth-trust"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg#fi-lock"/></svg> Encrypted in transit &middot; export your data anytime</p>
+  <p class="auth-trust"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-lock"/></svg> Encrypted in transit &middot; export your data anytime</p>
   </div>
   </div>
   </div>
@@ -540,6 +548,32 @@ async function submitGoogleComplete(){
 })();
 var _finishBtn=document.getElementById('finish-btn');
 if(_finishBtn) _finishBtn.addEventListener('click', submitGoogleComplete);
+
+// Subtle 3D pointer-tilt on the brand copy. Desktop pointers only (hover + fine), and
+// never under reduced motion; touch devices and small screens (panel hidden <680px)
+// simply never attach the listeners.
+(function(){
+  if(!(window.matchMedia&&matchMedia('(hover:hover) and (pointer:fine)').matches)) return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var split=document.querySelector('.auth-split');
+  var inner=document.querySelector('.auth-brand-inner');
+  if(!split||!inner) return;
+  var MAX=3, raf=null;
+  split.addEventListener('mousemove',function(e){
+    if(raf) return;
+    raf=requestAnimationFrame(function(){
+      raf=null;
+      var r=split.getBoundingClientRect();
+      var rx=((e.clientY-r.top)/r.height-.5)*-2*MAX;
+      var ry=((e.clientX-r.left)/r.width-.5)*2*MAX;
+      inner.style.transform='rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg) translateZ(10px)';
+    });
+  });
+  split.addEventListener('mouseleave',function(){
+    if(raf){ cancelAnimationFrame(raf); raf=null; }
+    inner.style.transform='';
+  });
+})();
 </script>
 </body>
 </html>
