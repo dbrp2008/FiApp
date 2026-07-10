@@ -69,7 +69,6 @@
   <script nonce="{{ csp_nonce }}">
     var THEME_LABELS={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
   </script>
-  <script src="/static/js/voice.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/glass-picker.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/celebrate.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/native-lock-guard.js?v={{ ASSET_V }}"></script>
@@ -280,7 +279,7 @@
     }
     FIAPP_USER_KEYS.forEach(function(k){localStorage.removeItem(k);});
     fiappClearSWCache();
-    fetch('/auth/logout',{method:'POST'}).then(function(){ window.location='/login'; });
+    fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':_CSRF}}).then(function(){ window.location='/login'; });
   }
   // Purge the service-worker page caches (they store authenticated page shells with
   // identity metadata) so nothing of this user survives offline for the next one.
