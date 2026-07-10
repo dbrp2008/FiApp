@@ -745,7 +745,9 @@ function copyLastMonth(){
   });
   if(!state.income[curMk]){
     const pi=state.income[prevMk];
-    if(pi) state.income[curMk]={gross:pi.gross||'',tax:pi.tax||''};
+    // Carry the taxCurrency stamp too - dropping it left the copied figure unconvertible
+    // when the home currency later changed (relabeled without conversion).
+    if(pi) state.income[curMk]={gross:pi.gross||'',tax:pi.tax||'',taxCurrency:pi.taxCurrency||''};
   }
   save(); render(); syncIncomeInputs();
   showForecastToast(copied?`Copied ${copied} values from ${MONTHS_SHORT[pm]} ${py}.`:'All cells already have values - nothing to copy.');
@@ -997,21 +999,55 @@ function syncIncomeInputs(){
   // the new currency (that mismatch could make tax exceed income - see bug report).
   const homeCur=_homeCur();
   // Rebase EVERY month's stored tax into the new home currency, not just the month on
-  // screen - otherwise only the currently-viewed month converts and the rest keep stale
-  // figures until each is individually navigated to. Each month carries its own
-  // taxCurrency stamp, and the guard makes this idempotent (a month already in homeCur is
-  // skipped), so it is safe to run on every sync.
-  if(Object.keys(expRatesCache).length){
-    let rebased=false;
-    Object.keys(state.income||{}).forEach(function(k){
-      const rec=state.income[k];
-      if(rec && rec.tax && rec.taxCurrency && rec.taxCurrency!==homeCur){
-        rec.tax=_convBetween(parseFloat(rec.tax)||0,rec.taxCurrency,homeCur).toFixed(2);
-        rec.taxCurrency=homeCur;
-        rebased=true;
-      }
+  // screen. Per-record `taxCurrency` stamps say what each figure is denominated in, but
+  // stamps can be missing (tax saved before stamping existed, or copied forward by the
+  // forecast tools), so the blob also carries `state.taxHomeCur` - the home currency its
+  // tax figures were written in - which backfills any unstamped record. Without that
+  // backfill an unstamped figure was silently relabeled to the new currency without ever
+  // being converted (the "US$ 21783.28 -> RUB 21783.28" bug).
+  {
+    let changed=false;
+    const recs=state.income||{};
+    // One-time migration: infer the blob's denomination from any existing stamp (every
+    // write path stamps with the then-current home currency, so any stamp is evidence);
+    // otherwise assume the current home currency.
+    if(!state.taxHomeCur){
+      let inferred=null;
+      Object.keys(recs).forEach(function(k){
+        if(!inferred && recs[k] && recs[k].tax && recs[k].taxCurrency) inferred=recs[k].taxCurrency;
+      });
+      state.taxHomeCur=inferred||homeCur;
+      changed=true;
+    }
+    // Backfill unstamped tax records with the blob denomination (no conversion here).
+    Object.keys(recs).forEach(function(k){
+      const rec=recs[k];
+      if(rec && rec.tax && !rec.taxCurrency){ rec.taxCurrency=state.taxHomeCur; changed=true; }
     });
-    if(rebased) saveLocal();
+    // Convert stamped records that differ from the current home currency - but only when
+    // BOTH codes are actually quoted in the rate table (or are USD, the table's base).
+    // _convBetween falls back to a 1:1 rate for unknown codes, and restamping after a 1:1
+    // "conversion" would permanently mislabel the figure, so never restamp without a real
+    // conversion; a skipped record keeps its stamp and converts on a later pass.
+    const canConv=function(c){ return c==='USD'||typeof expRatesCache[c]==='number'; };
+    if(Object.keys(expRatesCache).length){
+      Object.keys(recs).forEach(function(k){
+        const rec=recs[k];
+        if(rec && rec.tax && rec.taxCurrency && rec.taxCurrency!==homeCur
+           && canConv(rec.taxCurrency) && canConv(homeCur)){
+          rec.tax=_convBetween(parseFloat(rec.tax)||0,rec.taxCurrency,homeCur).toFixed(2);
+          rec.taxCurrency=homeCur;
+          changed=true;
+        }
+      });
+      // The blob denomination follows the home currency once a rates-backed pass has run
+      // (only if the new home is convertible - otherwise keep the truthful old value).
+      if(state.taxHomeCur!==homeCur && canConv(homeCur)){ state.taxHomeCur=homeCur; changed=true; }
+    }
+    // A rebase/stamp is a real data change, not per-device view-state: it must reach the
+    // server (syncToServer sets the dirty flag; saveLocal alone does not), or the next
+    // loadFromServer overwrites it with the stale blob and the conversion is lost.
+    if(changed){ saveLocal(); syncToServer(); }
   }
   document.getElementById('inp-gross').value=obj.gross||'';
   document.getElementById('inp-tax').value  =obj.tax  ||'';
