@@ -397,12 +397,14 @@
       {% set home_codes = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'] %}
       {% set cur_code = analytics_currency|default('USD') %}
       <select id="home-currency-sel" style="padding:.45rem .7rem;border-radius:.5rem;border:1px solid var(--border);background:var(--card-bg);color:var(--fg);font-size:.9rem;cursor:pointer;">
-        {% if cur_code not in home_codes %}
-        <option value="{{ cur_code }}" selected>{{ cur_code }} (custom)</option>
-        {% endif %}
         {% for code in home_codes %}
         <option value="{{ code }}"{% if cur_code == code %} selected{% endif %}>{{ code }}</option>
         {% endfor %}
+        {# Custom codes render just above "Other…" - the same slot applyOther() inserts new
+           ones into, so a saved custom and a freshly-typed one always share one position. #}
+        {% if cur_code not in home_codes %}
+        <option value="{{ cur_code }}" selected>{{ cur_code }} (custom)</option>
+        {% endif %}
         <option value="__other__">Other…</option>
       </select>
       <input type="text" id="home-currency-other-inp" placeholder="e.g. VND" maxlength="5" aria-label="Custom currency code"
