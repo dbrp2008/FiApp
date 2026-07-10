@@ -616,7 +616,14 @@ function applyOtherCurrency(){
 
 
 function fmtCost(usd){
-  if(currentRate!==1){ return state.displayCurrency+' '+(usd*currentRate).toFixed(2); }
+  if(state.displayCurrency&&state.displayCurrency!=='USD'){
+    // Label by the selected currency even before rates finish loading (or offline) -
+    // currentRate defaults to 1 until showConvFields() runs, so waiting for it to
+    // differ from 1 silently mislabels the amount as USD. Flag the unconverted case
+    // instead of hiding it, matching recalcTotals()'s "(est.)" convention.
+    const suffix=ratesReady?'':' (est.)';
+    return state.displayCurrency+' '+(usd*currentRate).toFixed(2)+suffix;
+  }
   return '$'+usd.toFixed(2);
 }
 function renderLeaderboard(){
