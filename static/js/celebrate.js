@@ -113,7 +113,7 @@
     b.setAttribute('aria-live', 'polite');
     b.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(12px);z-index:9601;' +
       'display:none;align-items:center;gap:.55rem;max-width:min(92vw,420px);box-sizing:border-box;' +
-      'padding:.7rem .95rem;border-radius:14px;background:var(--panel,#fff);color:var(--fg,#111);' +
+      'padding:.7rem .95rem;border-radius:14px;background:var(--panel-bg,#fff);color:var(--fg,#111);' +
       'border:1px solid var(--panel-border,rgba(0,0,0,.1));box-shadow:0 10px 30px rgba(0,0,0,.18);' +
       'font-size:.92rem;line-height:1.4;opacity:0;transition:opacity .2s ease,transform .2s ease;';
     var ava = document.createElement('span');
