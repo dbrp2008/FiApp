@@ -996,10 +996,22 @@ function syncIncomeInputs(){
   // currency here instead of silently treating the old number as if it were already in
   // the new currency (that mismatch could make tax exceed income - see bug report).
   const homeCur=_homeCur();
-  if(obj.tax && obj.taxCurrency && obj.taxCurrency!==homeCur && Object.keys(expRatesCache).length){
-    obj.tax=_convBetween(parseFloat(obj.tax)||0,obj.taxCurrency,homeCur).toFixed(2);
-    obj.taxCurrency=homeCur;
-    saveLocal();
+  // Rebase EVERY month's stored tax into the new home currency, not just the month on
+  // screen - otherwise only the currently-viewed month converts and the rest keep stale
+  // figures until each is individually navigated to. Each month carries its own
+  // taxCurrency stamp, and the guard makes this idempotent (a month already in homeCur is
+  // skipped), so it is safe to run on every sync.
+  if(Object.keys(expRatesCache).length){
+    let rebased=false;
+    Object.keys(state.income||{}).forEach(function(k){
+      const rec=state.income[k];
+      if(rec && rec.tax && rec.taxCurrency && rec.taxCurrency!==homeCur){
+        rec.tax=_convBetween(parseFloat(rec.tax)||0,rec.taxCurrency,homeCur).toFixed(2);
+        rec.taxCurrency=homeCur;
+        rebased=true;
+      }
+    });
+    if(rebased) saveLocal();
   }
   document.getElementById('inp-gross').value=obj.gross||'';
   document.getElementById('inp-tax').value  =obj.tax  ||'';
@@ -2118,6 +2130,7 @@ function renderTableHeader(table){
     });
     inner.appendChild(cdh);
     const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;
+    lbl.setAttribute('aria-label','Column name');
     if(_isClosedMonth(currentMK())) lbl.disabled=true;
     lbl.addEventListener('blur',()=>{col.label=lbl.value.trim()||col.label;save();});
     lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
@@ -2180,14 +2193,14 @@ function renderTableBody(table){
     }
     const colorWrap=document.createElement('div');colorWrap.className='color-swatch-wrap tip-host';colorWrap.dataset.tip='Row background colour';
     const swatch=document.createElement('div');swatch.className='color-swatch';swatch.style.backgroundColor=row.color;
-    const cInp=document.createElement('input');cInp.type='color';cInp.className='color-inp-overlay';cInp.value=row.color;
+    const cInp=document.createElement('input');cInp.type='color';cInp.className='color-inp-overlay';cInp.value=row.color;cInp.setAttribute('aria-label','Row background colour');
     if(_isClosedMonth(currentMK())) cInp.disabled=true;
     cInp.addEventListener('input',()=>{row.color=cInp.value;rhTd.style.backgroundColor=cInp.value;swatch.style.backgroundColor=cInp.value;textSwatch.style.backgroundColor=cInp.value;});
     cInp.addEventListener('change',save);
     colorWrap.appendChild(swatch);colorWrap.appendChild(cInp);
     const tcWrap=document.createElement('div');tcWrap.className='color-swatch-wrap tip-host';tcWrap.dataset.tip='Row text colour';
     const textSwatch=document.createElement('div');textSwatch.className='text-color-swatch';textSwatch.textContent='A';textSwatch.style.color=row.textColor||'#1f2937';textSwatch.style.backgroundColor=row.color||'#ffffff';
-    const tcInp=document.createElement('input');tcInp.type='color';tcInp.className='color-inp-overlay';tcInp.value=row.textColor||'#1f2937';
+    const tcInp=document.createElement('input');tcInp.type='color';tcInp.className='color-inp-overlay';tcInp.value=row.textColor||'#1f2937';tcInp.setAttribute('aria-label','Row text colour');
     if(_isClosedMonth(currentMK())) tcInp.disabled=true;
     tcInp.addEventListener('input',()=>{row.textColor=tcInp.value;rowLabel.style.color=tcInp.value;textSwatch.style.color=tcInp.value;});
     tcInp.addEventListener('change',save);
@@ -2208,6 +2221,7 @@ function renderTableBody(table){
       }
     } else {
       rowLabel.type='text';rowLabel.size=1;rowLabel.value=row.label;
+      rowLabel.setAttribute('aria-label','Category name');
       if(_isClosedMonth(currentMK())) rowLabel.disabled=true;
       rowLabel.addEventListener('blur',()=>{row.label=rowLabel.value.trim()||row.label;save();_hideLabelSuggest();});
       rowLabel.addEventListener('input',()=>_showLabelSuggest(rowLabel));
@@ -2256,6 +2270,7 @@ function renderTableBody(table){
         span.textContent=s>0?fmt(s):'';td.appendChild(span);
       } else {
         const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='0.01';inp.inputMode='decimal';inp.className='num-input';
+        inp.setAttribute('aria-label',((row.label||'Category')+' '+(col.label||'')).trim()+' amount');
         if(_isClosedMonth(currentMK())) inp.disabled=true;
         const stored=getRawCell(row.id,col.id);inp.value=stored!==''?stored:'';
         inp.addEventListener('input',()=>{ inp.value=inp.value.replace(/[^0-9.]/g,''); });
