@@ -178,32 +178,32 @@
   };
 
   // ---- Apply -----------------------------------------------------------------
-  function _setMetaColor(){
-    try {
-      var m = document.querySelector('meta[name="theme-color"]');
-      if (!m) return;
-      var g = getComputedStyle(document.documentElement).getPropertyValue('--grad-from').trim();
-      if (g) m.setAttribute('content', g);
-    } catch(_) {}
+  // Built-in --grad-from values, used to update <meta theme-color> without a
+  // getComputedStyle() reflow (which is costly in the pre-paint boot path).
+  var GRAD_LIGHT = '#7c3aed', GRAD_DARK = '#a855f7';
+  function _setMetaColorTo(hex){
+    try { var m = document.querySelector('meta[name="theme-color"]'); if (m && hex) m.setAttribute('content', hex); } catch(_) {}
   }
 
   function fiappApplyTheme(value){
-    var el = document.documentElement, ok = true, mode = 'light';
-    // Clear every custom slot first (idempotent), then layer the new theme.
-    for (var t in ALL_TOKENS) el.style.removeProperty(t);
+    var el = document.documentElement, ok = true, mode = 'light', css = '', meta = GRAD_LIGHT;
     if (value === 'dark') {
-      mode = 'dark';
+      mode = 'dark'; meta = GRAD_DARK;
       el.classList.add('dark');
     } else if (value && value.indexOf('custom:') === 0) {
       var theme = fiappThemesCache.get(value.slice(7));
       if (theme && theme.tokens) {
         mode = theme.mode === 'dark' ? 'dark' : 'light';
         el.classList.toggle('dark', mode === 'dark');
+        // Build the whole inline custom-property block as one string; assigning it via
+        // cssText below is a single style mutation (one recalc/paint) instead of dozens
+        // of setProperty/removeProperty calls each churning style invalidation.
         for (var tk in theme.tokens) {
           if (ALL_TOKENS[tk] && fiappValidTokenValue(ALL_TOKENS[tk], theme.tokens[tk])) {
-            el.style.setProperty(tk, theme.tokens[tk]);
+            css += tk + ':' + theme.tokens[tk] + ';';
           }
         }
+        if (theme.tokens['--grad-from']) meta = theme.tokens['--grad-from'];
       } else {
         // Cache miss (fresh device): keep the right base luminance so nothing flashes;
         // the prefs convergence fetch repairs the exact tokens shortly after.
@@ -211,15 +211,18 @@
         var fallbackDark = false;
         try { fallbackDark = localStorage.getItem('fiapp_theme_mode') === 'dark'; } catch(_) {}
         if (!fallbackDark && window.__fiappSrvDark) fallbackDark = true;
-        mode = fallbackDark ? 'dark' : 'light';
+        mode = fallbackDark ? 'dark' : 'light'; meta = fallbackDark ? GRAD_DARK : GRAD_LIGHT;
         el.classList.toggle('dark', fallbackDark);
       }
     } else {
       el.classList.remove('dark');
     }
+    // One write: sets all custom properties for a custom theme, or clears them for a
+    // built-in. The inline style attribute is theme-only, so replacing it wholesale is safe.
+    el.style.cssText = css;
     try { localStorage.setItem('fiapp_theme_mode', mode); } catch(_) {}
-    if (document.head) _setMetaColor();
-    else if (document.addEventListener) document.addEventListener('DOMContentLoaded', _setMetaColor, { once: true });
+    if (document.querySelector('meta[name="theme-color"]')) _setMetaColorTo(meta);
+    else if (document.addEventListener) document.addEventListener('DOMContentLoaded', function(){ _setMetaColorTo(meta); }, { once: true });
     return { ok: ok, mode: mode };
   }
 
