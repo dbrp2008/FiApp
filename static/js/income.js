@@ -1409,7 +1409,7 @@ function renderTableHeader(table){
       cdh.addEventListener('pointermove',onMove);cdh.addEventListener('pointerup',onUp);
     });
     inner.appendChild(cdh);
-    const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;
+    const lbl=document.createElement('input');lbl.type='text';lbl.className='th-label';lbl.size=1;lbl.value=col.label;lbl.setAttribute('aria-label','Column name');
     if(_isClosedMonth(currentMK())) lbl.disabled=true;
     lbl.addEventListener('blur',()=>{col.label=lbl.value.trim()||col.label;save();});
     lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
@@ -1472,19 +1472,19 @@ function renderTableBody(table){
     }
     const colorWrap=document.createElement('div');colorWrap.className='color-swatch-wrap tip-host';colorWrap.dataset.tip='Row background colour';
     const swatch=document.createElement('div');swatch.className='color-swatch';swatch.style.backgroundColor=row.color;
-    const cInp=document.createElement('input');cInp.type='color';cInp.className='color-inp-overlay';cInp.value=row.color;
+    const cInp=document.createElement('input');cInp.type='color';cInp.className='color-inp-overlay';cInp.value=row.color;cInp.setAttribute('aria-label','Row background colour');
     if(_isClosedMonth(currentMK())) cInp.disabled=true;
     cInp.addEventListener('input',()=>{row.color=cInp.value;rhTd.style.backgroundColor=cInp.value;swatch.style.backgroundColor=cInp.value;textSwatch.style.backgroundColor=cInp.value;});
     cInp.addEventListener('change',save);
     colorWrap.appendChild(swatch);colorWrap.appendChild(cInp);
     const tcWrap=document.createElement('div');tcWrap.className='color-swatch-wrap tip-host';tcWrap.dataset.tip='Row text colour';
     const textSwatch=document.createElement('div');textSwatch.className='text-color-swatch';textSwatch.textContent='A';textSwatch.style.color=row.textColor||'#1f2937';textSwatch.style.backgroundColor=row.color||'#ffffff';
-    const tcInp=document.createElement('input');tcInp.type='color';tcInp.className='color-inp-overlay';tcInp.value=row.textColor||'#1f2937';
+    const tcInp=document.createElement('input');tcInp.type='color';tcInp.className='color-inp-overlay';tcInp.value=row.textColor||'#1f2937';tcInp.setAttribute('aria-label','Row text colour');
     if(_isClosedMonth(currentMK())) tcInp.disabled=true;
     tcInp.addEventListener('input',()=>{row.textColor=tcInp.value;rowLabel.style.color=tcInp.value;textSwatch.style.color=tcInp.value;});
     tcInp.addEventListener('change',save);
     tcWrap.appendChild(textSwatch);tcWrap.appendChild(tcInp);
-    const rowLabel=document.createElement('input');rowLabel.type='text';rowLabel.className='row-label';rowLabel.size=1;rowLabel.value=row.label;
+    const rowLabel=document.createElement('input');rowLabel.type='text';rowLabel.className='row-label';rowLabel.size=1;rowLabel.value=row.label;rowLabel.setAttribute('aria-label','Source name');
     rowLabel.style.color=row.textColor||'#1f2937';
     if(_isClosedMonth(currentMK())) rowLabel.disabled=true;
     rowLabel.addEventListener('blur',()=>{row.label=rowLabel.value.trim()||row.label;save();});
@@ -1515,6 +1515,7 @@ function renderTableBody(table){
       } else {
         const wrap=document.createElement('div'); wrap.className='cost-wrap';
         const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='0.01';inp.inputMode='decimal';inp.className='num-input c-num';
+        inp.setAttribute('aria-label',((row.label||'Source')+' '+(col.label||'')).trim()+' amount');
         if(_isClosedMonth(currentMK())) inp.disabled=true;
         const stored=getRawCell(row.id,col.id);inp.value=stored!==''?stored:'';
         inp.addEventListener('input',()=>{ inp.value=inp.value.replace(/[^0-9.]/g,''); });
@@ -1531,7 +1532,10 @@ function renderTableBody(table){
         wrap.appendChild(inp);
         const cur=rowCurrency(currentMK(), row.id);
         const sel=document.createElement('select'); sel.className='cell-curr-sel'; sel.title='Currency for this row';
-        if(_isClosedMonth(currentMK())) sel.disabled=true;
+        // Actually disabling (not just guarding mousedown) is what stops the native
+        // option list from opening - a preventDefault-on-mousedown guard doesn't
+        // reliably block it, so the walkthrough overlay was clickable underneath.
+        if(_isClosedMonth(currentMK())||isWalkthroughActive()) sel.disabled=true;
         const codes=getAllUsedCurrencies();
         if(!codes.includes(cur)) codes.push(cur);
         codes.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; if(c===cur) o.selected=true; sel.appendChild(o); });
