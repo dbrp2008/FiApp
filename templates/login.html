@@ -4,11 +4,14 @@
   <meta charset="utf-8" />
   <title>FiApp - Log In</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="/static/js/theme-core.js?v={{ ASSET_V }}"></script>
   <script nonce="{{ csp_nonce }}">
     (function(){
+      // Pre-auth: theme-core applies light/dark/custom (from the local cache) and
+      // migrates any legacy theme name, same as the app shell.
       var t=localStorage.getItem('fiapp_theme')||'light';
-      if(t==='dark') document.documentElement.classList.add('dark');
-      else if(t!=='light') document.documentElement.classList.add('theme-'+t);
+      if(window.fiappThemeBoot){ fiappThemeBoot(t); }
+      else if(t==='dark'||localStorage.getItem('fiapp_theme_mode')==='dark') document.documentElement.classList.add('dark');
     })();
   </script>
   <link rel="stylesheet" href="/styles.css?v={{ ASSET_V }}">
@@ -48,7 +51,7 @@
       padding: 3px;
       margin-bottom: 1.5rem;
     }
-    html.dark .seg-toggle, html.theme-midnight .seg-toggle { background: rgba(255,255,255,.08); }
+    html.dark .seg-toggle { background: rgba(255,255,255,.08); }
     .seg-btn {
       flex: 1;
       padding: .5rem 0;
@@ -213,7 +216,7 @@
 </head>
 <body class="auth-canvas">
   <div class="nav">
-    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button><button class="theme-opt" data-theme="ocean">🌊 Ocean</button><button class="theme-opt" data-theme="forest">🌿 Forest</button><button class="theme-opt" data-theme="sunset">🌅 Sunset</button><button class="theme-opt" data-theme="midnight">🌃 Midnight</button><button class="theme-opt" data-theme="rose">🌹 Rose</button><button class="theme-opt" data-theme="purple">💜 Purple</button><button class="theme-opt" data-theme="indigo">🔷 Indigo</button></div></div><script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var L={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};var b=document.getElementById('theme-btn');if(b)b.textContent=L[t]||t;document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
+    <div class="theme-menu-wrap"><button class="btn-ghost btn-sm" id="theme-btn">☀️ Light</button><div class="theme-dropdown"><button class="theme-opt" data-theme="light">☀️ Light</button><button class="theme-opt" data-theme="dark">🌙 Dark</button></div></div><script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b&&window.fiappThemeLabel)b.textContent=fiappThemeLabel(t);document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
 
   <div id="deleted-banner" style="display:none;background:var(--success-bg);border:1px solid var(--success-border);color:var(--success-fg);padding:.65rem .9rem;border-radius:8px;font-size:.88rem;font-weight:600;margin-bottom:1rem;text-align:center;">
@@ -334,14 +337,14 @@
 
 <script nonce="{{ csp_nonce }}">
 function setTheme(name){
-  document.documentElement.classList.remove('dark','theme-ocean','theme-forest',
-    'theme-sunset','theme-midnight','theme-rose','theme-purple','theme-indigo');
-  if(name==='dark') document.documentElement.classList.add('dark');
-  else if(name!=='light') document.documentElement.classList.add('theme-'+name);
+  // Pre-auth picker offers Light/Dark only; theme-core owns class + token application
+  // (a cached custom theme still applies at boot, and picking here replaces it, exactly
+  // like choosing a different theme always did).
+  if(window.fiappApplyTheme) fiappApplyTheme(name);
+  else document.documentElement.classList.toggle('dark',name==='dark');
   localStorage.setItem('fiapp_theme',name);
-  var _tl={'light':'☀️ Light','dark':'🌙 Dark','ocean':'🌊 Ocean','forest':'🌿 Forest','sunset':'🌅 Sunset','midnight':'🌃 Midnight','rose':'🌹 Rose','purple':'💜 Purple','indigo':'🔷 Indigo'};
   var _tb=document.getElementById('theme-btn');
-  if(_tb) _tb.textContent=_tl[name]||name;
+  if(_tb) _tb.textContent=window.fiappThemeLabel?fiappThemeLabel(name):name;
   var _td=document.querySelector('.theme-dropdown');
   if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
 }
