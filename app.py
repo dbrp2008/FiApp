@@ -109,6 +109,131 @@ if not EXCHANGE_API_KEY:
 # the upstream URL prevents control-char/path injection into the exchange API call.
 _CCY_RE = re.compile(r'^[A-Z]{3}$')
 
+# ── Theme Studio: custom-theme validation ──────────────────────────────────
+# Theme token values are written straight into style.setProperty on the client, so they
+# must be validated to a strict colour/length/shadow grammar. The charset gate is the real
+# security floor: with no ':' '/' ';' '}' or quotes possible, url()/expression() payloads
+# and CSS property breakout cannot be expressed regardless of the type regexes.
+MAX_CUSTOM_THEMES = 10
+MAX_THEMES_JSON = 32768
+_THEME_NAME_RE = re.compile(r'^[^\x00-\x1f]{1,24}$')
+_THEME_ID_RE = re.compile(r'^ct_[a-z0-9]{8}$')
+_TOK_HEX = r'#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?'
+_TOK_RGBA = r'rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*(?:0|1|1\.0|0?\.\d{1,4})\s*)?\)'
+_THEME_COLOR_RE = re.compile(r'^(?:' + _TOK_HEX + r'|' + _TOK_RGBA + r')$')
+_THEME_LEN_RE = re.compile(r'^\d{1,2}px$')
+_SHADOW_LAYER = r'-?\d{1,3}(?:px)?\s+-?\d{1,3}(?:px)?\s+\d{1,3}(?:px)?(?:\s+-?\d{1,3}(?:px)?)?\s+(?:' + _TOK_HEX + r'|' + _TOK_RGBA + r')'
+_THEME_SHADOW_RE = re.compile(r'^' + _SHADOW_LAYER + r'(?:\s*,\s*' + _SHADOW_LAYER + r'){0,2}$')
+_THEME_CHARSET_RE = re.compile(r'^[#0-9a-zA-Z().,%\s-]{1,120}$')
+# token -> type. Must mirror FIAPP_CUSTOM_TOKENS in static/js/theme-core.js.
+_THEME_TOKEN_TYPES = {
+    '--accent': 'color', '--accent-strong': 'color', '--link': 'color', '--link-text': 'color',
+    '--bg': 'color', '--panel-bg': 'color', '--panel-border': 'color', '--hover-bg': 'color',
+    '--input-focus': 'color', '--total-bg': 'color', '--total-fg': 'color', '--total-soft': 'color',
+    '--th-bg': 'color', '--th-fg': 'color', '--row-header-bg': 'color', '--row-header-fg': 'color',
+    '--secondary-bg': 'color', '--secondary-fg': 'color', '--secondary-hover': 'color',
+    '--result-bg': 'color', '--grad-from': 'color', '--grad-to': 'color',
+    '--glow-1': 'color', '--glow-2': 'color', '--glass-bg': 'color', '--glass-border': 'color',
+    '--glass-blur': 'length', '--shell-rail-bg': 'color',
+    '--elev-hero': 'shadow', '--elev-cta': 'shadow',
+    '--fg': 'color', '--muted': 'color', '--input-bg': 'color', '--input-border': 'color',
+    '--overlay': 'color', '--shadow': 'shadow', '--shadow-soft': 'shadow',
+    '--tooltip-bg': 'color', '--tooltip-fg': 'color',
+    '--error-bg': 'color', '--error-fg': 'color', '--error-border': 'color',
+    '--success-bg': 'color', '--success-fg': 'color', '--success-border': 'color',
+    '--result-border': 'color',
+    '--elev-1': 'shadow', '--elev-2': 'shadow', '--elev-3': 'shadow',
+    '--tabbar-bg': 'color', '--track-bg': 'color',
+}
+# The full set a theme's `tokens` must contain, per mode (light omits the dark-only extras).
+_LIGHT_ONLY = {'--accent', '--accent-strong', '--link', '--link-text', '--bg', '--panel-bg',
+    '--panel-border', '--hover-bg', '--input-focus', '--total-bg', '--total-fg', '--total-soft',
+    '--th-bg', '--th-fg', '--row-header-bg', '--row-header-fg', '--secondary-bg', '--secondary-fg',
+    '--secondary-hover', '--result-bg', '--grad-from', '--grad-to', '--glow-1', '--glow-2',
+    '--glass-bg', '--glass-border', '--glass-blur', '--shell-rail-bg', '--elev-hero', '--elev-cta'}
+_DARK_EXTRA = {'--fg', '--muted', '--input-bg', '--input-border', '--overlay', '--shadow',
+    '--shadow-soft', '--tooltip-bg', '--tooltip-fg', '--error-bg', '--error-fg', '--error-border',
+    '--success-bg', '--success-fg', '--success-border', '--result-border', '--elev-1', '--elev-2',
+    '--elev-3', '--tabbar-bg', '--track-bg'}
+_REQUIRED_LIGHT = _LIGHT_ONLY
+_REQUIRED_DARK = _LIGHT_ONLY | _DARK_EXTRA
+_PRESET_NAMES = {'ocean', 'forest', 'sunset', 'midnight', 'rose', 'purple', 'indigo'}
+
+
+def _valid_token_value(ttype, val):
+    if not isinstance(val, str) or not _THEME_CHARSET_RE.match(val):
+        return False
+    if ttype == 'color':
+        return bool(_THEME_COLOR_RE.match(val))
+    if ttype == 'length':
+        return bool(_THEME_LEN_RE.match(val))
+    if ttype == 'shadow':
+        return bool(_THEME_SHADOW_RE.match(val))
+    return False
+
+
+def _validate_custom_themes(raw):
+    """Return a normalized {v:1, themes:[...]} envelope, or raise ValueError."""
+    if isinstance(raw, list):            # tolerate a bare list; wrap it
+        raw = {'v': 1, 'themes': raw}
+    if not isinstance(raw, dict) or not isinstance(raw.get('themes'), list):
+        raise ValueError("themes_custom must be an object with a themes array")
+    themes = raw['themes']
+    if len(themes) > MAX_CUSTOM_THEMES:
+        raise ValueError("too many custom themes")
+    seen_ids, out = set(), []
+    for t in themes:
+        if not isinstance(t, dict):
+            raise ValueError("theme must be an object")
+        tid = t.get('id')
+        if not isinstance(tid, str) or not _THEME_ID_RE.match(tid) or tid in seen_ids:
+            raise ValueError("invalid or duplicate theme id")
+        seen_ids.add(tid)
+        name = t.get('name')
+        if not isinstance(name, str) or not _THEME_NAME_RE.match(name.strip()) or not name.strip():
+            raise ValueError("invalid theme name")
+        mode = t.get('mode')
+        if mode not in ('light', 'dark'):
+            raise ValueError("invalid theme mode")
+        preset = t.get('preset')
+        if preset is not None and preset not in _PRESET_NAMES:
+            raise ValueError("invalid preset flag")
+        seeds = t.get('seeds')
+        if not isinstance(seeds, dict) or set(seeds.keys()) != {'accent', 'gradFrom', 'gradTo', 'tint'} \
+                or not all(_THEME_COLOR_RE.match(v) if isinstance(v, str) else False for v in seeds.values()):
+            raise ValueError("invalid seeds")
+        for key in ('overrides', 'tokens'):
+            d = t.get(key)
+            if not isinstance(d, dict):
+                raise ValueError("invalid " + key)
+            for tk, tv in d.items():
+                if tk not in _THEME_TOKEN_TYPES or not _valid_token_value(_THEME_TOKEN_TYPES[tk], tv):
+                    raise ValueError("invalid token in " + key)
+        required = _REQUIRED_DARK if mode == 'dark' else _REQUIRED_LIGHT
+        if not required.issubset(set(t['tokens'].keys())):
+            raise ValueError("tokens incomplete for mode")
+        out.append({'id': tid, 'name': name.strip(), 'mode': mode, 'preset': preset,
+                    'seeds': {k: seeds[k] for k in ('accent', 'gradFrom', 'gradTo', 'tint')},
+                    'overrides': dict(t['overrides']), 'tokens': dict(t['tokens'])})
+    envelope = {'v': 1, 'themes': out}
+    if len(json.dumps(envelope)) > MAX_THEMES_JSON:
+        raise ValueError("themes_custom too large")
+    return envelope
+
+
+def _theme_is_dark(theme_value, themes_env):
+    """Resolve whether a stored theme value renders on a dark base (for pre-paint FOUC)."""
+    if theme_value == 'dark':
+        return True
+    if theme_value == 'midnight':          # legacy dark theme, pre-migration
+        return True
+    if isinstance(theme_value, str) and theme_value.startswith('custom:'):
+        tid = theme_value.split(':', 1)[1]
+        for t in (themes_env or {}).get('themes', []):
+            if t.get('id') == tid:
+                return t.get('mode') == 'dark'
+    return False
+
 
 if _limiter_available:
     # default_limits is a global per-IP backstop so every route — including the data API
@@ -362,6 +487,9 @@ def init_db():
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'light';
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT 'balanced';
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS analytics_currency TEXT DEFAULT 'USD';
+                    -- Theme Studio: the user's saved custom themes (a {v,themes:[...]} envelope).
+                    -- theme may now be 'light' | 'dark' | 'custom:<id>' referencing this list.
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS themes_custom JSONB DEFAULT '[]'::jsonb;
                     -- Google Sign-In (OIDC): email + the stable Google subject id. Identity is
                     -- keyed on google_sub (never reused); email is for display + uniqueness only.
                     -- password_hash becomes nullable — Google-only accounts have no password
@@ -439,6 +567,10 @@ def _ctx():
         # Auto-generate a token for sessions that pre-date CSRF being added.
         "csrf_token": session.get('csrf_token') or _new_csrf(),
         "theme": session.get('theme', 'light'),
+        # Pre-paint base luminance for a custom/dark theme so a fresh device does not flash
+        # the wrong background. Cached in session at login/save; the simple cases resolve
+        # without it so no per-render DB read is needed.
+        "theme_dark": session.get('theme_dark', _theme_is_dark(session.get('theme', 'light'), None)),
         "personality": session.get('personality', 'balanced'),
         "analytics_currency": session.get('analytics_currency', 'USD'),
         "google_enabled": _google_enabled,
@@ -791,7 +923,7 @@ def auth_login():
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, password_hash, theme, personality, analytics_currency FROM users WHERE username=%s", (username,))
+                cur.execute("SELECT id, password_hash, theme, personality, analytics_currency, themes_custom FROM users WHERE username=%s", (username,))
                 row = cur.fetchone()
         if not row:
             check_password_hash(_DUMMY_PWHASH, password)  # equalize timing
@@ -809,6 +941,7 @@ def auth_login():
         session['user_id'] = row[0]
         session['username'] = username
         session['theme'] = row[2] or 'light'
+        session['theme_dark'] = _theme_is_dark(row[2] or 'light', row[5] if isinstance(row[5], dict) else None)
         session['personality'] = row[3] or 'balanced'
         session['analytics_currency'] = row[4] or 'USD'
         return jsonify({"ok": True, "username": username, "csrf_token": _new_csrf()})
@@ -858,6 +991,9 @@ def _establish_session(user_id, username, theme=None, personality=None, analytic
     session['user_id'] = user_id
     session['username'] = username
     session['theme'] = theme or 'light'
+    # Resolve dark-base once at session start (one small read only for a custom theme).
+    session['theme_dark'] = _theme_is_dark(theme or 'light', _current_themes_env()
+                                           if isinstance(theme, str) and theme.startswith('custom:') else None)
     session['personality'] = personality or 'balanced'
     session['analytics_currency'] = analytics_currency or 'USD'
     _new_csrf()
@@ -1578,6 +1714,29 @@ def fetch(currency_i: str, force: bool = False) -> tuple:
 
     return rates, fetched_at
 
+@app.route('/api/prefs', methods=['GET'])
+@login_required
+@_rl("60 per minute")
+def get_prefs():
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT theme, personality, analytics_currency, themes_custom FROM users WHERE id=%s",
+                        (session['user_id'],))
+            row = cur.fetchone()
+    finally:
+        release_db(conn)
+    if not row:
+        return jsonify({"error": "not found"}), 404
+    theme, personality, analytics_currency, themes_custom = row
+    if not isinstance(themes_custom, dict):
+        themes_custom = {'v': 1, 'themes': themes_custom if isinstance(themes_custom, list) else []}
+    return jsonify({
+        "theme": theme, "personality": personality, "analytics_currency": analytics_currency,
+        "themes_custom": themes_custom, "theme_dark": _theme_is_dark(theme, themes_custom),
+    })
+
+
 @app.route('/api/prefs', methods=['PATCH'])
 @login_required
 @csrf_required
@@ -1585,11 +1744,39 @@ def fetch(currency_i: str, force: bool = False) -> tuple:
 def save_prefs():
     data = request.get_json(silent=True) or {}
     set_clauses, params = [], []
+    theme_env = None      # parsed themes_custom, if provided this request
+
+    if 'themes_custom' in data:
+        try:
+            theme_env = _validate_custom_themes(data.get('themes_custom'))
+        except ValueError as e:
+            return jsonify({"error": "Invalid themes: " + str(e)}), 400
+        set_clauses.append("themes_custom=%s"); params.append(json.dumps(theme_env))
 
     if 'theme' in data:
         theme = (data.get('theme') or '').strip()
-        allowed_themes = {'light', 'dark', 'ocean', 'forest', 'sunset', 'midnight', 'rose', 'purple', 'indigo'}
-        if theme not in allowed_themes:
+        ok = theme in ('light', 'dark')
+        if not ok and theme.startswith('custom:'):
+            # The referenced id must exist in the list being saved this request, or the
+            # list already stored server-side.
+            tid = theme.split(':', 1)[1]
+            ids = None
+            if theme_env is not None:
+                ids = {t['id'] for t in theme_env['themes']}
+            else:
+                conn0 = get_db()
+                try:
+                    with conn0.cursor() as cur0:
+                        cur0.execute("SELECT themes_custom FROM users WHERE id=%s", (session['user_id'],))
+                        r0 = cur0.fetchone()
+                    stored = (r0[0] if r0 else None) or {}
+                    if isinstance(stored, list):
+                        stored = {'themes': stored}
+                    ids = {t.get('id') for t in stored.get('themes', [])}
+                finally:
+                    release_db(conn0)
+            ok = tid in (ids or set())
+        if not ok:
             return jsonify({"error": "Invalid theme"}), 400
         set_clauses.append("theme=%s"); params.append(theme)
 
@@ -1613,10 +1800,26 @@ def save_prefs():
         with conn:
             with conn.cursor() as cur:
                 cur.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE id=%s", (*params, session['user_id']))
-        if 'theme' in data: session['theme'] = theme
+        if 'theme' in data:
+            session['theme'] = theme
+            # theme_dark drives the pre-paint base luminance on the next render.
+            session['theme_dark'] = _theme_is_dark(theme, theme_env if theme_env is not None else _current_themes_env())
         if 'personality' in data: session['personality'] = personality
         if 'analytics_currency' in data: session['analytics_currency'] = analytics_currency
         return jsonify({"ok": True})
+    finally:
+        release_db(conn)
+
+
+def _current_themes_env():
+    """Fetch the stored themes_custom envelope for the logged-in user (for theme_dark)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT themes_custom FROM users WHERE id=%s", (session['user_id'],))
+            r = cur.fetchone()
+        env = (r[0] if r else None) or {}
+        return env if isinstance(env, dict) else {'themes': env if isinstance(env, list) else []}
     finally:
         release_db(conn)
 
