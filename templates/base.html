@@ -322,14 +322,22 @@
   }
   function setTheme(name){
     // 'light' | 'dark' | 'custom:<id>' - theme-core.js owns class + token application.
-    if(window.fiappApplyTheme) fiappApplyTheme(name);
-    else document.documentElement.classList.toggle('dark',name==='dark');
+    // The UI updates run inside the same view-transition frame as the theme apply so
+    // the cross-fade captures the fully switched page (dropdown closed, chart recoloured).
+    var after=function(){
+      var _tb=document.getElementById('theme-btn');
+      if(_tb) _tb.textContent=window.fiappThemeLabel?fiappThemeLabel(name):name;
+      var _td=document.querySelector('.theme-dropdown');
+      if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
+      if(typeof renderChart==='function') renderChart();
+    };
+    if(window.fiappApplyThemeAnimated) fiappApplyThemeAnimated(name,after);
+    else{
+      if(window.fiappApplyTheme) fiappApplyTheme(name);
+      else document.documentElement.classList.toggle('dark',name==='dark');
+      after();
+    }
     localStorage.setItem('fiapp_theme',name);
-    var _tb=document.getElementById('theme-btn');
-    if(_tb) _tb.textContent=window.fiappThemeLabel?fiappThemeLabel(name):name;
-    var _td=document.querySelector('.theme-dropdown');
-    if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
-    if(typeof renderChart==='function') renderChart();
     if(_CSRF){ fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:name})}).catch(function(){}); }
   }
   window.setTheme=setTheme;
