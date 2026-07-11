@@ -206,9 +206,11 @@
   // ---- create / duplicate / delete -------------------------------------------
   function newFromPreset(name){
     var p = PRESETS[name]; if (!p) return;
+    // Keep the preset flag so an untouched Midnight can lock its Light button (below).
     startEditor({ id:'ct_'+rand8(), name: name.charAt(0).toUpperCase()+name.slice(1), mode:p.mode,
-      preset:null, seeds: Object.assign({}, p.seeds), overrides:{}, tokens: Object.assign({}, p.tokens) }, true);
+      preset:name, seeds: Object.assign({}, p.seeds), overrides:{}, tokens: Object.assign({}, p.tokens) }, true);
   }
+  function _isLightColor(hex){ try { return _lum(normHex(hex)) > 0.4; } catch(_) { return true; } }
   function newBlank(mode){
     var seeds = mode === 'dark' ? {accent:'#60a5fa',gradFrom:'#3b82f6',gradTo:'#22d3ee',tint:'#0f172a'}
                                 : {accent:'#7c3aed',gradFrom:'#7c3aed',gradTo:'#0891b2',tint:'#f1f2f8'};
@@ -239,12 +241,23 @@
     nameInp.value = draft.name;
     modeLight.classList.toggle('active', draft.mode === 'light');
     modeDark.classList.toggle('active', draft.mode === 'dark');
+    updateModeButtons();
     buildSeedInputs(); buildAdvanced(); liveApply();
     editorEl.style.display = 'block';
     feedback('');
     editorEl.scrollIntoView({block:'nearest'});
   }
   function closeEditor(){ editing = null; editorEl.style.display = 'none'; }
+
+  // Midnight exists to be a night theme: while it is still the untouched preset, its Light
+  // button is locked. Any edit clears the preset flag and unlocks it.
+  function updateModeButtons(){
+    var lock = !!(editing && editing.preset === 'midnight');
+    modeLight.disabled = lock;
+    modeLight.title = lock ? 'Midnight is a dark theme. Edit a colour to unlock a light variant.' : '';
+    modeLight.style.opacity = lock ? '.45' : '';
+    modeLight.style.cursor = lock ? 'not-allowed' : '';
+  }
 
   function buildSeedInputs(){
     seedWrap.innerHTML = '';
@@ -256,7 +269,7 @@
         editing.seeds[key] = inp.value;
         editing.preset = null;
         editing.tokens = Object.assign(seedsToTokens(editing.seeds, editing.mode), editing.overrides);
-        buildAdvanced(); liveApply();
+        updateModeButtons(); buildAdvanced(); liveApply();
       });
       var span = document.createElement('span'); span.textContent = SEED_LABELS[key];
       wrap.appendChild(inp); wrap.appendChild(span);
@@ -281,7 +294,7 @@
         var inp = document.createElement('input'); inp.type = 'color'; inp.value = normHex(editing.tokens[k]);
         inp.setAttribute('aria-label', k);
         inp.addEventListener('input', function(){
-          editing.tokens[k] = inp.value; editing.overrides[k] = inp.value; editing.preset = null; liveApply();
+          editing.tokens[k] = inp.value; editing.overrides[k] = inp.value; editing.preset = null; updateModeButtons(); liveApply();
         });
         row.appendChild(inp);
       } else {
@@ -294,14 +307,15 @@
 
   function normHex(v){ return (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? v : (/^#[0-9a-fA-F]{3}$/.test(v) ? mix(v, v, 0) : '#000000'); }
 
-  // Live preview: apply the draft's tokens to <html> without persisting.
+  // Live preview: apply the draft's tokens to <html> without persisting. One cssText write
+  // (not dozens of setProperty calls) keeps dragging a colour picker smooth.
   function liveApply(){
-    var el = document.documentElement;
-    for (var t in TOK) el.style.removeProperty(t);
+    var el = document.documentElement, css = '';
     el.classList.toggle('dark', editing.mode === 'dark');
     for (var k in editing.tokens){
-      if (TOK[k] && window.fiappValidTokenValue(TOK[k], editing.tokens[k])) el.style.setProperty(k, editing.tokens[k]);
+      if (TOK[k] && window.fiappValidTokenValue(TOK[k], editing.tokens[k])) css += k + ':' + editing.tokens[k] + ';';
     }
+    el.style.cssText = css;
     updateContrast();
   }
 
@@ -347,16 +361,22 @@
   // ---- wire static controls --------------------------------------------------
   card.querySelector('#ts-save').addEventListener('click', commit);
   card.querySelector('#ts-cancel').addEventListener('click', cancel);
-  modeLight.addEventListener('click', function(){ setMode('light'); });
+  modeLight.addEventListener('click', function(){ if (!modeLight.disabled) setMode('light'); });
   modeDark.addEventListener('click', function(){ setMode('dark'); });
   function setMode(mode){
     if (!editing || editing.mode === mode) return;
     editing.mode = mode;
+    // Re-base the background tint for the new mode: a light preset flipped to Dark gets a
+    // real dark, accent-tinted background (and a dark theme flipped to Light gets a light
+    // one) instead of an unreadable wrong-luminance background. Advanced overrides survive.
+    var tintLight = _isLightColor(editing.seeds.tint);
+    if (mode === 'dark' && tintLight) editing.seeds.tint = mix('#0f172a', editing.seeds.accent, 0.12);
+    else if (mode === 'light' && !tintLight) editing.seeds.tint = mix('#ffffff', editing.seeds.accent, 0.05);
     editing.tokens = Object.assign(seedsToTokens(editing.seeds, mode), editing.overrides);
     editing.preset = null;
     modeLight.classList.toggle('active', mode === 'light');
     modeDark.classList.toggle('active', mode === 'dark');
-    buildAdvanced(); liveApply();
+    updateModeButtons(); buildSeedInputs(); buildAdvanced(); liveApply();
   }
   nameInp.addEventListener('input', function(){ if (editing) editing.name = nameInp.value; });
 
