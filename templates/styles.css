@@ -145,6 +145,21 @@ body {
   transition: background .2s, color .2s;
 }
 
+/* Theme switching: theme-core.js wraps user-initiated switches in a View Transition
+   (compositor cross-fade of two full-page snapshots). While it runs, per-element
+   colour transitions are suppressed so nothing animates live underneath the fade -
+   live colour transitions re-rasterize every backdrop-filter surface per frame. */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after { transition: none !important; }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: .22s; }
+@media (prefers-reduced-motion: reduce){
+  ::view-transition-old(root),
+  ::view-transition-new(root){ animation: none; }
+}
+
 .error {
   background: var(--error-bg);
   padding: 0.75rem;
