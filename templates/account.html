@@ -547,39 +547,6 @@
     </p>
   </div>
 
-  </div><!-- /.account-grid -->
-
-  <div class="glass-panel" id="theme-studio">
-    <h2>🎨 Theme Studio</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Built-in themes are Light and Dark. Create your own from a preset or from scratch - changes preview live on this page. <span id="ts-count" style="color:var(--muted);"></span></p>
-    <div id="ts-list" class="ts-list"></div>
-    <div class="ts-new">
-      <span class="ts-new-label">Start from</span>
-      <div id="ts-new-buttons" class="ts-new-buttons"></div>
-    </div>
-
-    <div id="ts-editor" class="ts-editor" style="display:none;">
-      <div class="ts-editor-head">
-        <input type="text" id="ts-name" maxlength="24" placeholder="Theme name" aria-label="Theme name" class="ts-name-input">
-        <div class="ts-mode-toggle" role="group" aria-label="Base mode">
-          <button type="button" id="ts-mode-light" class="ts-mode-btn">Light</button>
-          <button type="button" id="ts-mode-dark" class="ts-mode-btn">Dark</button>
-        </div>
-      </div>
-      <div id="ts-seeds" class="ts-seeds"></div>
-      <div id="ts-contrast" class="ts-contrast"></div>
-      <details class="ts-adv-details">
-        <summary>Advanced - fine-tune individual colours</summary>
-        <div id="ts-advanced" class="ts-adv-grid"></div>
-      </details>
-      <div class="ts-editor-actions">
-        <button type="button" id="ts-save" class="btn btn-gradient btn-sm">Save theme</button>
-        <button type="button" id="ts-cancel" class="btn-ghost btn-sm">Cancel</button>
-        <span id="ts-feedback" class="ts-feedback"></span>
-      </div>
-    </div>
-  </div>
-
   <div class="glass-panel danger-card">
     <h2>⚠ Delete Account</h2>
     <p class="danger-warning">
@@ -617,6 +584,40 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /.account-grid -->
+
+  <div class="glass-panel" id="theme-studio">
+    <h2>🎨 Theme Studio</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Built-in themes are Light and Dark. Create your own from a preset or from scratch - changes preview live on this page. <span id="ts-count" style="color:var(--muted);"></span></p>
+    <div id="ts-list" class="ts-list"></div>
+    <div class="ts-new">
+      <span class="ts-new-label">Start from</span>
+      <div id="ts-new-buttons" class="ts-new-buttons"></div>
+    </div>
+
+    <div id="ts-editor" class="ts-editor" style="display:none;">
+      <div class="ts-editor-head">
+        <input type="text" id="ts-name" maxlength="24" placeholder="Theme name" aria-label="Theme name" class="ts-name-input">
+        <div class="ts-mode-toggle" role="group" aria-label="Base mode">
+          <button type="button" id="ts-mode-light" class="ts-mode-btn">Light</button>
+          <button type="button" id="ts-mode-dark" class="ts-mode-btn">Dark</button>
+        </div>
+      </div>
+      <div id="ts-seeds" class="ts-seeds"></div>
+      <div id="ts-contrast" class="ts-contrast"></div>
+      <details class="ts-adv-details">
+        <summary>Advanced - fine-tune individual colours</summary>
+        <div id="ts-advanced" class="ts-adv-grid"></div>
+      </details>
+      <div class="ts-editor-actions">
+        <button type="button" id="ts-save" class="btn btn-gradient btn-sm">Save theme</button>
+        <button type="button" id="ts-cancel" class="btn-ghost btn-sm">Cancel</button>
+        <span id="ts-feedback" class="ts-feedback"></span>
+      </div>
+    </div>
+  </div>
+
 {% endblock %}
 
 {% block body_scripts %}
