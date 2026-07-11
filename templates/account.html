@@ -20,6 +20,47 @@
     #rev-details summary:hover { text-decoration: underline; }
     #rev-details[open] summary { margin-bottom: .6rem; }
 
+    /* Theme Studio */
+    #theme-studio h2 { display: flex; align-items: baseline; }
+    #ts-count { margin-left: auto; font-size: .8rem; font-weight: 400; }
+    .ts-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
+    .ts-empty { color: var(--muted); font-size: .88rem; margin: 0; }
+    .ts-row { display: flex; align-items: center; gap: .7rem; padding: .55rem .7rem; border: 1px solid var(--panel-border); border-radius: 12px; flex-wrap: wrap; }
+    .ts-swatches { display: inline-flex; flex-shrink: 0; }
+    .ts-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--panel-bg); margin-left: -6px; box-shadow: 0 0 0 1px var(--panel-border); }
+    .ts-swatch:first-child { margin-left: 0; }
+    .ts-row-name { font-size: .9rem; font-weight: 500; flex: 1; min-width: 100px; }
+    .ts-row-actions { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .ts-row-actions .btn-sm { padding: .28rem .6rem; font-size: .8rem; }
+    .ts-danger { color: var(--sem-bad); border-color: var(--sem-bad); }
+    .ts-new { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .ts-new-label { font-size: .82rem; color: var(--muted); font-weight: 600; }
+    .ts-new-buttons { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .ts-chip { font-size: .8rem; padding: .3rem .7rem; border-radius: 999px; border: 1px solid var(--panel-border); background: var(--input-bg); color: var(--fg); cursor: pointer; font-family: inherit; }
+    .ts-chip:hover { border-color: var(--accent); }
+    .ts-chip-blank { border-style: dashed; color: var(--muted); }
+    .ts-editor { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--panel-border); }
+    .ts-editor-head { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-bottom: .9rem; }
+    .ts-name-input { width: 180px; padding: .45rem .7rem; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--fg); font-size: .9rem; font-family: inherit; }
+    .ts-mode-toggle { display: inline-flex; border: 1px solid var(--panel-border); border-radius: 999px; overflow: hidden; }
+    .ts-mode-btn { padding: .4rem .9rem; background: none; border: none; font-size: .82rem; color: var(--muted); cursor: pointer; font-family: inherit; }
+    .ts-mode-btn.active { background: var(--accent-strong); color: #fff; }
+    .ts-seeds { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin-bottom: .8rem; }
+    .ts-seed { display: flex; align-items: center; gap: .5rem; font-size: .85rem; color: var(--fg); }
+    .ts-seed input[type=color] { width: 40px; height: 32px; padding: 0; border: 1px solid var(--input-border); border-radius: 6px; background: none; cursor: pointer; flex-shrink: 0; }
+    .ts-contrast { margin-bottom: .8rem; }
+    .ts-badge { font-size: .78rem; font-weight: 600; padding: .25rem .6rem; border-radius: 999px; }
+    .ts-badge-ok { background: var(--sem-ok-bg); color: var(--sem-ok); }
+    .ts-badge-bad { background: var(--sem-bad-bg); color: var(--sem-bad); }
+    .ts-adv-details summary { cursor: pointer; font-size: .85rem; font-weight: 600; color: var(--accent-strong); margin-bottom: .5rem; }
+    .ts-adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .4rem .9rem; max-height: 320px; overflow-y: auto; padding: .3rem; }
+    .ts-adv-row { display: flex; align-items: center; gap: .5rem; font-size: .78rem; }
+    .ts-adv-label { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ts-adv-row input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--input-border); border-radius: 5px; background: none; cursor: pointer; flex-shrink: 0; }
+    .ts-adv-chip { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .ts-editor-actions { display: flex; align-items: center; gap: .6rem; margin-top: 1rem; flex-wrap: wrap; }
+    .ts-feedback { font-size: .82rem; }
+
     .glass-panel h2 {
       font-size: 1rem;
       font-weight: 700;
@@ -507,6 +548,37 @@
   </div>
 
   </div><!-- /.account-grid -->
+
+  <div class="glass-panel" id="theme-studio">
+    <h2>🎨 Theme Studio</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Built-in themes are Light and Dark. Create your own from a preset or from scratch - changes preview live on this page. <span id="ts-count" style="color:var(--muted);"></span></p>
+    <div id="ts-list" class="ts-list"></div>
+    <div class="ts-new">
+      <span class="ts-new-label">Start from</span>
+      <div id="ts-new-buttons" class="ts-new-buttons"></div>
+    </div>
+
+    <div id="ts-editor" class="ts-editor" style="display:none;">
+      <div class="ts-editor-head">
+        <input type="text" id="ts-name" maxlength="24" placeholder="Theme name" aria-label="Theme name" class="ts-name-input">
+        <div class="ts-mode-toggle" role="group" aria-label="Base mode">
+          <button type="button" id="ts-mode-light" class="ts-mode-btn">Light</button>
+          <button type="button" id="ts-mode-dark" class="ts-mode-btn">Dark</button>
+        </div>
+      </div>
+      <div id="ts-seeds" class="ts-seeds"></div>
+      <div id="ts-contrast" class="ts-contrast"></div>
+      <details class="ts-adv-details">
+        <summary>Advanced - fine-tune individual colours</summary>
+        <div id="ts-advanced" class="ts-adv-grid"></div>
+      </details>
+      <div class="ts-editor-actions">
+        <button type="button" id="ts-save" class="btn btn-gradient btn-sm">Save theme</button>
+        <button type="button" id="ts-cancel" class="btn-ghost btn-sm">Cancel</button>
+        <span id="ts-feedback" class="ts-feedback"></span>
+      </div>
+    </div>
+  </div>
 
   <div class="glass-panel danger-card">
     <h2>⚠ Delete Account</h2>
@@ -1134,6 +1206,12 @@ document.addEventListener('DOMContentLoaded',function(){
 (function(){
   var cb = document.getElementById('voice-always-confirm');
   if (cb) cb.checked = localStorage.getItem('fiapp_voice_always_confirm') === 'true';
+  // Deep link from the theme dropdown's "New theme" entry.
+  if (location.hash === '#theme-studio'){
+    var el = document.getElementById('theme-studio');
+    if (el) el.scrollIntoView({block:'start'});
+  }
 })();
 </script>
+<script src="/static/js/theme-studio.js?v={{ ASSET_V }}"></script>
 {% endblock %}
