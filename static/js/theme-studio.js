@@ -342,6 +342,8 @@
     var env = envelope();
     var idx = -1;
     env.themes.forEach(function(t, i){ if (t.id === editing.id) idx = i; });
+    var dupe = env.themes.some(function(t, i){ return i !== idx && t.name.toLowerCase() === name.toLowerCase(); });
+    if (dupe){ feedback('You already have a theme named "' + name + '". Pick a different name.', 'bad'); return; }
     if (idx === -1 && env.themes.length >= MAX){ feedback('Theme limit reached (' + MAX + ').', 'bad'); return; }
     var clean = { id: editing.id, name: name, mode: editing.mode, preset: editing.preset,
       seeds: editing.seeds, overrides: editing.overrides, tokens: editing.tokens };
