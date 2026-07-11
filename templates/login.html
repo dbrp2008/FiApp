@@ -340,13 +340,19 @@ function setTheme(name){
   // Pre-auth picker offers Light/Dark only; theme-core owns class + token application
   // (a cached custom theme still applies at boot, and picking here replaces it, exactly
   // like choosing a different theme always did).
-  if(window.fiappApplyTheme) fiappApplyTheme(name);
-  else document.documentElement.classList.toggle('dark',name==='dark');
+  var after=function(){
+    var _tb=document.getElementById('theme-btn');
+    if(_tb) _tb.textContent=window.fiappThemeLabel?fiappThemeLabel(name):name;
+    var _td=document.querySelector('.theme-dropdown');
+    if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
+  };
+  if(window.fiappApplyThemeAnimated) fiappApplyThemeAnimated(name,after);
+  else{
+    if(window.fiappApplyTheme) fiappApplyTheme(name);
+    else document.documentElement.classList.toggle('dark',name==='dark');
+    after();
+  }
   localStorage.setItem('fiapp_theme',name);
-  var _tb=document.getElementById('theme-btn');
-  if(_tb) _tb.textContent=window.fiappThemeLabel?fiappThemeLabel(name):name;
-  var _td=document.querySelector('.theme-dropdown');
-  if(_td){ _td.classList.remove('open'); _td.querySelectorAll('.theme-opt').forEach(function(o){ o.classList.toggle('active',o.dataset.theme===name); }); }
 }
 function toggleThemeMenu(btn){
   const drop=btn.nextElementSibling;
