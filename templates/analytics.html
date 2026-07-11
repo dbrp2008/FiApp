@@ -394,19 +394,31 @@ function renderAll(){
       pill.setAttribute('data-wt','analytics-period');
       const prevBtn=document.createElement('button');
       prevBtn.id='ana-prev-btn'; prevBtn.setAttribute('aria-label','Previous month'); prevBtn.textContent='‹';
-      // A native <select>'s closed control can be themed, but its open option list is
-      // rendered by the OS/browser and ignores CSS entirely (no background, no blur) -
-      // so a real glass look needs a custom-built menu instead, same as the export/
-      // copy-to menus elsewhere in the app.
-      const monthBtn=document.createElement('button');
-      monthBtn.type='button'; monthBtn.id='ana-month-lbl'; monthBtn.className='ana-month-btn';
-      monthBtn.setAttribute('aria-haspopup','listbox');
-      monthBtn.addEventListener('click',function(e){ e.stopPropagation(); toggleAnaMonthMenu(monthBtn); });
+      // Desktop (fine pointer + hover) gets the custom glass menu: a native <select>'s open
+      // option list is OS-rendered and ignores our glass styling. Touch devices fall through
+      // to the native picker instead - same split every other dropdown uses via glass-picker.js.
+      const _anaDesktop=!(!window.matchMedia||!window.matchMedia('(hover:hover) and (pointer:fine)').matches);
+      let monthCtrl;
+      if(_anaDesktop){
+        monthCtrl=document.createElement('button');
+        monthCtrl.type='button'; monthCtrl.id='ana-month-lbl'; monthCtrl.className='ana-month-btn';
+        monthCtrl.setAttribute('aria-haspopup','listbox');
+        monthCtrl.addEventListener('click',function(e){ e.stopPropagation(); toggleAnaMonthMenu(monthCtrl); });
+      } else {
+        monthCtrl=document.createElement('select');
+        monthCtrl.id='ana-month-sel'; monthCtrl.className='ana-month-native';
+        monthCtrl.setAttribute('aria-label','Select month');
+        _allMonths.forEach(function(m2){
+          const o=document.createElement('option'); o.value=m2; o.textContent=_anaMonthFullLabel(m2);
+          if(m2===_anaMK) o.selected=true; monthCtrl.appendChild(o);
+        });
+        monthCtrl.addEventListener('change',function(){ _anaMK=monthCtrl.value; _saveAnaMK(); _updateAnaMonthLabel(); renderHeroStats(); });
+      }
       const nextBtn=document.createElement('button');
       nextBtn.id='ana-next-btn'; nextBtn.setAttribute('aria-label','Next month'); nextBtn.textContent='›';
       prevBtn.addEventListener('click',()=>shiftAnaMonth(-1));
       nextBtn.addEventListener('click',()=>shiftAnaMonth(1));
-      pill.appendChild(prevBtn); pill.appendChild(monthBtn); pill.appendChild(nextBtn);
+      pill.appendChild(prevBtn); pill.appendChild(monthCtrl); pill.appendChild(nextBtn);
       headRight.appendChild(pill);
       _updateAnaMonthLabel();
     }
@@ -636,10 +648,12 @@ function toggleAnaMonthMenu(btn){
   setTimeout(()=>document.addEventListener('click',closeAnaMonthMenu,true),0);
 }
 function _updateAnaMonthLabel(){
-  const btn=document.getElementById('ana-month-lbl');
-  if(!btn||!_anaMK) return;
+  if(!_anaMK) return;
   const idx=_allMonths.indexOf(_anaMK);
-  btn.textContent=_anaMonthFullLabel(_anaMK);
+  const btn=document.getElementById('ana-month-lbl');            // desktop glass control
+  if(btn) btn.textContent=_anaMonthFullLabel(_anaMK);
+  const sel=document.getElementById('ana-month-sel');            // mobile native control
+  if(sel&&sel.value!==_anaMK) sel.value=_anaMK;
   const prevBtn=document.getElementById('ana-prev-btn');
   const nextBtn=document.getElementById('ana-next-btn');
   if(prevBtn) prevBtn.disabled=idx<=0;
