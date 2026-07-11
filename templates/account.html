@@ -21,6 +21,7 @@
     #rev-details[open] summary { margin-bottom: .6rem; }
 
     /* Theme Studio */
+    #theme-studio { margin-top: 2rem; }
     #theme-studio h2 { display: flex; align-items: baseline; }
     #ts-count { margin-left: auto; font-size: .8rem; font-weight: 400; }
     .ts-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
@@ -357,97 +358,7 @@
   </div>
 
   <div class="glass-panel">
-    <h2>📥 Export &amp; Backup</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download a CSV for spreadsheets, or a full JSON backup that preserves everything CSV drops - goals, per-row currencies, and multi-month history. Restoring a backup replaces your current data.</p>
-    <button class="btn btn-gradient btn-primary" id="export-csv-btn">Export all data as CSV</button>
-    <button class="btn btn-gradient btn-primary" id="export-backup-btn" style="margin-left:.5rem;">Download full backup (JSON)</button>
-    <div style="margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--panel-border);">
-      <button class="btn btn-glass btn-ghost" id="restore-backup-btn">Restore from backup…</button>
-      <input type="file" id="restore-backup-file" accept="application/json,.json" style="display:none;" />
-      <div class="change-feedback" id="restore-feedback"></div>
-    </div>
-  </div>
-
-  <div class="glass-panel">
-    <h2>🕐 Version History</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">FiApp keeps your last 20 saves of each tracker. If something looks wrong, step back to an earlier version - your current data stays in this list too, so this can itself be undone.</p>
-    <details id="rev-details">
-      <summary>Show version history</summary>
-      <label for="rev-tracker-select" style="font-size:.85rem;font-weight:600;color:var(--fg);display:block;margin-bottom:.3rem;">Tracker</label>
-      <select id="rev-tracker-select">
-        <option value="expenses">Expenses</option>
-        <option value="subs">Subscriptions</option>
-        <option value="income">Income</option>
-      </select>
-      <div id="rev-list" style="margin-top:.85rem;"></div>
-      <div class="change-feedback" id="rev-feedback"></div>
-    </details>
-  </div>
-
-  <div class="glass-panel">
-    <h2>🧭 App Walkthrough</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">New to FiApp or want a refresher? Start the guided tour - Fi will walk you through every tool.</p>
-    <button class="btn btn-gradient btn-primary" id="wt-acct-btn">Start Walkthrough</button>
-  </div>
-  <script nonce="{{ csp_nonce }}">
-  (function(){
-    var wt=null;try{wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');}catch{}
-    var btn=document.getElementById('wt-acct-btn');
-    if(btn&&wt&&wt.mainCompleted) btn.textContent=(wt.seen&&wt.seen.length>0)?'Continue Walkthrough':'Restart Walkthrough';
-  })();
-  </script>
-
-  <div class="glass-panel">
-    <h2>🎭 App Personality</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Tone and motion only - no functionality changes. Default is exactly how FiApp behaves today.</p>
-    <input type="range" id="personality-slider" min="0" max="2" step="1" value="1" aria-label="App personality">
-    <div class="personality-labels">
-      <span data-v="0">Playful</span>
-      <span data-v="1">Default</span>
-      <span data-v="2">Quiet</span>
-    </div>
-  </div>
-  <script nonce="{{ csp_nonce }}">
-  (function(){
-    var PMAP=['playful','balanced','quiet'];
-    var slider=document.getElementById('personality-slider');
-    if(!slider) return;
-    var current=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
-    var idx=PMAP.indexOf(current); if(idx<0) idx=1;
-    slider.value=idx;
-    function syncLabels(){
-      document.querySelectorAll('.personality-labels span').forEach(function(s){
-        s.classList.toggle('active', s.dataset.v===slider.value);
-      });
-    }
-    syncLabels();
-    slider.addEventListener('input', syncLabels);
-    slider.addEventListener('change', function(){ setPersonality(PMAP[slider.value]); });
-    // Clicking a label jumps the slider to that stop (easier than dragging to an exact detent).
-    document.querySelectorAll('.personality-labels span').forEach(function(s){
-      s.addEventListener('click', function(){
-        slider.value = s.dataset.v; syncLabels(); setPersonality(PMAP[slider.value]);
-      });
-    });
-  })();
-  </script>
-
-  <!-- App Lock (native app only - revealed by native-lock.js when running in the Capacitor shell) -->
-  <div class="glass-panel" style="display:none;" id="app-lock-card">
-    <h2>🔒 App Lock</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Require a fingerprint, face unlock, or your device screen lock each time you open FiApp on this device.</p>
-    <div class="info-row" style="justify-content:space-between;align-items:center;">
-      <span class="info-label">Lock this app</span>
-      <label class="voice-toggle-label">
-        <input type="checkbox" id="app-lock-toggle">
-        <span class="voice-toggle-track"></span>
-      </label>
-    </div>
-    <span id="app-lock-feedback" style="display:none;font-size:.85rem;margin-top:.5rem;"></span>
-  </div>
-
-  <div class="glass-panel">
-    <h2>💱 Home Currency</h2>
+    <h2>� Home Currency</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">The currency your expense numbers are already in. Subscriptions and income with their own currency tags are converted to this for analytics.</p>
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;">
       {% set home_codes = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'] %}
@@ -532,19 +443,94 @@
   })();
   </script>
 
-  <!-- Voice Settings (mobile only — voice FAB is not shown on desktop) -->
-  <div class="glass-panel" style="display:none;" id="voice-settings-card">
-    <h3>Voice Input</h3>
+  <div class="glass-panel">
+    <h2>🕐 Version History</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">FiApp keeps your last 20 saves of each tracker. If something looks wrong, step back to an earlier version - your current data stays in this list too, so this can itself be undone.</p>
+    <details id="rev-details">
+      <summary>Show version history</summary>
+      <label for="rev-tracker-select" style="font-size:.85rem;font-weight:600;color:var(--fg);display:block;margin-bottom:.3rem;">Tracker</label>
+      <select id="rev-tracker-select">
+        <option value="expenses">Expenses</option>
+        <option value="subs">Subscriptions</option>
+        <option value="income">Income</option>
+      </select>
+      <div id="rev-list" style="margin-top:.85rem;"></div>
+      <div class="change-feedback" id="rev-feedback"></div>
+    </details>
+  </div>
+
+  <div class="glass-panel">
+    <h2>🧭 App Walkthrough</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">New to FiApp or want a refresher? Start the guided tour - Fi will walk you through every tool.</p>
+    <button class="btn btn-gradient btn-primary" id="wt-acct-btn">Start Walkthrough</button>
+  </div>
+  <script nonce="{{ csp_nonce }}">
+  (function(){
+    var wt=null;try{wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');}catch{}
+    var btn=document.getElementById('wt-acct-btn');
+    if(btn&&wt&&wt.mainCompleted) btn.textContent=(wt.seen&&wt.seen.length>0)?'Continue Walkthrough':'Restart Walkthrough';
+  })();
+  </script>
+
+  <div class="glass-panel">
+    <h2>🎭 App Personality</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Tone and motion only - no functionality changes. Default is exactly how FiApp behaves today.</p>
+    <input type="range" id="personality-slider" min="0" max="2" step="1" value="1" aria-label="App personality">
+    <div class="personality-labels">
+      <span data-v="0">Playful</span>
+      <span data-v="1">Default</span>
+      <span data-v="2">Quiet</span>
+    </div>
+  </div>
+  <script nonce="{{ csp_nonce }}">
+  (function(){
+    var PMAP=['playful','balanced','quiet'];
+    var slider=document.getElementById('personality-slider');
+    if(!slider) return;
+    var current=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
+    var idx=PMAP.indexOf(current); if(idx<0) idx=1;
+    slider.value=idx;
+    function syncLabels(){
+      document.querySelectorAll('.personality-labels span').forEach(function(s){
+        s.classList.toggle('active', s.dataset.v===slider.value);
+      });
+    }
+    syncLabels();
+    slider.addEventListener('input', syncLabels);
+    slider.addEventListener('change', function(){ setPersonality(PMAP[slider.value]); });
+    // Clicking a label jumps the slider to that stop (easier than dragging to an exact detent).
+    document.querySelectorAll('.personality-labels span').forEach(function(s){
+      s.addEventListener('click', function(){
+        slider.value = s.dataset.v; syncLabels(); setPersonality(PMAP[slider.value]);
+      });
+    });
+  })();
+  </script>
+
+  <!-- App Lock (native app only - revealed by native-lock.js when running in the Capacitor shell) -->
+  <div class="glass-panel" style="display:none;" id="app-lock-card">
+    <h2>🔒 App Lock</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Require a fingerprint, face unlock, or your device screen lock each time you open FiApp on this device.</p>
     <div class="info-row" style="justify-content:space-between;align-items:center;">
-      <span class="info-label">Always confirm before logging</span>
+      <span class="info-label">Lock this app</span>
       <label class="voice-toggle-label">
-        <input type="checkbox" id="voice-always-confirm">
+        <input type="checkbox" id="app-lock-toggle">
         <span class="voice-toggle-track"></span>
       </label>
     </div>
-    <p style="font-size:.8rem;color:var(--muted);margin-top:.4rem;">
-      When off, high-confidence entries log instantly without a confirmation sheet.
-    </p>
+    <span id="app-lock-feedback" style="display:none;font-size:.85rem;margin-top:.5rem;"></span>
+  </div>
+
+  <div class="glass-panel">
+    <h2>📥 Export &amp; Backup</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download a CSV for spreadsheets, or a full JSON backup that preserves everything CSV drops - goals, per-row currencies, and multi-month history. Restoring a backup replaces your current data.</p>
+    <button class="btn btn-gradient btn-primary" id="export-csv-btn">Export all data as CSV</button>
+    <button class="btn btn-gradient btn-primary" id="export-backup-btn" style="margin-left:.5rem;">Download full backup (JSON)</button>
+    <div style="margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--panel-border);">
+      <button class="btn btn-glass btn-ghost" id="restore-backup-btn">Restore from backup…</button>
+      <input type="file" id="restore-backup-file" accept="application/json,.json" style="display:none;" />
+      <div class="change-feedback" id="restore-feedback"></div>
+    </div>
   </div>
 
   <div class="glass-panel danger-card">
