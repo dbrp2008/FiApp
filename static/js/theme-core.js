@@ -226,6 +226,30 @@
     return { ok: ok, mode: mode };
   }
 
+  // Animated wrapper for user-initiated theme switches. Live CSS colour transitions
+  // force the browser to re-rasterize every backdrop-filter surface on every frame for
+  // the whole fade (visibly janky at fullscreen); a View Transition paints the old and
+  // new theme once each and cross-fades the two snapshots on the compositor at 60fps.
+  // The 'theme-switching' class (styles.css) suppresses per-element colour transitions
+  // so the "new" snapshot is captured fully switched. Falls back to an instant swap
+  // when the API is missing or the user prefers reduced motion.
+  function fiappApplyThemeAnimated(value, afterApply){
+    var el = document.documentElement, reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(_) {}
+    if (!document.startViewTransition || reduce) {
+      var r = fiappApplyTheme(value);
+      if (afterApply) { try { afterApply(); } catch(_) {} }
+      return r;
+    }
+    el.classList.add('theme-switching');
+    var done = function(){ el.classList.remove('theme-switching'); };
+    var vt = document.startViewTransition(function(){
+      fiappApplyTheme(value);
+      if (afterApply) { try { afterApply(); } catch(_) {} }
+    });
+    vt.finished.then(done, done);
+  }
+
   // ---- Boot + legacy migration ------------------------------------------------
   var LEGACY = { ocean:1, forest:1, sunset:1, midnight:1, rose:1, purple:1, indigo:1 };
   var MAX_THEMES = 10;
@@ -298,6 +322,7 @@
   window.FIAPP_MAX_THEMES = MAX_THEMES;
   window.fiappThemesCache = fiappThemesCache;
   window.fiappApplyTheme = fiappApplyTheme;
+  window.fiappApplyThemeAnimated = fiappApplyThemeAnimated;
   window.fiappThemeBoot = fiappThemeBoot;
   window.fiappThemeLabel = fiappThemeLabel;
   window.fiappValidTokenValue = fiappValidTokenValue;
