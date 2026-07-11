@@ -171,7 +171,8 @@
   }
 
   function applyTheme(value){
-    fiappApplyTheme(value);
+    if (window.fiappApplyThemeAnimated) fiappApplyThemeAnimated(value);
+    else fiappApplyTheme(value);
     localStorage.setItem('fiapp_theme', value);
     persistActive(value);
     if (window.setTheme) { /* keep topbar in sync without re-persisting */ }
