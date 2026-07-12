@@ -114,6 +114,12 @@ function _mergeTrackerBlobs(localBlob, serverBlob) {
   // both sides have the same month - same principle as the row/col id-union above.
   if (local.income || server.income) merged.income = Object.assign({}, server.income || {}, local.income || {});
 
+  // recurringRules ride the wholesale server copy, but on the dirty/409 path the local
+  // device may hold rules the server hasn't seen yet - keep local when the server has none.
+  if (local.recurringRules && (!server.recurringRules || !server.recurringRules.length)) {
+    merged.recurringRules = local.recurringRules;
+  }
+
   var localCells  = local.cells      || {};
   var localTimes  = local.cellTimes  || {};
   var serverCells = server.cells     || {};
