@@ -17,10 +17,19 @@
        short instead of stacking a dozen panels. Cards are tagged data-group="..."; the
        controller toggles .tab-hidden on the rest. !important beats the inline display
        toggling that App Lock / Push cards use when the native shell reveals them. */
-    .settings-tabs { display:flex; gap:.25rem; background:var(--panel-border); padding:4px; border-radius:999px; margin:0 0 1.5rem; max-width:540px; flex-wrap:wrap; }
+    .settings-tabs { display:flex; gap:.25rem; background:var(--panel-border); padding:4px; border-radius:999px; margin:0 0 1.5rem; max-width:540px; }
     .settings-tab { flex:1 1 auto; min-width:84px; padding:.5rem .9rem; border:none; background:none; border-radius:999px; font-family:inherit; font-size:.85rem; font-weight:600; color:var(--muted); cursor:pointer; transition:background .15s, color .15s; }
     .settings-tab.active { background:var(--panel-bg); color:var(--fg); box-shadow:0 2px 6px rgba(31,41,55,.10); }
     .settings-tab:hover:not(.active) { color:var(--fg); }
+    /* Below ~360px for 4 tabs, a single-row pill can't fit them all; a wrapped flex row
+       stretches whichever tab lands alone on the second line to fill it (the "Danger" bug)
+       and the 999px radius sized for one row no longer matches a two-row box. A 2x2 grid
+       gives every tab an equal-size cell regardless of row, and a smaller fixed radius fits
+       the taller box cleanly. */
+    @media (max-width: 560px) {
+      .settings-tabs { display:grid; grid-template-columns:repeat(2, 1fr); border-radius:var(--r-lg, 18px); max-width:100%; }
+      .settings-tab { min-width:0; }
+    }
     .settings-tab:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
     .tab-hidden { display:none !important; }
 
