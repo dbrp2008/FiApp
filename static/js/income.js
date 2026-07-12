@@ -1780,12 +1780,28 @@ function renderMobileCards(){
         const ef=document.createElement('div');ef.className='mc-ef';
         const lbl=document.createElement('div');lbl.className='mc-el';lbl.textContent=col.label;
         const er=document.createElement('div');er.className='mc-er';
+        const modeBtn=document.createElement('button');modeBtn.type='button';modeBtn.className='mc-mode-toggle';modeBtn.textContent='+';
+        modeBtn.setAttribute('aria-label','Switch to subtract from the current value');
         const inp=document.createElement('input');inp.type='number';inp.inputMode='decimal';inp.className='mc-ei';
-        inp.value=getRawCell(row.id,col.id)||'';
+        const origVal=getRawCell(row.id,col.id)||'';
+        inp.value=origVal;
         const sel=document.createElement('select');sel.className='mc-ec';
         codes.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;if(c===cur)o.selected=true;sel.appendChild(o);});
-        er.appendChild(inp);er.appendChild(sel);
-        inputs.push({inp,sel,col});
+        // Default (+) types the new value outright, same as today. Toggling to (-) clears
+        // the field so the typed number is a delta subtracted from the existing value on
+        // Save - fixes a typo (560 meant 550: tap -, type 10) without mental math, which
+        // the desktop grid doesn't need since clicking the cell already retypes in place.
+        modeBtn.addEventListener('click',e=>{
+          e.stopPropagation();
+          const sub=modeBtn.classList.toggle('mc-mode-sub');
+          modeBtn.textContent=sub?'−':'+';
+          modeBtn.setAttribute('aria-label',sub?'Switch back to entering the exact value':'Switch to subtract from the current value');
+          inp.dataset.mode=sub?'sub':'set';
+          if(sub){ inp.value=''; inp.placeholder='Amount to subtract'; inp.focus(); }
+          else { inp.value=origVal; inp.placeholder=''; }
+        });
+        er.appendChild(modeBtn);er.appendChild(inp);er.appendChild(sel);
+        inputs.push({inp,sel,col,origVal});
         ef.appendChild(lbl);ef.appendChild(er);grid.appendChild(ef);
       });
       form.appendChild(grid);
@@ -1798,8 +1814,15 @@ function renderMobileCards(){
         snapshot();
         const newCur=inputs[0].sel.value;
         setRowCurrency(currentMK(),row.id,newCur);
-        inputs.forEach(({inp,col})=>{
+        inputs.forEach(({inp,col,origVal})=>{
           const v=inp.value.trim();
+          if(inp.dataset.mode==='sub'){
+            if(v===''||isNaN(parseFloat(v))) return; // nothing typed - leave the existing value as-is
+            const next=Math.max(0,(parseFloat(origVal)||0)-parseFloat(v));
+            if(next===0) delete state.cells[ck(row.id,col.id)];
+            else state.cells[ck(row.id,col.id)]=String(next);
+            return;
+          }
           if(v===''||isNaN(parseFloat(v))) delete state.cells[ck(row.id,col.id)];
           else state.cells[ck(row.id,col.id)]=v;
         });
