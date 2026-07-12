@@ -1780,28 +1780,12 @@ function renderMobileCards(){
         const ef=document.createElement('div');ef.className='mc-ef';
         const lbl=document.createElement('div');lbl.className='mc-el';lbl.textContent=col.label;
         const er=document.createElement('div');er.className='mc-er';
-        const modeBtn=document.createElement('button');modeBtn.type='button';modeBtn.className='mc-mode-toggle';modeBtn.textContent='+';
-        modeBtn.setAttribute('aria-label','Switch to subtract from the current value');
         const inp=document.createElement('input');inp.type='number';inp.inputMode='decimal';inp.className='mc-ei';
-        const origVal=getRawCell(row.id,col.id)||'';
-        inp.value=origVal;
+        inp.value=getRawCell(row.id,col.id)||'';
         const sel=document.createElement('select');sel.className='mc-ec';
         codes.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;if(c===cur)o.selected=true;sel.appendChild(o);});
-        // Default (+) types the new value outright, same as today. Toggling to (-) clears
-        // the field so the typed number is a delta subtracted from the existing value on
-        // Save - fixes a typo (560 meant 550: tap -, type 10) without mental math, which
-        // the desktop grid doesn't need since clicking the cell already retypes in place.
-        modeBtn.addEventListener('click',e=>{
-          e.stopPropagation();
-          const sub=modeBtn.classList.toggle('mc-mode-sub');
-          modeBtn.textContent=sub?'−':'+';
-          modeBtn.setAttribute('aria-label',sub?'Switch back to entering the exact value':'Switch to subtract from the current value');
-          inp.dataset.mode=sub?'sub':'set';
-          if(sub){ inp.value=''; inp.placeholder='Amount to subtract'; inp.focus(); }
-          else { inp.value=origVal; inp.placeholder=''; }
-        });
-        er.appendChild(modeBtn);er.appendChild(inp);er.appendChild(sel);
-        inputs.push({inp,sel,col,origVal});
+        er.appendChild(inp);er.appendChild(sel);
+        inputs.push({inp,sel,col});
         ef.appendChild(lbl);ef.appendChild(er);grid.appendChild(ef);
       });
       form.appendChild(grid);
@@ -1814,15 +1798,8 @@ function renderMobileCards(){
         snapshot();
         const newCur=inputs[0].sel.value;
         setRowCurrency(currentMK(),row.id,newCur);
-        inputs.forEach(({inp,col,origVal})=>{
+        inputs.forEach(({inp,col})=>{
           const v=inp.value.trim();
-          if(inp.dataset.mode==='sub'){
-            if(v===''||isNaN(parseFloat(v))) return; // nothing typed - leave the existing value as-is
-            const next=Math.max(0,(parseFloat(origVal)||0)-parseFloat(v));
-            if(next===0) delete state.cells[ck(row.id,col.id)];
-            else state.cells[ck(row.id,col.id)]=String(next);
-            return;
-          }
           if(v===''||isNaN(parseFloat(v))) delete state.cells[ck(row.id,col.id)];
           else state.cells[ck(row.id,col.id)]=v;
         });
@@ -2552,6 +2529,7 @@ function openQuickAdd(){
     chips.appendChild(chip);
   });
   document.getElementById('qa-amount').value='';
+  _qaSetSign('add'); // always reopen in Add mode - Subtract never carries over between uses
   backdrop.classList.add('open'); sheet.classList.add('open');
   document.body.style.overflow='hidden';
   setTimeout(function(){ var a=document.getElementById('qa-amount'); if(a) a.focus(); },50);
@@ -2562,6 +2540,20 @@ function closeQuickAdd(){
   if(sheet) sheet.classList.remove('open');
   if(backdrop) backdrop.classList.remove('open');
   document.body.style.overflow='';
+}
+// The quick-add FAB's only mode used to be "add to this cell" - there was no
+// mobile-friendly way to record a correction without opening the row and doing the
+// subtraction by hand. This toggle picks the sign; the amount you type is always
+// entered as a positive magnitude.
+function _qaSetSign(sign){
+  var addBtn=document.getElementById('qa-sign-add'), subBtn=document.getElementById('qa-sign-sub');
+  if(!addBtn||!subBtn) return;
+  addBtn.classList.toggle('selected',sign==='add');
+  subBtn.classList.toggle('selected',sign==='sub');
+}
+function _qaSign(){
+  var subBtn=document.getElementById('qa-sign-sub');
+  return (subBtn&&subBtn.classList.contains('selected'))?'sub':'add';
 }
 function saveQuickAdd(){
   var amt=parseFloat(document.getElementById('qa-amount').value);
@@ -2574,7 +2566,8 @@ function saveQuickAdd(){
   snapshot();
   var key=ck(chip.dataset.rowId,col.id);
   var existing=parseFloat(state.cells[key])||0;
-  state.cells[key]=(existing+amt).toFixed(2);
+  var next=_qaSign()==='sub'?Math.max(0,existing-amt):existing+amt;
+  if(next===0) delete state.cells[key]; else state.cells[key]=next.toFixed(2);
   save(); render();
   closeQuickAdd();
 }
@@ -2606,6 +2599,9 @@ function saveQuickAdd(){
   if(saveBtn) saveBtn.addEventListener('click',saveQuickAdd);
   var backdrop=document.getElementById('qa-backdrop');
   if(backdrop) backdrop.addEventListener('click',closeQuickAdd);
+  var signAddBtn=document.getElementById('qa-sign-add'), signSubBtn=document.getElementById('qa-sign-sub');
+  if(signAddBtn) signAddBtn.addEventListener('click',function(){ _qaSetSign('add'); });
+  if(signSubBtn) signSubBtn.addEventListener('click',function(){ _qaSetSign('sub'); });
 })();
 
 (function(){var b=document.getElementById('close-modal-cancel');if(b)b.addEventListener('click',cancelClose);})();
