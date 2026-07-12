@@ -620,7 +620,9 @@
     var incDone  = grossForMonth(mk2) > 0;
     var subsDone = !!(subs && subs.rows && subs.rows.length > 0);
     var goalDone = !!(exp && exp.goals && Object.keys(exp.goals).some(function(k){ return k.startsWith(mk2+'|'); }));
-    return {income: incDone, subs: subsDone, goals: goalDone, all: incDone && subsDone && goalDone};
+    var currencyDone = false; try{ currencyDone = localStorage.getItem('fiapp_currency_confirmed')==='1'; }catch(_){}
+    return {income: incDone, subs: subsDone, goals: goalDone, currency: currencyDone,
+            all: incDone && subsDone && goalDone && currencyDone};
   }
 
   // ── Helper: subscription monthly total ──
@@ -797,9 +799,11 @@
         (check.income  ? '' : '<div class="snap-check-item"><span class="snap-check-icon">☐</span><a href="/income" class="snap-check-link">Log income for ' + escapeHtml(mkLabel(cmk)) + '</a></div>') +
         (check.subs    ? '' : '<div class="snap-check-item"><span class="snap-check-icon">☐</span><a href="/subscriptions" class="snap-check-link">Review subscriptions</a></div>') +
         (check.goals   ? '' : '<div class="snap-check-item"><span class="snap-check-icon">☐</span><a href="/expenses" class="snap-check-link">Set spending goals</a></div>') +
+        (check.currency? '' : '<div class="snap-check-item"><span class="snap-check-icon">☐</span><a href="/account#home-currency" class="snap-check-link">Confirm home currency</a></div>') +
         (check.income  ? '<div class="snap-check-item done"><span class="snap-check-icon">☑</span>Income logged</div>' : '') +
         (check.subs    ? '<div class="snap-check-item done"><span class="snap-check-icon">☑</span>Subscriptions reviewed</div>' : '') +
         (check.goals   ? '<div class="snap-check-item done"><span class="snap-check-icon">☑</span>Goals configured</div>' : '') +
+        (check.currency? '<div class="snap-check-item done"><span class="snap-check-icon">☑</span>Home currency confirmed</div>' : '') +
       '</div>';
     }
   }
