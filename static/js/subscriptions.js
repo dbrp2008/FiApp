@@ -205,7 +205,7 @@ function renderRenewalAlert(){
   }
   var lines=renewals.map(function(r){
     var when=r.daysUntil===0?'today':r.daysUntil===1?'tomorrow':'in '+r.daysUntil+' days';
-    return '⚠ '+escapeHtml(r.name)+' renews '+when+(r.cost>0?' ('+r.cost.toFixed(2)+' '+r.currency+')':'');
+    return '⚠ '+escapeHtml(r.name)+' renews '+when+(r.cost>0?' ('+r.cost.toFixed(2)+' '+escapeHtml(r.currency)+')':'');
   });
   placeholder.innerHTML='<div style="background:#fef3c7;border:1px solid #f59e0b44;border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;font-size:.85rem;color:#92400e;">'+lines.join('<br>')+'</div>';
 }
