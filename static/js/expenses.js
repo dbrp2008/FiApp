@@ -75,6 +75,7 @@ function freshState(){
     lastTaxTs:0,
     rowsByMonth:{}, colsByMonth:{},
     goals:{},
+    recurringRules:[],
   };
 }
 function loadState(){
@@ -103,6 +104,7 @@ function loadState(){
       if(!s.rowsByMonth) s.rowsByMonth={};
       if(!s.colsByMonth) s.colsByMonth={};
       if(!s.goals) s.goals={};
+      if(!Array.isArray(s.recurringRules)) s.recurringRules=[];
       delete s.cellCurrencies; delete s.displayCurrency;
 
       if(!s.rows.some(row=>row.linked==='subscriptions')){
@@ -131,10 +133,352 @@ function getRows(mk2){ return effectiveRowsForMonth(state, mk2||currentMK()); }
 function getCols(mk2){ return effectiveColsForMonth(state, mk2||currentMK()); }
 function forkCurrentMonth(){
   const mk2=currentMK();
+  const _wasNew=!(state.rowsByMonth&&state.rowsByMonth[mk2]);
+  if(!state.rowsByMonth) state.rowsByMonth={};
+  if(!state.colsByMonth) state.colsByMonth={};
+  if(_wasNew) _recFillNewMonth(mk2);
+  if(!state.rowsByMonth[mk2]) state.rowsByMonth[mk2]=(state.rows||[]).map(r=>({...r}));
+  if(!state.colsByMonth[mk2]) state.colsByMonth[mk2]=(state.cols||[]).map(c=>({...c}));
+}
+// ── Recurring rules: state accessors + writers (pure logic lives in recurring-core.js) ──
+function _recRules(){ if(!Array.isArray(state.recurringRules)) state.recurringRules=[]; return state.recurringRules; }
+function _recRuleFor(rowId){ return _recRules().find(r=>r.rowId===rowId)||null; }
+function _monthTotalForRow(rowId, mk2){
+  const cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+  return cols.reduce((s,c)=> s+(parseFloat((state.cells||{})[mk2+'|'+rowId+'|'+c.id]||0)||0), 0);
+}
+function _existingMonths(){
+  const set={};
+  Object.keys(state.cells||{}).forEach(k=>{ set[k.split('|')[0]]=1; });
+  Object.keys(state.rowsByMonth||{}).forEach(mk2=>{ set[mk2]=1; });
+  Object.keys(state.colsByMonth||{}).forEach(mk2=>{ set[mk2]=1; });
+  set[currentMK()]=1;   // the viewed month always counts, even if still empty
+  return Object.keys(set);
+}
+function _recOptsFor(rowId){
+  return { existingMonths:_existingMonths(), isLocked:_isClosedMonth,
+           getMonthTotal:function(mk2){ return _monthTotalForRow(rowId, mk2); } };
+}
+// Materialize an arbitrary month's rows/cols from the globals (forkCurrentMonth only does
+// the current month). Idempotent.
+function _ensureMonthForked(mk2){
   if(!state.rowsByMonth) state.rowsByMonth={};
   if(!state.colsByMonth) state.colsByMonth={};
   if(!state.rowsByMonth[mk2]) state.rowsByMonth[mk2]=(state.rows||[]).map(r=>({...r}));
   if(!state.colsByMonth[mk2]) state.colsByMonth[mk2]=(state.cols||[]).map(c=>({...c}));
+}
+// Write a rule's value into month mk2 for its row, honoring the rule's mode. Caller has
+// already checked scope/lock/mismatch. Does not save().
+function _recWriteMonth(rule, mk2){
+  _ensureMonthForked(mk2);
+  const cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+  if(!state.cells) state.cells={};
+  const val=FiRecurring.ruleValueForMonth(rule, mk2);
+  cols.forEach((c,i)=>{
+    const key=mk2+'|'+rule.rowId+'|'+c.id;
+    if(rule.mode==='monthly'){ state.cells[key]=(i===0?String(val):'0'); }
+    else { const w=(rule.weekly&&rule.weekly[i]!=null)?rule.weekly[i]:(i===0?val:0); state.cells[key]=String(w); }
+    if(state.cellTimes) state.cellTimes[key]=Date.now();
+  });
+}
+// Fill a newly-materialized month with every non-draft rule in scope, but only where the
+// row is still empty (never clobber existing data). This is what makes a later-created
+// month inherit its recurring values automatically.
+function _recFillNewMonth(mk2){
+  if(_isClosedMonth(mk2)) return false;
+  let wrote=false;
+  _recRules().forEach(rule=>{
+    if(rule.draft) return;
+    if(!FiRecurring.monthInScope(rule, mk2)) return;
+    if(_monthTotalForRow(rule.rowId, mk2)!==0) return;
+    _recWriteMonth(rule, mk2); wrote=true;
+  });
+  return wrote;
+}
+// Set/clear row.recurring across the global rows and every month's copy (the badge follows
+// the flag). Mirrors the old _showRecurringToast "Mark recurring" write.
+function markRowRecurring(rowId, on){
+  [state.rows].concat(Object.values(state.rowsByMonth||{})).forEach(arr=>{
+    const r=(arr||[]).find(x=>x.id===rowId); if(r) r.recurring=!!on;
+  });
+}
+function _recEligible(row, isChild){
+  return !!row && !isChild && !row.linked && !row.snapshotLinkedRow && !hasChildren(row.id);
+}
+function _recMkLabel(mk2){
+  const p=String(mk2||'').split('-'); if(p.length<2) return mk2||'';
+  const d=new Date(Number(p[0]), Number(p[1])-1, 1);
+  return d.toLocaleDateString(undefined,{month:'short',year:'numeric'});
+}
+// Unlock an arbitrary month (the existing reopenMonth() only reopens the current month).
+function _recUnlockMonth(mk2){ if(state.closedMonths) delete state.closedMonths[mk2]; }
+
+// ── Recurring config modal ──────────────────────────────────────────────────
+function _recModal(){
+  const overlay=document.createElement('div');
+  overlay.className='rec-modal-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:var(--overlay,rgba(0,0,0,.5));z-index:20000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+  const panel=document.createElement('div');
+  panel.className='rec-modal';
+  panel.style.cssText='background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:14px;max-width:420px;width:100%;max-height:90vh;overflow:auto;padding:1.1rem 1.2rem;box-shadow:var(--elev-3,0 12px 32px rgba(0,0,0,.4));';
+  overlay.appendChild(panel);
+  function close(){ overlay.remove(); document.removeEventListener('keydown',esc); }
+  function esc(e){ if(e.key==='Escape') close(); }
+  overlay.addEventListener('pointerdown',e=>{ if(e.target===overlay) close(); });
+  document.addEventListener('keydown',esc);
+  document.body.appendChild(overlay);
+  return {overlay:overlay, panel:panel, close:close};
+}
+
+function openRecurringConfig(rowId){
+  const row=getRows().find(r=>r.id===rowId)||(state.rows||[]).find(r=>r.id===rowId);
+  if(!row) return;
+  const existing=_recRuleFor(rowId);
+  const draft = existing ? JSON.parse(JSON.stringify(existing)) : {
+    rowId:rowId, amount:_monthTotalForRow(rowId,currentMK())||0, mode:'monthly', weekly:null,
+    scope:{type:'future', anchor:currentMK(), start:null, end:null}, overrides:{}, exceptions:[], draft:false };
+  if(!draft.scope) draft.scope={type:'future', anchor:currentMK(), start:null, end:null};
+  if(!draft.scope.anchor) draft.scope.anchor=currentMK();
+
+  const m=_recModal();
+  const h=document.createElement('h3'); h.style.cssText='margin:0 0 .9rem;font-size:1.02rem;color:var(--fg);';
+  h.textContent='Recurring: '+(row.label||'Category'); m.panel.appendChild(h);
+
+  // Amount
+  const amtLbl=document.createElement('label'); amtLbl.style.cssText='display:block;font-size:.8rem;color:var(--muted);margin-bottom:1rem;';
+  amtLbl.appendChild(document.createTextNode('Amount per month'));
+  const amt=document.createElement('input'); amt.type='number'; amt.step='0.01'; amt.min='0'; amt.value=draft.amount||0;
+  amt.style.cssText='display:block;width:100%;margin-top:.35rem;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
+  amtLbl.appendChild(amt); m.panel.appendChild(amtLbl);
+
+  // Mode segmented toggle
+  const modeLbl=document.createElement('div'); modeLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; modeLbl.textContent='Display'; m.panel.appendChild(modeLbl);
+  const modeWrap=document.createElement('div'); modeWrap.style.cssText='display:flex;gap:.4rem;margin-bottom:1rem;';
+  function segBtn(label,val,cur,onPick){
+    const b=document.createElement('button'); b.type='button'; b.textContent=label;
+    b.style.cssText='flex:1;padding:.5rem;border-radius:8px;border:1px solid var(--input-border);cursor:pointer;font-size:.85rem;background:'+(cur?'var(--accent)':'transparent')+';color:'+(cur?'#fff':'var(--fg)')+';';
+    b.addEventListener('click',()=>onPick(val)); return b;
+  }
+  function renderModeBtns(){
+    modeWrap.innerHTML='';
+    modeWrap.appendChild(segBtn('Monthly (1 cell)','monthly',draft.mode==='monthly',pickMode));
+    modeWrap.appendChild(segBtn('Weekly (4 cells)','weekly',draft.mode==='weekly',pickMode));
+  }
+  function pickMode(v){ draft.mode=v; renderModeBtns(); }
+  renderModeBtns(); m.panel.appendChild(modeWrap);
+
+  // Scope
+  const scLbl=document.createElement('div'); scLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; scLbl.textContent='Applies to'; m.panel.appendChild(scLbl);
+  const scWrap=document.createElement('div'); scWrap.style.cssText='display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;';
+  const rangeWrap=document.createElement('div'); rangeWrap.style.cssText='display:none;gap:.4rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
+  const rStart=document.createElement('input'); rStart.type='month'; rStart.value=draft.scope.start||currentMK();
+  const rEnd=document.createElement('input'); rEnd.type='month'; rEnd.value=draft.scope.end||currentMK();
+  [rStart,rEnd].forEach(x=>{ x.style.cssText='padding:.4rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;'; });
+  const rArrow=document.createElement('span'); rArrow.textContent='to'; rArrow.style.cssText='color:var(--muted);font-size:.85rem;';
+  rangeWrap.appendChild(rStart); rangeWrap.appendChild(rArrow); rangeWrap.appendChild(rEnd);
+  function renderScopeBtns(){
+    scWrap.innerHTML='';
+    const opts=[['future','All future months'],['past','All past months'],['all','All months'],['range','Custom range']];
+    opts.forEach(o=>{
+      const active=draft.scope.type===o[0];
+      const b=document.createElement('button'); b.type='button'; b.textContent=o[1];
+      b.style.cssText='padding:.4rem .7rem;border-radius:999px;border:1px solid var(--input-border);cursor:pointer;font-size:.8rem;background:'+(active?'var(--accent)':'transparent')+';color:'+(active?'#fff':'var(--fg)')+';';
+      b.addEventListener('click',()=>{
+        draft.scope.type=o[0];
+        if(o[0]==='future'||o[0]==='past'){ draft.scope.anchor=currentMK(); draft.scope.start=null; draft.scope.end=null; }
+        else if(o[0]==='all'){ draft.scope.start=null; draft.scope.end=null; }
+        rangeWrap.style.display=o[0]==='range'?'flex':'none';
+        renderScopeBtns();
+      });
+      scWrap.appendChild(b);
+    });
+  }
+  renderScopeBtns(); m.panel.appendChild(scWrap);
+  rangeWrap.style.display=draft.scope.type==='range'?'flex':'none';
+  m.panel.appendChild(rangeWrap);
+
+  const fb=document.createElement('div'); fb.style.cssText='font-size:.8rem;color:var(--sem-bad,#b91c1c);min-height:1em;margin-bottom:.6rem;'; m.panel.appendChild(fb);
+
+  const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;';
+  const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='btn'; saveBtn.textContent=existing?'Update recurring':'Make recurring';
+  saveBtn.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.9rem;';
+  const cancelBtn=document.createElement('button'); cancelBtn.type='button'; cancelBtn.textContent='Cancel';
+  cancelBtn.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;font-size:.9rem;';
+  cancelBtn.addEventListener('click',m.close);
+  saveBtn.addEventListener('click',()=>{
+    const a=parseFloat(amt.value); if(isNaN(a)||a<0){ fb.textContent='Enter a valid amount.'; return; }
+    draft.amount=a;
+    if(draft.scope.type==='range'){
+      draft.scope.start=rStart.value||null; draft.scope.end=rEnd.value||null;
+      if(draft.scope.start&&draft.scope.end&&draft.scope.start>draft.scope.end){ fb.textContent='Range start is after end.'; return; }
+    }
+    // Monthly mode: amount is the single value. Weekly mode: distribute evenly unless a
+    // per-week pattern already exists on the current month.
+    if(draft.mode==='weekly'){
+      const cols=(state.colsByMonth&&state.colsByMonth[currentMK()])||state.cols||[];
+      const cur=cols.map(c=>parseFloat((state.cells||{})[currentMK()+'|'+rowId+'|'+c.id]||0)||0);
+      const curSum=cur.reduce((s,v)=>s+v,0);
+      draft.weekly = (curSum>0 && Math.abs(curSum-a)<1e-9) ? cur.slice(0,4) : [a,0,0,0];
+    } else { draft.weekly=null; }
+    m.close();
+    commitRecurring(draft);
+  });
+  actions.appendChild(saveBtn); actions.appendChild(cancelBtn); m.panel.appendChild(actions);
+  amt.focus();
+}
+
+// Apply a rule to all its fillable months, mark the row, and commit. If clashes exist the
+// rule is stored as a draft and the draft banner drives resolution.
+function commitRecurring(draft){
+  const opts=_recOptsFor(draft.rowId);
+  const clashes=FiRecurring.detectClashes(draft, opts);
+  const rules=_recRules();
+  const idx=rules.findIndex(r=>r.rowId===draft.rowId);
+  if(clashes.length){
+    draft.draft=true;
+    if(idx>=0) rules[idx]=draft; else rules.push(draft);
+    markRowRecurring(draft.rowId, true);
+    save(); render(); _recDraftBannerRefresh();
+    return;
+  }
+  draft.draft=false;
+  FiRecurring.fillableMonths(draft, opts).forEach(mk2=>_recWriteMonth(draft, mk2));
+  if(idx>=0) rules[idx]=draft; else rules.push(draft);
+  markRowRecurring(draft.rowId, true);
+  save(); render(); _recDraftBannerRefresh();
+  showToast('🔁 Recurring saved');
+}
+
+// Write a single monthly value into mk2 (col0 holds it, other week cols cleared to 0).
+function _writeMonthlyValue(rowId, mk2, val){
+  _ensureMonthForked(mk2);
+  const cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+  if(!state.cells) state.cells={};
+  cols.forEach((c,i)=>{
+    const key=mk2+'|'+rowId+'|'+c.id;
+    state.cells[key]=(i===0?String(val):'0');
+    if(state.cellTimes) state.cellTimes[key]=Date.now();
+  });
+}
+
+// Manual edit of a monthly recurring row's single cell: ask how far the change reaches.
+function _onRecurringCellEdit(rowId, mk2, newTotal){
+  const rule=_recRuleFor(rowId);
+  if(!rule){ _writeMonthlyValue(rowId, mk2, newTotal); save(); render(); return; }
+  const curVal=FiRecurring.ruleValueForMonth(rule, mk2);
+  if(Math.abs(curVal-newTotal)<1e-9){ _writeMonthlyValue(rowId, mk2, newTotal); save(); render(); return; }
+
+  const m=_recModal();
+  const h=document.createElement('h3'); h.style.cssText='margin:0 0 .5rem;font-size:1rem;color:var(--fg);';
+  h.textContent='Apply this change to:'; m.panel.appendChild(h);
+  const sub=document.createElement('p'); sub.style.cssText='margin:0 0 1rem;font-size:.82rem;color:var(--muted);';
+  sub.textContent='This is a recurring category. Choose which months take the new amount.';
+  m.panel.appendChild(sub);
+  function opt(label, fn){
+    const b=document.createElement('button'); b.type='button'; b.textContent=label;
+    b.style.cssText='display:block;width:100%;margin-bottom:.5rem;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;font-size:.9rem;text-align:left;';
+    b.addEventListener('click',fn); m.panel.appendChild(b); return b;
+  }
+  opt('All months', ()=>{ m.close(); rule.amount=newTotal; rule.mode='monthly'; rule.weekly=null; rule.overrides={}; commitRecurring(rule); });
+  opt('Specific months...', ()=>{ m.close(); _pickSpecificMonths(rule, newTotal); });
+  opt('This month only', ()=>{ m.close(); if(!rule.overrides) rule.overrides={}; rule.overrides[mk2]=newTotal; _writeMonthlyValue(rowId, mk2, newTotal); save(); render(); _recDraftBannerRefresh(); });
+  const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
+  cancel.style.cssText='display:block;width:100%;margin-top:.3rem;padding:.55rem;border-radius:8px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:.85rem;';
+  cancel.addEventListener('click',()=>{ m.close(); render(); });
+  m.panel.appendChild(cancel);
+}
+
+// Checkbox list of in-scope existing months; checked months take newTotal as an override.
+function _pickSpecificMonths(rule, newTotal){
+  const months=_existingMonths().filter(mk2=>FiRecurring.monthInScope(rule, mk2)).sort();
+  const m=_recModal();
+  const h=document.createElement('h3'); h.style.cssText='margin:0 0 .8rem;font-size:1rem;color:var(--fg);'; h.textContent='Which months?'; m.panel.appendChild(h);
+  const boxes={};
+  months.forEach(mk2=>{
+    const lbl=document.createElement('label'); lbl.style.cssText='display:flex;align-items:center;gap:.5rem;padding:.35rem 0;font-size:.9rem;color:var(--fg);';
+    const cb=document.createElement('input'); cb.type='checkbox'; if(_isClosedMonth(mk2)){ cb.disabled=true; }
+    boxes[mk2]=cb; lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(_recMkLabel(mk2)+(_isClosedMonth(mk2)?' (locked)':'')));
+    m.panel.appendChild(lbl);
+  });
+  const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;margin-top:1rem;';
+  const ok=document.createElement('button'); ok.type='button'; ok.textContent='Apply'; ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;';
+  const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel'; cancel.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;';
+  cancel.addEventListener('click',()=>{ m.close(); render(); });
+  ok.addEventListener('click',()=>{
+    if(!rule.overrides) rule.overrides={};
+    months.forEach(mk2=>{ if(boxes[mk2]&&boxes[mk2].checked){ rule.overrides[mk2]=newTotal; _writeMonthlyValue(rule.rowId, mk2, newTotal); } });
+    m.close(); save(); render(); _recDraftBannerRefresh();
+  });
+  actions.appendChild(ok); actions.appendChild(cancel); m.panel.appendChild(actions);
+}
+
+function delinkMonth(rowId, mk2){
+  const rule=_recRuleFor(rowId); if(!rule) return;
+  if(!rule.exceptions) rule.exceptions=[];
+  if(rule.exceptions.indexOf(mk2)<0) rule.exceptions.push(mk2);
+  if(rule.overrides) delete rule.overrides[mk2];
+  save(); render(); _recDraftBannerRefresh();
+  showToast('Delinked '+_recMkLabel(mk2)+' from recurring');
+}
+
+function removeRecurring(rowId){
+  const rules=_recRules(); const idx=rules.findIndex(r=>r.rowId===rowId);
+  if(idx>=0) rules.splice(idx,1);
+  markRowRecurring(rowId, false);
+  save(); render(); _recDraftBannerRefresh();
+}
+
+// Resolve one clash: apply (unlock+write, or overwrite) or skip (add to exceptions). When a
+// rule's clashes are all cleared it leaves draft state and fills its remaining months.
+function _resolveClash(rowId, mk2, choice){
+  const rule=_recRuleFor(rowId); if(!rule) return;
+  if(choice==='apply'){
+    if(_isClosedMonth(mk2)) _recUnlockMonth(mk2);
+    _recWriteMonth(rule, mk2);
+  } else {
+    if(!rule.exceptions) rule.exceptions=[];
+    if(rule.exceptions.indexOf(mk2)<0) rule.exceptions.push(mk2);
+  }
+  const opts=_recOptsFor(rowId);
+  const remaining=FiRecurring.detectClashes(rule, opts);
+  if(!remaining.length){
+    rule.draft=false;
+    FiRecurring.fillableMonths(rule, opts).forEach(m2=>_recWriteMonth(rule, m2));
+  }
+  save(); render(); _recDraftBannerRefresh();
+}
+
+// A single persistent banner listing every unresolved clash across all draft rules, each
+// with Apply / Skip and a jump-to-month link. Shown while any rule is a draft.
+let _recDraftBannerEl=null;
+function _recDraftBannerRefresh(){
+  const drafts=_recRules().filter(r=>r.draft);
+  let items=[];
+  drafts.forEach(rule=>{
+    const row=(state.rows||[]).find(r=>r.id===rule.rowId)||{};
+    FiRecurring.detectClashes(rule, _recOptsFor(rule.rowId)).forEach(c=>{
+      items.push({rowId:rule.rowId, label:row.label||'Category', mk:c.mk, reason:c.reason});
+    });
+  });
+  if(_recDraftBannerEl){ _recDraftBannerEl.remove(); _recDraftBannerEl=null; }
+  if(!items.length) return;
+  const b=document.createElement('div'); b.className='rec-draft-banner';
+  const head=document.createElement('div'); head.className='rec-draft-head';
+  head.textContent='Recurring needs review - '+items.length+' month'+(items.length>1?'s':'')+' conflict before it can be applied.';
+  b.appendChild(head);
+  items.forEach(it=>{
+    const row=document.createElement('div'); row.className='rec-draft-item';
+    const txt=document.createElement('button'); txt.type='button'; txt.className='rec-draft-jump';
+    txt.textContent=it.label+' - '+_recMkLabel(it.mk)+' ('+(it.reason==='locked'?'locked':'different value')+')';
+    txt.addEventListener('click',()=>{ jumpToMonth(it.mk); });
+    const ap=document.createElement('button'); ap.type='button'; ap.className='rec-draft-apply'; ap.textContent='Apply here';
+    ap.addEventListener('click',()=>_resolveClash(it.rowId, it.mk, 'apply'));
+    const sk=document.createElement('button'); sk.type='button'; sk.className='rec-draft-skip'; sk.textContent='Skip';
+    sk.addEventListener('click',()=>_resolveClash(it.rowId, it.mk, 'skip'));
+    row.appendChild(txt); row.appendChild(ap); row.appendChild(sk); b.appendChild(row);
+  });
+  document.body.appendChild(b); _recDraftBannerEl=b;
 }
 function copyStructureFromPrevMonth(){
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
@@ -359,10 +703,8 @@ function _showRecurringToast(rowId,label){
   const txt=document.createElement('span');txt.textContent='💡 '+label+' recurs every month. Mark it?';
   const yes=document.createElement('button');yes.className='btn btn-sm';yes.style.fontSize='.8rem';yes.textContent='Mark recurring';
   yes.onclick=function(){
-    [state.rows,...Object.values(state.rowsByMonth||{})].forEach(arr=>{
-      const r=(arr||[]).find(r=>r.id===rowId);if(r) r.recurring=true;
-    });
-    save(); render(); el.remove();
+    el.remove();
+    openRecurringConfig(rowId);   // let the user set amount/scope rather than a bare flag
   };
   const no=document.createElement('button');no.className='btn-ghost btn-sm';no.style.fontSize='.8rem';no.textContent='Skip';
   no.onclick=function(){ localStorage.setItem('fiapp_rec_dismissed_'+rowId,'1');el.remove(); };
@@ -539,6 +881,11 @@ function jumpToMonth(mkStr){
   state.currentYear=parseInt(parts[0],10);
   state.currentMonth=parseInt(parts[1],10)-1;
   _mobileColPair=null;
+  // A never-touched month entering the window inherits any in-scope recurring values.
+  const _mk=currentMK();
+  if(!(state.rowsByMonth&&state.rowsByMonth[_mk]) && _recRules().some(r=>!r.draft&&FiRecurring.monthInScope(r,_mk))){
+    if(_recFillNewMonth(_mk)) save();
+  }
   saveLocal(); updateMonthNav(); render(); syncIncomeInputs(); checkSpendTrend(); updateHistBtns();
 }
 function updateMonthNav(){
@@ -1412,6 +1759,14 @@ function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
   if(!isChild&&!row.linked&&!row.snapshotLinkedRow){
     mBtn('＋ Add subcategory',()=>{ showSubMenu(btn,row); });
   }
+  if(_recEligible(row, isChild)){
+    const _rule=_recRuleFor(row.id);
+    mBtn(_rule?'🔁 Edit recurring':'🔁 Mark recurring',()=>{ openRecurringConfig(row.id); });
+    if(_rule){
+      mBtn('⛓ Delink this month',()=>{ delinkMonth(row.id, currentMK()); });
+      mBtn('✖ Remove recurring',()=>{ removeRecurring(row.id); });
+    }
+  }
   if(row.linked==='subscriptions'){
     mBtn('→ Open Subscriptions',()=>{ window.location.href='/subscriptions'; });
   }
@@ -2269,7 +2624,17 @@ function renderTableBody(table){
       const dd=document.createElement('div');dd.className='sub-dropdown';
       const addBtn=document.createElement('button');addBtn.className='sub-add-btn';addBtn.textContent='+Sub';addBtn.title='Add subcategory';
       addBtn.addEventListener('click',e=>{e.stopPropagation();showSubMenu(addBtn,row);});
-      dd.appendChild(addBtn);rhIn.appendChild(dd);
+      dd.appendChild(addBtn);
+      // Desktop recurring entry (mobile uses the gear menu, which hides .sub-dropdown).
+      if(_recEligible(row, isChild)){
+        const _rule=_recRuleFor(row.id);
+        const recBtn=document.createElement('button');recBtn.className='sub-add-btn recur-mark-btn';
+        recBtn.textContent='🔁';recBtn.title=_rule?'Edit recurring':'Mark recurring';recBtn.setAttribute('aria-label',_rule?'Edit recurring':'Mark recurring');
+        if(_rule) recBtn.classList.add('active');
+        recBtn.addEventListener('click',e=>{e.stopPropagation();openRecurringConfig(row.id);});
+        dd.appendChild(recBtn);
+      }
+      rhIn.appendChild(dd);
     }
     if(row.linked==='subscriptions'){
       const linkBtn=document.createElement('a');
@@ -2292,6 +2657,26 @@ function renderTableBody(table){
     tr.appendChild(rhTd);
     const isLinkedRow=row.linked==='subscriptions'||row.snapshotLinkedRow;
     const linkedVC=isLinkedRow?(row.linked==='subscriptions'?virtualSubChildren():((row.subsSnapshotByMonth||{})[currentMK()]||virtualSubChildren())):null;
+    // Monthly recurring row: one wide cell spanning the week columns instead of N cells.
+    const _recRuleRow=(!hasKids&&!isLinkedRow)?_recRuleFor(row.id):null;
+    const _recMonthly=_recRuleRow && _recRuleRow.mode==='monthly' && FiRecurring.monthInScope(_recRuleRow, currentMK());
+    if(_recMonthly){
+      const _mcols=getCols();
+      const td=document.createElement('td'); td.colSpan=_mcols.length||1; td.className='rec-monthly-cell';
+      const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='0.01';inp.inputMode='decimal';inp.className='num-input';
+      inp.setAttribute('aria-label',(row.label||'Category')+' monthly amount');
+      if(_isClosedMonth(currentMK())) inp.disabled=true;
+      const _curTot=_monthTotalForRow(row.id,currentMK());
+      inp.value=_curTot?String(_curTot):'';
+      inp.addEventListener('input',()=>{ inp.value=inp.value.replace(/[^0-9.]/g,''); });
+      inp.addEventListener('focus',()=>snapshot());
+      inp.addEventListener('change',()=>{
+        let v=parseFloat(inp.value); if(inp.value==='') v=0;
+        if(isNaN(v)) return; if(v<0){ v=0; inp.value='0'; }
+        _onRecurringCellEdit(row.id, currentMK(), v);
+      });
+      td.appendChild(inp); tr.appendChild(td);
+    } else {
     getCols().forEach((col,colIdx)=>{
       const td=document.createElement('td');
       if(hasKids||isLinkedRow){
@@ -2324,6 +2709,7 @@ function renderTableBody(table){
       }
       tr.appendChild(td);
     });
+    }
     const totTd=document.createElement('td');totTd.className='th-total';
     const totInner=document.createElement('div');totInner.style.cssText='display:flex;align-items:center;justify-content:flex-end;gap:2px;';
     const totSpan=document.createElement('span');totSpan.className='total-val';totSpan.id='rt-'+row.id;
@@ -2493,6 +2879,7 @@ function render(){
   adjustBodyWidth();
   updateForecastUI();
   updateOverspendNudge();
+  try{ _recDraftBannerRefresh(); }catch(_){}
   const tbl=document.getElementById('sheet');
   if(tbl) tbl.classList.toggle('forecast',isForecastMonth());
   const hasSubcats=getRows().some(r=>r.parentId);
