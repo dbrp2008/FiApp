@@ -286,6 +286,12 @@ function _recWriteMonth(rule, mk2){
     else { const w=(rule.weekly&&rule.weekly[i]!=null)?rule.weekly[i]:(i===0?val:0); state.cells[key]=String(w); }
     if(state.cellTimes) state.cellTimes[key]=Date.now();
   });
+  // Apply the rule's chosen currency to the month it just wrote (inlined rather than
+  // calling setRowCurrency, which saves immediately - the caller saves once, in bulk).
+  if(rule.currency){
+    if(!state.monthRowCurrencies) state.monthRowCurrencies={};
+    state.monthRowCurrencies[mk2+'|'+rule.rowId]=rule.currency;
+  }
 }
 function _recFillNewMonth(mk2){
   if(_isClosedMonth(mk2)) return false;
@@ -304,7 +310,7 @@ function markRowRecurring(rowId, on){
   });
 }
 function _recEligible(row, isChild){
-  return !!row && !isChild && !row.linked && !row.snapshotLinkedRow && !hasChildren(row.id);
+  return !!row && !row.linked && !row.snapshotLinkedRow && !hasChildren(row.id);
 }
 function _recMkLabel(mk2){
   const p=String(mk2||'').split('-'); if(p.length<2) return mk2||'';
@@ -349,12 +355,26 @@ function openRecurringConfig(rowId){
   amt.style.cssText='display:block;width:100%;margin-top:.35rem;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
   amtLbl.appendChild(amt); m.panel.appendChild(amtLbl);
 
+  const curLbl=document.createElement('label'); curLbl.style.cssText='display:block;font-size:.8rem;color:var(--muted);margin-bottom:1rem;';
+  curLbl.appendChild(document.createTextNode('Currency'));
+  const curSel=document.createElement('select');
+  curSel.style.cssText='display:block;width:100%;margin-top:.35rem;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
+  const _recCurCodes=getAllUsedCurrencies();
+  const _recCurVal=draft.currency||rowCurrency(currentMK(), rowId);
+  if(!_recCurCodes.includes(_recCurVal)) _recCurCodes.push(_recCurVal);
+  _recCurCodes.sort().forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; if(c===_recCurVal) o.selected=true; curSel.appendChild(o); });
+  curLbl.appendChild(curSel); m.panel.appendChild(curLbl);
+
   const scLbl=document.createElement('div'); scLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; scLbl.textContent='Applies to'; m.panel.appendChild(scLbl);
   const scWrap=document.createElement('div'); scWrap.style.cssText='display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;';
   const rangeWrap=document.createElement('div'); rangeWrap.style.cssText='display:none;gap:.4rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
   const rStart=document.createElement('input'); rStart.type='month'; rStart.value=draft.scope.start||currentMK();
   const rEnd=document.createElement('input'); rEnd.type='month'; rEnd.value=draft.scope.end||currentMK();
-  [rStart,rEnd].forEach(x=>{ x.style.cssText='padding:.4rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;'; });
+  // Bound the range picker to the same +-1 year window the app already enforces for
+  // month navigation (minY/minM..maxY/maxM, see isAtMin/isAtMax above) - not an invented
+  // horizon.
+  const _recRangeMin=mk(minY,minM), _recRangeMax=mk(maxY,maxM);
+  [rStart,rEnd].forEach(x=>{ x.min=_recRangeMin; x.max=_recRangeMax; x.style.cssText='padding:.4rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;'; });
   const rArrow=document.createElement('span'); rArrow.textContent='to'; rArrow.style.cssText='color:var(--muted);font-size:.85rem;';
   rangeWrap.appendChild(rStart); rangeWrap.appendChild(rArrow); rangeWrap.appendChild(rEnd);
   function renderScopeBtns(){
@@ -388,10 +408,14 @@ function openRecurringConfig(rowId){
   cancelBtn.addEventListener('click',m.close);
   saveBtn.addEventListener('click',()=>{
     const a=parseFloat(amt.value); if(isNaN(a)||a<0){ fb.textContent='Enter a valid amount.'; return; }
-    draft.amount=a; draft.mode='monthly'; draft.weekly=null;
+    draft.amount=a; draft.mode='monthly'; draft.weekly=null; draft.currency=curSel.value;
     if(draft.scope.type==='range'){
       draft.scope.start=rStart.value||null; draft.scope.end=rEnd.value||null;
       if(draft.scope.start&&draft.scope.end&&draft.scope.start>draft.scope.end){ fb.textContent='Range start is after end.'; return; }
+      if((draft.scope.start&&(draft.scope.start<_recRangeMin||draft.scope.start>_recRangeMax))||
+         (draft.scope.end&&(draft.scope.end<_recRangeMin||draft.scope.end>_recRangeMax))){
+        fb.textContent='Pick a range within '+_recRangeMin.slice(0,4)+'-'+_recRangeMax.slice(0,4)+'.'; return;
+      }
     }
     m.close();
     commitRecurring(draft);
@@ -1807,17 +1831,21 @@ function renderTableBody(table){
       const addBtn=document.createElement('button');addBtn.className='sub-add-btn';addBtn.textContent='+Sub';addBtn.title='Add sub-source';
       addBtn.addEventListener('click',e=>{e.stopPropagation();showSubMenu(addBtn,row);});
       dd.appendChild(addBtn);
-      if(_recEligible(row, isChild)){
-        const _rule=_recRuleFor(row.id);
-        const recBtn=document.createElement('button');recBtn.className='sub-add-btn recur-mark-btn';
-        recBtn.textContent='🔁';recBtn.title=_rule?'Edit recurring':'Mark recurring';recBtn.setAttribute('aria-label',_rule?'Edit recurring':'Mark recurring');
-        if(_rule) recBtn.classList.add('active');
-        recBtn.addEventListener('click',e=>{e.stopPropagation();openRecurringConfig(row.id);});
-        dd.appendChild(recBtn);
-      }
       rhIn.appendChild(dd);
     }
-    if(!isChild){
+    // Desktop recurring entry - available on sub-source rows too (mobile uses the gear menu).
+    if(_recEligible(row, isChild)){
+      const _rule=_recRuleFor(row.id);
+      const recBtn=document.createElement('button');recBtn.className='sub-add-btn recur-mark-btn';
+      recBtn.textContent='🔁';recBtn.title=_rule?'Edit recurring':'Mark recurring';recBtn.setAttribute('aria-label',_rule?'Edit recurring':'Mark recurring');
+      if(_rule) recBtn.classList.add('active');
+      recBtn.addEventListener('click',e=>{e.stopPropagation();openRecurringConfig(row.id);});
+      rhIn.appendChild(recBtn);
+    }
+    {
+      // Row options gear: was desktop-parent-only, but _openGearMenu already branches
+      // correctly on isChild for every item it offers (colours, recurring, delete), so
+      // sub-source rows get the same menu (minus +Sub, which stays parent-only above).
       const gearBtn=document.createElement('button');
       gearBtn.className='row-gear-btn';gearBtn.textContent='⚙';gearBtn.title='Row options';gearBtn.setAttribute('aria-label','Row options');
       gearBtn.addEventListener('click',e=>{ e.stopPropagation();_openGearMenu(gearBtn,row,rhTd,swatch,textSwatch,isChild); });
