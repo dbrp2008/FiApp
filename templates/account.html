@@ -478,19 +478,6 @@
   </div>
 
   <div class="glass-panel" data-group="preferences">
-    <h2>🧭 App Walkthrough</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">New to FiApp or want a refresher? Start the guided tour - Fi will walk you through every tool.</p>
-    <button class="btn btn-gradient btn-primary" id="wt-acct-btn">Start Walkthrough</button>
-  </div>
-  <script nonce="{{ csp_nonce }}">
-  (function(){
-    var wt=null;try{wt=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');}catch{}
-    var btn=document.getElementById('wt-acct-btn');
-    if(btn&&wt&&wt.mainCompleted) btn.textContent=(wt.seen&&wt.seen.length>0)?'Continue Walkthrough':'Restart Walkthrough';
-  })();
-  </script>
-
-  <div class="glass-panel" data-group="preferences">
     <h2>🎭 App Personality</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Tone and motion only - no functionality changes. Default is exactly how FiApp behaves today.</p>
     <input type="range" id="personality-slider" min="0" max="2" step="1" value="1" aria-label="App personality">
@@ -1187,8 +1174,6 @@ document.addEventListener('DOMContentLoaded',function(){
     }
     revSelect.addEventListener('change',function(){ loadRevisions(revSelect.value); });
   }
-  var wtBtn=document.getElementById('wt-acct-btn');
-  if(wtBtn) wtBtn.addEventListener('click',function(){window.wtStart();});
   var delArmBtn=document.getElementById('del-arm-btn');
   if(delArmBtn) delArmBtn.addEventListener('click',armDelete);
   var delConfirmBtn=document.getElementById('del-confirm-btn');
