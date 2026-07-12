@@ -1035,6 +1035,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .qa-sign-btn{border:none;background:none;color:var(--muted);font-family:inherit;font-size:.78rem;font-weight:600;padding:.35rem .8rem;border-radius:999px;cursor:pointer;}
 .qa-sign-btn.selected{background:var(--panel-bg);color:var(--fg);box-shadow:0 1px 4px rgba(31,41,55,.10);}
 .qa-sign-btn[data-sign="sub"].selected{color:var(--sem-bad);}
+
+/* ── Recurring rows (see recurring-core.js) ── */
+.recur-mark-btn.active{border-color:var(--accent);color:var(--accent-strong);}
+.rec-monthly-cell{text-align:right;position:relative;}
+.rec-monthly-cell::before{content:"monthly";position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:.62rem;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);opacity:.7;pointer-events:none;}
+.rec-draft-banner{position:fixed;left:50%;bottom:calc(4.5rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:99999;background:var(--panel-bg);border:1px solid var(--sem-warn,#b45309);border-radius:10px;box-shadow:var(--elev-3,0 12px 32px rgba(0,0,0,.35));padding:.7rem .85rem;max-width:min(560px,calc(100vw - 1.5rem));width:max-content;font-size:.85rem;color:var(--fg);}
+.rec-draft-head{font-weight:600;margin-bottom:.5rem;color:var(--sem-warn,#b45309);}
+.rec-draft-item{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.25rem 0;border-top:1px solid var(--panel-border);}
+.rec-draft-jump{flex:1;min-width:140px;text-align:left;background:none;border:none;color:var(--fg);font-family:inherit;font-size:.83rem;cursor:pointer;text-decoration:underline;padding:0;}
+.rec-draft-apply,.rec-draft-skip{border:1px solid var(--input-border);border-radius:6px;background:transparent;color:var(--fg);font-family:inherit;font-size:.78rem;padding:.3rem .6rem;cursor:pointer;flex-shrink:0;}
+.rec-draft-apply{background:var(--accent);color:#fff;border-color:var(--accent);}
 .qa-amount-input{
   width:100%;border:none;background:none;text-align:center;font-family:inherit;
   font-size:26px;font-weight:500;letter-spacing:-.02em;color:var(--fg);margin:0 0 12px;
