@@ -525,6 +525,24 @@ def init_db():
                     );
                     CREATE INDEX IF NOT EXISTS idx_data_revisions_lookup
                         ON data_revisions(user_id, tracker, version DESC);
+                    -- Phase 5: native push for subscription-renewal reminders.
+                    -- push_enabled is a per-user gate; device_tokens holds one row per
+                    -- device (token is globally unique); push_sent dedups the daily scan.
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS push_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+                    CREATE TABLE IF NOT EXISTS device_tokens (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        token TEXT NOT NULL UNIQUE,
+                        platform TEXT,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id);
+                    CREATE TABLE IF NOT EXISTS push_sent (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        dedup_key TEXT NOT NULL UNIQUE,
+                        sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
                 """)
     finally:
         release_db(conn)
@@ -1319,6 +1337,8 @@ def delete_account():
         with conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM data_revisions WHERE user_id=%s", (user_id,))
+                cur.execute("DELETE FROM device_tokens WHERE user_id=%s", (user_id,))
+                cur.execute("DELETE FROM push_sent WHERE user_id=%s", (user_id,))
                 cur.execute("DELETE FROM user_data WHERE user_id=%s", (user_id,))
                 cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
         session.clear()
@@ -1721,19 +1741,20 @@ def get_prefs():
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT theme, personality, analytics_currency, themes_custom FROM users WHERE id=%s",
+            cur.execute("SELECT theme, personality, analytics_currency, themes_custom, push_enabled FROM users WHERE id=%s",
                         (session['user_id'],))
             row = cur.fetchone()
     finally:
         release_db(conn)
     if not row:
         return jsonify({"error": "not found"}), 404
-    theme, personality, analytics_currency, themes_custom = row
+    theme, personality, analytics_currency, themes_custom, push_enabled = row
     if not isinstance(themes_custom, dict):
         themes_custom = {'v': 1, 'themes': themes_custom if isinstance(themes_custom, list) else []}
     return jsonify({
         "theme": theme, "personality": personality, "analytics_currency": analytics_currency,
         "themes_custom": themes_custom, "theme_dark": _theme_is_dark(theme, themes_custom),
+        "push_enabled": bool(push_enabled),
     })
 
 
@@ -1822,6 +1843,275 @@ def _current_themes_env():
         return env if isinstance(env, dict) else {'themes': env if isinstance(env, list) else []}
     finally:
         release_db(conn)
+
+# ── Phase 5: subscription-renewal push reminders ────────────────────────────
+# Two-stage reminders (a heads-up ~7 days out, a final nudge the day before) fire
+# from a daily scan; push_sent dedups so each stage sends once per renewal. The
+# date math is a faithful port of upcomingRenewals() in subscriptions.js, so the
+# push and the in-app 7-day renewal alert always agree.
+_PUSH_EARLY_DAYS = 7
+_PUSH_FINAL_DAYS = 1
+_PUSH_HORIZON_DAYS = 7
+_BILLING_INTERVAL_DAYS = {
+    'Yearly': 365.25, 'Quarterly': 91.3125, 'Weekly': 7.0, 'Bi-Weekly': 14.0,
+    # 'Monthly' is same-day-of-month (handled below). 'Semi-Annual' is intentionally
+    # not handled here, matching upcomingRenewals() so both reminders stay in sync.
+}
+_PUSH_TOKEN_RE = re.compile(r'^[A-Za-z0-9_:.\-]{20,4096}$')
+
+
+def _js_ymd(year, month, day):
+    """A date for (year, 1-based month, day) reproducing JS new Date() overflow:
+    day past the month's end rolls into the next month (setDate/setMonth semantics)."""
+    year += (month - 1) // 12
+    month = (month - 1) % 12 + 1
+    return (datetime(year, month, 1) + timedelta(days=day - 1)).date()
+
+
+def _sub_next_renewal(start, billing, today):
+    """Next renewal date, matching upcomingRenewals(): Monthly = same day-of-month
+    this month or next; interval billings = start advanced by whole intervals until
+    after today. Returns a date, or None for billings with no fixed interval."""
+    if billing == 'Monthly':
+        d = _js_ymd(today.year, today.month, start.day)
+        if d < today:
+            d = _js_ymd(today.year, today.month + 1, start.day)
+        return d
+    days = _BILLING_INTERVAL_DAYS.get(billing)
+    if not days:
+        return None
+    # Mirror the JS millisecond loop (fractional intervals drift by hours) with a
+    # datetime, then take the calendar day, to stay faithful to the in-app alert.
+    nxt = datetime(start.year, start.month, start.day)
+    today_dt = datetime(today.year, today.month, today.day)
+    while nxt <= today_dt:
+        nxt += timedelta(days=days)
+    return nxt.date()
+
+
+def _due_reminders(subs_blob, today):
+    """Pure scanner: given a subscriptions state blob and today's date, return the
+    reminders due now as dicts {row_id, name, billing, renewal, days_until, stage}.
+    No DB and no dedup - the caller handles those."""
+    out = []
+    if not isinstance(subs_blob, dict):
+        return out
+    cols = subs_blob.get('cols') or []
+    rows = subs_blob.get('rows') or []
+    cells = subs_blob.get('cells') or {}
+    if not (isinstance(cols, list) and isinstance(rows, list) and isinstance(cells, dict)):
+        return out
+
+    def col_by(ctype):
+        for c in cols:
+            if isinstance(c, dict) and c.get('ctype') == ctype:
+                return c
+        return None
+
+    start_col, billing_col = col_by('date'), col_by('billing')
+    status_col, name_col = col_by('status'), col_by('text')
+    if not start_col or not billing_col:
+        return out
+
+    def cell(row, col):
+        if not col:
+            return ''
+        return cells.get(str(row.get('id')) + '|' + str(col.get('id')), '') or ''
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if (cell(row, status_col) or 'Active') == 'Cancelled':
+            continue
+        start_str = cell(row, start_col)
+        if not start_str:
+            continue
+        try:
+            start = datetime.strptime(str(start_str)[:10], '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            continue
+        billing = cell(row, billing_col) or 'Monthly'
+        if start > today + timedelta(days=_PUSH_HORIZON_DAYS):
+            continue  # hasn't started yet (matches the start>horizon guard)
+        nxt = _sub_next_renewal(start, billing, today)
+        if not nxt:
+            continue
+        days_until = (nxt - today).days
+        if days_until < 0 or days_until > _PUSH_HORIZON_DAYS:
+            continue
+        out.append({
+            'row_id': str(row.get('id')),
+            'name': (cell(row, name_col) or 'A subscription').strip() or 'A subscription',
+            'billing': billing,
+            'renewal': nxt,
+            'days_until': days_until,
+            'stage': 'final' if days_until <= _PUSH_FINAL_DAYS else 'early',
+        })
+    return out
+
+
+# FCM sender - optional dependency, so the whole scan pipeline is testable without
+# Firebase credentials (owner-provisioned in Phase 5). Absent creds -> log + no-op.
+try:
+    import firebase_admin as _firebase_admin
+    from firebase_admin import credentials as _fb_credentials, messaging as _fb_messaging
+    _FIREBASE_AVAILABLE = True
+except Exception:
+    _FIREBASE_AVAILABLE = False
+_FIREBASE_APP = None
+
+
+def _init_firebase():
+    global _FIREBASE_APP
+    if _FIREBASE_APP is not None or not _FIREBASE_AVAILABLE:
+        return _FIREBASE_APP
+    cred_json = os.environ.get('FIREBASE_CREDENTIALS')
+    if not cred_json:
+        return None
+    try:
+        cred = _fb_credentials.Certificate(json.loads(cred_json))
+        _FIREBASE_APP = _firebase_admin.initialize_app(cred)
+    except Exception:
+        _FIREBASE_APP = None
+    return _FIREBASE_APP
+
+
+def _prune_token(token):
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM device_tokens WHERE token=%s", (token,))
+    finally:
+        release_db(conn)
+
+
+def _send_push(tokens, title, body, data=None):
+    """Send a notification to device tokens; returns the count sent. Stubbed (logs
+    and returns the token count) when Firebase isn't configured, so the scan is fully
+    exercisable without FCM. Dead tokens are pruned so we stop retrying them."""
+    if not tokens:
+        return 0
+    fb = _init_firebase()
+    if not fb:
+        app.logger.info("[push stub] to %d device(s): %s / %s", len(tokens), title, body)
+        return len(tokens)
+    sent = 0
+    for tok in tokens:
+        try:
+            _fb_messaging.send(_fb_messaging.Message(
+                token=tok,
+                notification=_fb_messaging.Notification(title=title, body=body),
+                data={k: str(v) for k, v in (data or {}).items()},
+            ))
+            sent += 1
+        except Exception:
+            try:
+                _prune_token(tok)
+            except Exception:
+                pass
+    return sent
+
+
+@app.route('/api/push/register', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("20 per minute", "200 per hour")
+def push_register():
+    data = request.get_json(silent=True) or {}
+    token = (data.get('token') or '').strip()
+    platform = (data.get('platform') or '').strip()[:20]
+    if not _PUSH_TOKEN_RE.match(token):
+        return jsonify(ok=False, error='invalid_token'), 400
+    uid = session['user_id']
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                # A token is device-unique; re-registering re-homes it to this user.
+                cur.execute(
+                    "INSERT INTO device_tokens (user_id, token, platform) VALUES (%s,%s,%s) "
+                    "ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, platform=EXCLUDED.platform",
+                    (uid, token, platform or None))
+                cur.execute("UPDATE users SET push_enabled=TRUE WHERE id=%s", (uid,))
+    finally:
+        release_db(conn)
+    return jsonify(ok=True)
+
+
+@app.route('/api/push/unregister', methods=['POST'])
+@login_required
+@csrf_required
+@_rl("20 per minute", "200 per hour")
+def push_unregister():
+    data = request.get_json(silent=True) or {}
+    token = (data.get('token') or '').strip()
+    uid = session['user_id']
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                if token:
+                    cur.execute("DELETE FROM device_tokens WHERE user_id=%s AND token=%s", (uid, token))
+                else:
+                    cur.execute("DELETE FROM device_tokens WHERE user_id=%s", (uid,))
+                # Only clear the per-user gate once no devices remain registered.
+                cur.execute("SELECT 1 FROM device_tokens WHERE user_id=%s LIMIT 1", (uid,))
+                if not cur.fetchone():
+                    cur.execute("UPDATE users SET push_enabled=FALSE WHERE id=%s", (uid,))
+    finally:
+        release_db(conn)
+    return jsonify(ok=True)
+
+
+@app.route('/internal/run-renewal-scan', methods=['POST'])
+def run_renewal_scan():
+    """Daily renewal scan, driven by a Render Cron Job. Guarded by a shared secret
+    (PUSH_SCAN_SECRET) rather than a user session - it is a server-to-server trigger."""
+    secret = os.environ.get('PUSH_SCAN_SECRET')
+    provided = request.headers.get('X-Scan-Secret', '')
+    if not secret or not hmac.compare_digest(secret, provided):
+        return jsonify(ok=False, error='forbidden'), 403
+    today = datetime.now(timezone.utc).date()
+    users_scanned = reminders_sent = 0
+    conn = get_db()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT u.id, ud.subs_data
+                    FROM users u JOIN user_data ud ON ud.user_id = u.id
+                    WHERE u.push_enabled = TRUE AND ud.subs_data IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM device_tokens dt WHERE dt.user_id = u.id)
+                """)
+                for uid, subs_blob in cur.fetchall():
+                    users_scanned += 1
+                    fresh = []
+                    for r in _due_reminders(subs_blob, today):
+                        key = "%s|%s|%s|%s" % (uid, r['row_id'], r['renewal'].isoformat(), r['stage'])
+                        cur.execute(
+                            "INSERT INTO push_sent (user_id, dedup_key) VALUES (%s,%s) "
+                            "ON CONFLICT (dedup_key) DO NOTHING RETURNING id", (uid, key))
+                        if cur.fetchone():
+                            fresh.append(r)
+                    if not fresh:
+                        continue
+                    cur.execute("SELECT token FROM device_tokens WHERE user_id=%s", (uid,))
+                    tokens = [t[0] for t in cur.fetchall()]
+                    for r in fresh:
+                        if r['days_until'] <= 0:
+                            when = 'today'
+                        elif r['days_until'] == 1:
+                            when = 'tomorrow'
+                        else:
+                            when = 'in %d days' % r['days_until']
+                        reminders_sent += _send_push(
+                            tokens, 'Upcoming renewal', '%s renews %s.' % (r['name'], when),
+                            {'route': '/subscriptions'})
+    finally:
+        release_db(conn)
+    return jsonify(ok=True, users_scanned=users_scanned, reminders_sent=reminders_sent)
+
 
 def convert(currency_i, currency_a, currency_o):
     rates, _ = fetch(currency_i)
