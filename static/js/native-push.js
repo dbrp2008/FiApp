@@ -65,9 +65,11 @@
       feedback('Notifications could not be set up on this device.', true);
     });
     // Tapping a reminder routes to the subscriptions page (data.route set server-side).
+    // Defense-in-depth: only follow same-origin app paths, never an absolute/external URL,
+    // in case the data payload is ever sourced from something less trusted than our own scan.
     P.addListener('pushNotificationActionPerformed', function (ev) {
       var route = ev && ev.notification && ev.notification.data && ev.notification.data.route;
-      if (route) { try { window.location = route; } catch (_) {} }
+      if (route && /^\/[a-z/]*$/.test(route)) { try { window.location = route; } catch (_) {} }
     });
   }
 
