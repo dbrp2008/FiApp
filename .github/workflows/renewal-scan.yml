@@ -1,0 +1,15 @@
+name: Subscription renewal scan
+
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the renewal scan
+        run: |
+          curl -fsS -X POST "https://fiapp.onrender.com/internal/run-renewal-scan" \
+            -H "X-Scan-Secret: ${{ secrets.PUSH_SCAN_SECRET }}"
