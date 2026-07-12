@@ -3572,7 +3572,10 @@ function openQuickAdd(){
   if(!sheet||!backdrop) return;
   var chips=document.getElementById('qa-chips');
   chips.innerHTML='';
-  getRows().filter(function(r){return !r.parentId;}).forEach(function(row,i){
+  // A subscriptions-linked category (and its past-month snapshots) is auto-filled from the
+  // Subscriptions tracker, so it must not be quick-add editable - a write here would just be
+  // overwritten on the next render. Exclude it from the chips.
+  getRows().filter(function(r){return !r.parentId && r.linked!=='subscriptions' && !r.snapshotLinkedRow;}).forEach(function(row,i){
     var chip=document.createElement('button');
     chip.type='button'; chip.className='qa-chip'+(i===0?' selected':'');
     chip.textContent=row.label; chip.dataset.rowId=row.id;
@@ -3614,6 +3617,10 @@ function saveQuickAdd(){
   if(!amt||amt<=0) return;
   var chip=document.querySelector('.qa-chip.selected');
   if(!chip) return;
+  // Belt-and-braces: never write to a subscriptions-linked (auto-filled) row, even if a
+  // stale chip somehow points at one.
+  var _qaRow=getRows().find(function(r){return r.id===chip.dataset.rowId;});
+  if(_qaRow && (_qaRow.linked==='subscriptions'||_qaRow.snapshotLinkedRow)) return;
   var col=_qaCurrentWeekCol();
   if(!col) return;
   if(_isClosedMonth(currentMK())){ showToast('🔒 Month is locked.'); closeQuickAdd(); return; }
