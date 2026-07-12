@@ -125,6 +125,32 @@
   var editing = null;           // the theme object being edited (draft)
   var prevActive = null;        // theme value active before opening the editor (for cancel)
   var SEED_LABELS = { accent:'Accent', gradFrom:'Gradient start', gradTo:'Gradient end', tint:'Background tint' };
+  // Plain-language labels for the Advanced editor, keyed by the raw CSS custom property.
+  // Anything missing here just falls back to the raw name (see buildAdvanced).
+  var ADV_LABELS = {
+    '--accent':'Accent color', '--accent-strong':'Accent (darker)',
+    '--link':'Link color', '--link-text':'Link text color',
+    '--bg':'Page background', '--panel-bg':'Card background', '--panel-border':'Card border',
+    '--hover-bg':'Hover highlight', '--input-focus':'Input focus ring',
+    '--total-bg':'Totals row background', '--total-fg':'Totals row text', '--total-soft':'Totals row background (soft)',
+    '--th-bg':'Table header background', '--th-fg':'Table header text',
+    '--row-header-bg':'Row label background', '--row-header-fg':'Row label text',
+    '--secondary-bg':'Secondary button background', '--secondary-fg':'Secondary text', '--secondary-hover':'Secondary hover',
+    '--result-bg':'Result cell background', '--result-border':'Result cell border',
+    '--grad-from':'Gradient start', '--grad-to':'Gradient end',
+    '--glow-1':'Glow color 1', '--glow-2':'Glow color 2',
+    '--glass-bg':'Glass panel tint', '--glass-border':'Glass panel border', '--glass-blur':'Glass blur amount',
+    '--shell-rail-bg':'Sidebar background',
+    '--elev-hero':'Hero card shadow', '--elev-cta':'Button shadow',
+    '--fg':'Text color', '--muted':'Muted text color',
+    '--input-bg':'Input background', '--input-border':'Input border',
+    '--overlay':'Popup overlay tint', '--shadow':'Shadow', '--shadow-soft':'Soft shadow',
+    '--tooltip-bg':'Tooltip background', '--tooltip-fg':'Tooltip text',
+    '--error-bg':'Error background', '--error-fg':'Error text', '--error-border':'Error border',
+    '--success-bg':'Success background', '--success-fg':'Success text', '--success-border':'Success border',
+    '--elev-1':'Shadow (light)', '--elev-2':'Shadow (medium)', '--elev-3':'Shadow (heavy)',
+    '--tabbar-bg':'Tab bar background', '--track-bg':'Toggle track background'
+  };
 
   function rand8(){ var s='', c='abcdefghijklmnopqrstuvwxyz0123456789'; for (var i=0;i<8;i++) s+=c.charAt(Math.floor(Math.random()*c.length)); return s; }
   function envelope(){ return fiappThemesCache.read(); }
@@ -289,7 +315,8 @@
     keys.forEach(function(k){
       var type = TOK[k];
       var row = document.createElement('div'); row.className = 'ts-adv-row';
-      var lab = document.createElement('span'); lab.className = 'ts-adv-label'; lab.textContent = k.replace(/^--/,'');
+      var lab = document.createElement('span'); lab.className = 'ts-adv-label'; lab.textContent = ADV_LABELS[k] || k.replace(/^--/,'');
+      lab.title = k;
       row.appendChild(lab);
       if (type === 'color' && /^#/.test(editing.tokens[k] || '')){
         var inp = document.createElement('input'); inp.type = 'color'; inp.value = normHex(editing.tokens[k]);
