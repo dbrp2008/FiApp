@@ -335,6 +335,48 @@ function _recModal(){
   return {overlay:overlay, panel:panel, close:close};
 }
 
+// Inline "type a custom code" affordance for the recurring modal's currency select,
+// mirroring showCellCurrencyOther's validate-via-ensureRate pattern but reverting to an
+// explicit caller-supplied value (the modal has no single row/month to read back from).
+function _recCurrencyOther(wrap, sel, revertVal){
+  sel.style.display='none';
+  const form=document.createElement('span'); form.className='curr-other-cell';
+  const inp=document.createElement('input'); inp.type='text'; inp.maxLength=5; inp.placeholder='VND';
+  inp.style.cssText='font-size:16px;width:80px;';
+  const ok=document.createElement('button'); ok.type='button'; ok.textContent='✓'; ok.title='Apply'; ok.setAttribute('aria-label','Apply');
+  const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='✕'; cancel.title='Cancel'; cancel.className='x'; cancel.setAttribute('aria-label','Cancel');
+  form.appendChild(inp); form.appendChild(ok); form.appendChild(cancel);
+  wrap.appendChild(form);
+  setTimeout(()=>inp.focus(),20);
+  function showErr(msg){
+    const old=document.querySelector('.curr-other-err'); if(old) old.remove();
+    const e=document.createElement('span'); e.className='curr-other-err'; e.textContent=msg;
+    const r=inp.getBoundingClientRect(); e.style.top=(r.bottom+4)+'px'; e.style.left=r.left+'px';
+    document.body.appendChild(e);
+  }
+  function close(){ form.remove(); const old=document.querySelector('.curr-other-err'); if(old) old.remove(); sel.style.display=''; }
+  function commit(code){
+    if(!Array.prototype.some.call(sel.options, o=>o.value===code)){
+      const opt=document.createElement('option'); opt.value=code; opt.textContent=code;
+      sel.insertBefore(opt, sel.querySelector('option[value="__other__"]'));
+    }
+    sel.value=code; close();
+  }
+  async function apply(){
+    const code=inp.value.trim().toUpperCase();
+    if(!code){ showErr('Enter a code.'); return; }
+    if(!/^[A-Z]{2,5}$/.test(code)){ showErr('2-5 letters only.'); return; }
+    if(code==='USD'){ commit(code); return; }
+    ok.disabled=true; ok.textContent='…';
+    await ensureRate(code);
+    if(!ratesCache[code]){ showErr('Unknown: '+code); ok.disabled=false; ok.textContent='✓'; return; }
+    commit(code);
+  }
+  ok.addEventListener('click',e=>{e.stopPropagation();apply();});
+  cancel.addEventListener('click',e=>{e.stopPropagation();sel.value=revertVal;close();});
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();apply();}if(e.key==='Escape'){sel.value=revertVal;close();}});
+}
+
 function openRecurringConfig(rowId){
   const row=getRows().find(r=>r.id===rowId)||(state.rows||[]).find(r=>r.id===rowId);
   if(!row) return;
@@ -357,13 +399,24 @@ function openRecurringConfig(rowId){
 
   const curLbl=document.createElement('label'); curLbl.style.cssText='display:block;font-size:.8rem;color:var(--muted);margin-bottom:1rem;';
   curLbl.appendChild(document.createTextNode('Currency'));
+  const curWrap=document.createElement('div'); curWrap.style.cssText='margin-top:.35rem;';
   const curSel=document.createElement('select');
-  curSel.style.cssText='display:block;width:100%;margin-top:.35rem;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
+  // .cell-curr-sel is the class glass-picker.js already intercepts on desktop (turns the
+  // native popup into the app's glass scroll-wheel) - reuse it instead of a bespoke select,
+  // exactly like the per-row currency pickers elsewhere in this tracker. The inline width
+  // below overrides that class's narrower max-width rule (inline specificity always wins).
+  curSel.className='cell-curr-sel';
+  curSel.style.cssText='display:block;width:100%;max-width:none;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
   const _recCurCodes=getAllUsedCurrencies();
   const _recCurVal=draft.currency||rowCurrency(currentMK(), rowId);
   if(!_recCurCodes.includes(_recCurVal)) _recCurCodes.push(_recCurVal);
   _recCurCodes.sort().forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; if(c===_recCurVal) o.selected=true; curSel.appendChild(o); });
-  curLbl.appendChild(curSel); m.panel.appendChild(curLbl);
+  const curOtherOpt=document.createElement('option'); curOtherOpt.value='__other__'; curOtherOpt.textContent='Other…'; curSel.appendChild(curOtherOpt);
+  curWrap.appendChild(curSel);
+  curSel.addEventListener('change',()=>{
+    if(curSel.value==='__other__') _recCurrencyOther(curWrap, curSel, _recCurVal);
+  });
+  curLbl.appendChild(curWrap); m.panel.appendChild(curLbl);
 
   const scLbl=document.createElement('div'); scLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; scLbl.textContent='Applies to'; m.panel.appendChild(scLbl);
   const scWrap=document.createElement('div'); scWrap.style.cssText='display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;';
@@ -408,6 +461,7 @@ function openRecurringConfig(rowId){
   cancelBtn.addEventListener('click',m.close);
   saveBtn.addEventListener('click',()=>{
     const a=parseFloat(amt.value); if(isNaN(a)||a<0){ fb.textContent='Enter a valid amount.'; return; }
+    if(curSel.value==='__other__'){ fb.textContent='Finish entering the custom currency code first.'; return; }
     draft.amount=a; draft.mode='monthly'; draft.weekly=null; draft.currency=curSel.value;
     if(draft.scope.type==='range'){
       draft.scope.start=rStart.value||null; draft.scope.end=rEnd.value||null;
