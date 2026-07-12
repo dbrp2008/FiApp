@@ -3572,13 +3572,20 @@ function openQuickAdd(){
   if(!sheet||!backdrop) return;
   var chips=document.getElementById('qa-chips');
   chips.innerHTML='';
-  // A subscriptions-linked category (and its past-month snapshots) is auto-filled from the
-  // Subscriptions tracker, so it must not be quick-add editable - a write here would just be
-  // overwritten on the next render. Exclude it from the chips.
-  getRows().filter(function(r){return !r.parentId && r.linked!=='subscriptions' && !r.snapshotLinkedRow;}).forEach(function(row,i){
+  // Offer every directly-editable (leaf) category: childless top-level rows AND
+  // subcategories. A parent that has subcategories is excluded because its cell is a
+  // computed sum of its children; a subscriptions-linked / auto-filled row is excluded too
+  // (a write there is overwritten on the next render). Subcategories are labelled
+  // "Parent > Child" so they read distinctly from top-level categories.
+  var _qaRows=getRows();
+  _qaRows.filter(function(r){
+    return !hasChildren(r.id) && r.linked!=='subscriptions' && !r.snapshotLinkedRow;
+  }).forEach(function(row,i){
+    var label=row.label;
+    if(row.parentId){ var p=_qaRows.find(function(x){return x.id===row.parentId;}); if(p) label=p.label+' › '+row.label; }
     var chip=document.createElement('button');
     chip.type='button'; chip.className='qa-chip'+(i===0?' selected':'');
-    chip.textContent=row.label; chip.dataset.rowId=row.id;
+    chip.textContent=label; chip.dataset.rowId=row.id;
     chip.addEventListener('click',function(){
       chips.querySelectorAll('.qa-chip').forEach(function(c){c.classList.remove('selected');});
       chip.classList.add('selected');
