@@ -32,6 +32,7 @@
     }
     .settings-tab:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
     .tab-hidden { display:none !important; }
+    .glass-panel.confirm-highlight { box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--glow-1, rgba(59,130,246,.22)); transition: box-shadow .3s; }
 
     #rev-details summary {
       cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--accent-strong);
@@ -384,9 +385,10 @@
     </div>
   </div>
 
-  <div class="glass-panel" data-group="preferences">
+  <div class="glass-panel" data-group="preferences" id="home-currency">
     <h2>💱 Home Currency</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">The currency your expense numbers are already in. Subscriptions and income with their own currency tags are converted to this for analytics.</p>
+    <div id="home-currency-banner" style="display:none;margin-bottom:1rem;padding:.6rem .8rem;border-radius:.5rem;background:var(--hover-bg);border:1px solid var(--accent);color:var(--fg);font-size:.85rem;">Confirm the currency your money is in. This is what your totals and analytics are shown in.</div>
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;">
       {% set home_codes = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'] %}
       {% set cur_code = analytics_currency|default('USD') %}
@@ -406,6 +408,7 @@
       <button type="button" id="home-currency-other-btn" class="btn btn-sm" style="display:none;padding:.25rem .6rem;font-size:.8rem;">OK</button>
       <span id="home-currency-note" style="font-size:.78rem;color:var(--muted);"></span>
     </div>
+    <button type="button" id="home-currency-confirm" class="btn btn-sm" style="display:none;margin-top:.75rem;">Confirm currency</button>
   </div>
   <script src="/static/rates-utils.js?v={{ ASSET_V }}"></script>
   <script nonce="{{ csp_nonce }}">
@@ -467,6 +470,25 @@
     }
     otherBtn.addEventListener('click', applyOther);
     otherInp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); applyOther(); } });
+
+    // Post-walkthrough / checklist currency confirmation. The reveal is triggered by the
+    // tab controller (it owns tab visibility, and this panel lives in the Preferences tab).
+    var _curBanner=document.getElementById('home-currency-banner');
+    var _curConfirmBtn=document.getElementById('home-currency-confirm');
+    var _curPanel=document.getElementById('home-currency');
+    function _confirmCurrency(){
+      persist(sel.value);
+      try{ localStorage.setItem('fiapp_currency_confirmed','1'); }catch(_){}
+      if(_curBanner) _curBanner.style.display='none';
+      if(_curConfirmBtn) _curConfirmBtn.style.display='none';
+      if(_curPanel) _curPanel.classList.remove('confirm-highlight');
+    }
+    if(_curConfirmBtn) _curConfirmBtn.addEventListener('click', _confirmCurrency);
+    window.__fiRevealCurrencyConfirm=function(){
+      if(_curBanner) _curBanner.style.display='block';
+      if(_curConfirmBtn) _curConfirmBtn.style.display='inline-flex';
+      if(_curPanel){ _curPanel.classList.add('confirm-highlight'); _curPanel.scrollIntoView({behavior:'smooth',block:'center'}); }
+    };
   })();
   </script>
 
@@ -1254,12 +1276,26 @@ document.addEventListener('DOMContentLoaded',function(){
   // Initial tab: the theme dropdown's "New theme" deep-links to #theme-studio
   // (lives in Preferences); #tab-<name> re-opens a specific tab on reload.
   var initial = 'profile', hash = location.hash;
+  // Currency confirmation deep-link: the walkthrough sets a pending marker and redirects
+  // here; the home checklist links straight to #home-currency. Either way, if the user
+  // hasn't confirmed yet, open Preferences and reveal the confirm prompt.
+  var _curDeep = false, _curUnconfirmed = false;
+  try {
+    _curUnconfirmed = localStorage.getItem('fiapp_currency_confirmed') !== '1';
+    _curDeep = hash === '#home-currency' || localStorage.getItem('fiapp_currency_confirm_pending') === '1';
+  } catch(e){}
   if (hash === '#theme-studio') initial = 'preferences';
+  else if (_curDeep) initial = 'preferences';
   else if (hash.indexOf('#tab-') === 0) initial = hash.slice(5);
   showTab(initial);
   if (hash === '#theme-studio'){
     var ts = document.getElementById('theme-studio');
     if (ts) ts.scrollIntoView({block:'start'});
+  }
+  if (_curDeep){
+    try { localStorage.removeItem('fiapp_currency_confirm_pending'); } catch(e){}
+    if (_curUnconfirmed && typeof window.__fiRevealCurrencyConfirm === 'function') window.__fiRevealCurrencyConfirm();
+    else { var hc = document.getElementById('home-currency'); if (hc) hc.scrollIntoView({block:'center'}); }
   }
 })();
 </script>
