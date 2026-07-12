@@ -2518,10 +2518,16 @@ function openQuickAdd(){
   if(!sheet||!backdrop) return;
   var chips=document.getElementById('qa-chips');
   chips.innerHTML='';
-  getRows().filter(function(r){return !r.parentId;}).forEach(function(row,i){
+  // Offer every directly-editable (leaf) source: childless top-level rows AND subcategories.
+  // A parent that has subcategories is excluded because its cell is a computed sum of its
+  // children. Subcategories are labelled "Parent > Child" so they read distinctly.
+  var _qaRows=getRows();
+  _qaRows.filter(function(r){ return !hasChildren(r.id); }).forEach(function(row,i){
+    var label=row.label;
+    if(row.parentId){ var p=_qaRows.find(function(x){return x.id===row.parentId;}); if(p) label=p.label+' › '+row.label; }
     var chip=document.createElement('button');
     chip.type='button'; chip.className='qa-chip'+(i===0?' selected':'');
-    chip.textContent=row.label; chip.dataset.rowId=row.id;
+    chip.textContent=label; chip.dataset.rowId=row.id;
     chip.addEventListener('click',function(){
       chips.querySelectorAll('.qa-chip').forEach(function(c){c.classList.remove('selected');});
       chip.classList.add('selected');
