@@ -278,8 +278,13 @@
       /* Hide column drag handle and delete button in headers — useless on touch, eat ~60px per cell */
       thead .col-drag-handle{display:none;}
       thead .col-del{display:none;}
-      /* Anchor dropdown to the right edge of the button on mobile so it can't escape the viewport */
-      .dropdown-menu{right:0;left:auto;}
+      /* Anchor dropdown to the right edge of the button on mobile so it can't escape the
+         viewport - but the anchor alone isn't enough: menu buttons are nowrap by default
+         (line ~17), so a long label like "Copy rows/cols from previous month" still forces
+         the menu wider than the screen and pushes its left edge off-screen. Capping the
+         width and letting labels wrap fixes that regardless of anchor point. */
+      .dropdown-menu{right:0;left:auto;max-width:calc(100vw - 2rem);}
+      .dropdown-menu button{white-space:normal;}
     }
     /* ── Mobile card layout ─────────────────────────────────── */
     .mc-card{background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:opacity .15s;}
@@ -323,12 +328,8 @@
     .mc-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
     .mc-ef{display:flex;flex-direction:column;gap:3px;}
     .mc-el{font-size:9px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
-    .mc-er{display:flex;gap:4px;}
     .mc-ei{flex:1;font-size:16px!important;padding:7px 8px;border:1px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--fg);min-width:0;width:100%;box-sizing:border-box;font-family:inherit;}
     .mc-ei:focus{border-color:var(--accent);outline:none;}
-    .mc-mode-toggle{flex-shrink:0;width:36px;height:36px;font-size:17px;font-weight:700;line-height:1;border:1px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--muted);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0;}
-    .mc-mode-toggle:hover{border-color:var(--accent);}
-    .mc-mode-toggle.mc-mode-sub{background:var(--sem-bad-bg);border-color:var(--sem-bad);color:var(--sem-bad);}
     .mc-ebtns{display:flex;gap:7px;margin-top:9px;}
     .mc-esave{flex:1;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}
     .mc-ecancel{flex:1;background:var(--panel-bg);color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
@@ -508,6 +509,10 @@
 <div class="quick-add-backdrop" id="qa-backdrop"></div>
 <div class="quick-add-sheet" id="qa-sheet" role="dialog" aria-modal="true" aria-label="Add expense">
   <div class="qa-grab" aria-hidden="true"></div>
+  <div class="qa-sign-toggle" role="group" aria-label="Add or subtract">
+    <button type="button" class="qa-sign-btn selected" id="qa-sign-add" data-sign="add">+ Add</button>
+    <button type="button" class="qa-sign-btn" id="qa-sign-sub" data-sign="sub">− Subtract</button>
+  </div>
   <input type="number" id="qa-amount" class="qa-amount-input" inputmode="decimal" step="0.01" min="0" placeholder="0.00" aria-label="Amount">
   <p class="qa-label">Category</p>
   <div class="qa-chips" id="qa-chips"></div>
