@@ -1001,6 +1001,16 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
     }
 
     function _showDoneCard(text,reloadOnDismiss){
+      // First natural completion (Skip never reaches here), logged-in only: send the user
+      // to confirm their home currency instead of the done card. One-time, guarded by the
+      // fiapp_currency_confirmed flag so restarts and the tax/currency extension never re-fire.
+      try{
+        if(_loggedIn && localStorage.getItem('fiapp_currency_confirmed')!=='1'){
+          localStorage.setItem('fiapp_currency_confirm_pending','1');
+          window.location.href='/account#home-currency';
+          return;
+        }
+      }catch(_){}
       _overlay.style.background='rgba(0,0,0,.42)';_overlay.style.display='block';
       _transition(function(){
         _avatar.textContent='🎉';_text.innerHTML=text;_btns.innerHTML='';_progress.innerHTML='';
