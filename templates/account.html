@@ -13,6 +13,17 @@
     .account-grid .glass-panel { margin-bottom: 0; }
     .glass-panel { margin-bottom: 1.25rem; }
 
+    /* Segmented settings tabs: only the active group's cards show, so the page stays
+       short instead of stacking a dozen panels. Cards are tagged data-group="..."; the
+       controller toggles .tab-hidden on the rest. !important beats the inline display
+       toggling that App Lock / Push cards use when the native shell reveals them. */
+    .settings-tabs { display:flex; gap:.25rem; background:var(--panel-border); padding:4px; border-radius:999px; margin:0 0 1.5rem; max-width:540px; flex-wrap:wrap; }
+    .settings-tab { flex:1 1 auto; min-width:84px; padding:.5rem .9rem; border:none; background:none; border-radius:999px; font-family:inherit; font-size:.85rem; font-weight:600; color:var(--muted); cursor:pointer; transition:background .15s, color .15s; }
+    .settings-tab.active { background:var(--panel-bg); color:var(--fg); box-shadow:0 2px 6px rgba(31,41,55,.10); }
+    .settings-tab:hover:not(.active) { color:var(--fg); }
+    .settings-tab:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    .tab-hidden { display:none !important; }
+
     #rev-details summary {
       cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--accent-strong);
       padding: .2rem 0; list-style-position: inside;
@@ -260,9 +271,16 @@
     <h1>Account</h1>
   </div>
 
+  <div class="settings-tabs" role="tablist" aria-label="Account settings sections">
+    <button type="button" class="settings-tab active" data-tab="profile" role="tab" aria-selected="true">Profile</button>
+    <button type="button" class="settings-tab" data-tab="preferences" role="tab" aria-selected="false">Preferences</button>
+    <button type="button" class="settings-tab" data-tab="data" role="tab" aria-selected="false">Data</button>
+    <button type="button" class="settings-tab" data-tab="danger" role="tab" aria-selected="false">Danger</button>
+  </div>
+
   <div class="account-grid">
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="profile">
     <h2>Account Info</h2>
     <div class="info-row">
       <span class="info-label">Username</span>
@@ -274,7 +292,7 @@
   </div>
 
   {% if google_enabled %}
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="profile">
     <h2>🔑 Sign-in methods</h2>
     <div class="change-feedback" id="google-feedback"></div>
     <div class="info-row">
@@ -304,7 +322,7 @@
   </div>
   {% endif %}
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="profile">
     <h2>Change Username</h2>
     <div class="change-feedback" id="change-feedback"></div>
     <div class="change-form">
@@ -327,7 +345,7 @@
     </div>
   </div>
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="profile">
     <h2>{% if has_password %}Change Password{% else %}Set a Password{% endif %}</h2>
     <div class="change-feedback" id="pw-feedback"></div>
     {% if not has_password %}
@@ -357,7 +375,7 @@
     </div>
   </div>
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="preferences">
     <h2>💱 Home Currency</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">The currency your expense numbers are already in. Subscriptions and income with their own currency tags are converted to this for analytics.</p>
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;">
@@ -443,7 +461,7 @@
   })();
   </script>
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="data">
     <h2>🕐 Version History</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">FiApp keeps your last 20 saves of each tracker. If something looks wrong, step back to an earlier version - your current data stays in this list too, so this can itself be undone.</p>
     <details id="rev-details">
@@ -459,7 +477,7 @@
     </details>
   </div>
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="preferences">
     <h2>🧭 App Walkthrough</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">New to FiApp or want a refresher? Start the guided tour - Fi will walk you through every tool.</p>
     <button class="btn btn-gradient btn-primary" id="wt-acct-btn">Start Walkthrough</button>
@@ -472,7 +490,7 @@
   })();
   </script>
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="preferences">
     <h2>🎭 App Personality</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Tone and motion only - no functionality changes. Default is exactly how FiApp behaves today.</p>
     <input type="range" id="personality-slider" min="0" max="2" step="1" value="1" aria-label="App personality">
@@ -508,7 +526,7 @@
   </script>
 
   <!-- App Lock (native app only - revealed by native-lock.js when running in the Capacitor shell) -->
-  <div class="glass-panel" style="display:none;" id="app-lock-card">
+  <div class="glass-panel" style="display:none;" id="app-lock-card" data-group="preferences">
     <h2>🔒 App Lock</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Require a fingerprint, face unlock, or your device screen lock each time you open FiApp on this device.</p>
     <div class="info-row" style="justify-content:space-between;align-items:center;">
@@ -521,7 +539,7 @@
     <span id="app-lock-feedback" style="display:none;font-size:.85rem;margin-top:.5rem;"></span>
   </div>
 
-  <div class="glass-panel">
+  <div class="glass-panel" data-group="data">
     <h2>📥 Export &amp; Backup</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download a CSV for spreadsheets, or a full JSON backup that preserves everything CSV drops - goals, per-row currencies, and multi-month history. Restoring a backup replaces your current data.</p>
     <button class="btn btn-gradient btn-primary" id="export-csv-btn">Export all data as CSV</button>
@@ -533,7 +551,7 @@
     </div>
   </div>
 
-  <div class="glass-panel danger-card">
+  <div class="glass-panel danger-card" data-group="danger">
     <h2>⚠ Delete Account</h2>
     <p class="danger-warning">
       This permanently deletes your account and all saved data (expenses, subscriptions, income).
@@ -573,7 +591,7 @@
 
   </div><!-- /.account-grid -->
 
-  <div class="glass-panel" id="theme-studio">
+  <div class="glass-panel" id="theme-studio" data-group="preferences">
     <h2>🎨 Theme Studio</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Built-in themes are Light and Dark. Create your own from a preset or from scratch - changes preview live on this page. <span id="ts-count" style="color:var(--muted);"></span></p>
     <div id="ts-list" class="ts-list"></div>
@@ -1193,10 +1211,47 @@ document.addEventListener('DOMContentLoaded',function(){
 (function(){
   var cb = document.getElementById('voice-always-confirm');
   if (cb) cb.checked = localStorage.getItem('fiapp_voice_always_confirm') === 'true';
-  // Deep link from the theme dropdown's "New theme" entry.
-  if (location.hash === '#theme-studio'){
-    var el = document.getElementById('theme-studio');
-    if (el) el.scrollIntoView({block:'start'});
+
+  // Segmented settings tabs: show one group of cards at a time. Cards carry
+  // data-group; the active group's cards stay, the rest get .tab-hidden.
+  var GROUPS = ['profile','preferences','data','danger'];
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.settings-tab'));
+  var cards = Array.prototype.slice.call(document.querySelectorAll('[data-group]'));
+  function showTab(name){
+    if (GROUPS.indexOf(name) < 0) name = 'profile';
+    cards.forEach(function(el){ el.classList.toggle('tab-hidden', el.getAttribute('data-group') !== name); });
+    tabs.forEach(function(t){
+      var on = t.getAttribute('data-tab') === name;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      var n = t.getAttribute('data-tab');
+      showTab(n);
+      try { history.replaceState(null, '', '#tab-' + n); } catch(e){}
+    });
+  });
+  // Left/Right arrow roving within the tablist (a11y).
+  var tablist = document.querySelector('.settings-tabs');
+  if (tablist) tablist.addEventListener('keydown', function(e){
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    var i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    var j = (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+    tabs[j].focus(); tabs[j].click();
+  });
+  // Initial tab: the theme dropdown's "New theme" deep-links to #theme-studio
+  // (lives in Preferences); #tab-<name> re-opens a specific tab on reload.
+  var initial = 'profile', hash = location.hash;
+  if (hash === '#theme-studio') initial = 'preferences';
+  else if (hash.indexOf('#tab-') === 0) initial = hash.slice(5);
+  showTab(initial);
+  if (hash === '#theme-studio'){
+    var ts = document.getElementById('theme-studio');
+    if (ts) ts.scrollIntoView({block:'start'});
   }
 })();
 </script>
