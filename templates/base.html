@@ -516,7 +516,11 @@
       var now=Date.now();
       if(now-_lastAuthCheck>30000){
         _lastAuthCheck=now;
-        fetch('/auth/me').then(function(r){if(r.status===401)window.location='/login';}).catch(function(){});
+        // A session that ends without an explicit logout (expiry, crash) skips the
+        // clear-cache call logOutStep normally makes - so a prior user's authenticated
+        // page shells (username, and on /account the email) could otherwise sit in the SW
+        // cache for whoever uses this device next. Purge them here too.
+        fetch('/auth/me').then(function(r){if(r.status===401){fiappClearSWCache();window.location='/login';}}).catch(function(){});
       }
     }
   });
