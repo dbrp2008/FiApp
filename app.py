@@ -1994,7 +1994,9 @@ def _send_push(tokens, title, body, data=None):
         return 0
     fb = _init_firebase()
     if not fb:
-        app.logger.info("[push stub] to %d device(s): %s / %s", len(tokens), title, body)
+        # Counts only - title/body carry the user's own subscription name, which has no
+        # reason to sit in server logs just because FCM isn't configured yet.
+        app.logger.info("[push stub] would send to %d device(s)", len(tokens))
         return len(tokens)
     sent = 0
     for tok in tokens:
@@ -2028,7 +2030,19 @@ def push_register():
     try:
         with conn:
             with conn.cursor() as cur:
-                # A token is device-unique; re-registering re-homes it to this user.
+                # A token is device-unique. Re-registering as the SAME user (e.g. a refreshed
+                # FCM token, or re-enabling the toggle) re-homes it harmlessly. Re-registering
+                # as a DIFFERENT user is refused rather than silently reassigning the row -
+                # without this, anyone who obtained another user's token (leaked, not secret
+                # in the UI, but not something this app exposes either) could redirect that
+                # victim's reminders to themselves and go silent on their own. Legitimate
+                # device handoff (a different person logs into FiApp on the same physical
+                # device) still works: unregistering first (toggle off, or logout - see
+                # push_unregister) frees the token for the next user to claim.
+                cur.execute("SELECT user_id FROM device_tokens WHERE token=%s", (token,))
+                existing = cur.fetchone()
+                if existing and existing[0] != uid:
+                    return jsonify(ok=False, error='token_bound_to_another_user'), 409
                 cur.execute(
                     "INSERT INTO device_tokens (user_id, token, platform) VALUES (%s,%s,%s) "
                     "ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, platform=EXCLUDED.platform",
@@ -2065,6 +2079,7 @@ def push_unregister():
 
 
 @app.route('/internal/run-renewal-scan', methods=['POST'])
+@_rl("10 per minute")
 def run_renewal_scan():
     """Daily renewal scan, driven by a Render Cron Job. Guarded by a shared secret
     (PUSH_SCAN_SECRET) rather than a user session - it is a server-to-server trigger."""
