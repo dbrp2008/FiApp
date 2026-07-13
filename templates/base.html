@@ -46,7 +46,8 @@
          'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
          'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
          'fiapp_tax_result','fiapp_prefill_income',
-         'fiapp_walkthrough_v1','fiapp_analytics_currency','fiapp_personality'].forEach(function(k){localStorage.removeItem(k);});
+         'fiapp_walkthrough_v1','fiapp_analytics_currency','fiapp_personality',
+         'fiapp_currency_confirmed','fiapp_currency_confirm_pending'].forEach(function(k){localStorage.removeItem(k);});
         localStorage.removeItem('fiapp_auth_user');
       }
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
@@ -55,13 +56,16 @@
   </script>
   <script nonce="{{ csp_nonce }}">
   (function(){
-    // Must run before analytics_core.js (loaded in head_scripts below) computes its
-    // module-level currency default, so a fresh/just-switched account sees its own
-    // server-side value rather than USD or a previous account's leftover localStorage.
+    // Unconditional, every authenticated load (not just "if missing") - mirrors the theme
+    // boot pattern. A purge-list gap in any one of this app's several "different user"
+    // detectors previously left a stale cross-account value in place; always overwriting
+    // from the current request's session truth makes that whole class of bug impossible
+    // for this key, regardless of which purge path did or didn't run. Must run before
+    // analytics_core.js (loaded in head_scripts below) computes its module-level default.
     try {
-      if(!localStorage.getItem('fiapp_analytics_currency')){
-        localStorage.setItem('fiapp_analytics_currency','{{ analytics_currency|default("USD") }}');
-      }
+      {% if current_user %}
+      localStorage.setItem('fiapp_analytics_currency','{{ analytics_currency|default("USD") }}');
+      {% endif %}
     } catch(e) {}
   })();
   </script>
@@ -349,7 +353,8 @@
     'fiapp_expenses_v4__dirty','fiapp_expenses_v4__ver','fiapp_income_v1__dirty','fiapp_income_v1__ver',
     'fiapp_subs_v4__dirty','fiapp_subs_v4__ver',
     'fiapp_tax_result','fiapp_tax_ui_v1','fiapp_prefill_income','fiapp_auth_user',
-    'fiapp_walkthrough_v1','fiapp_personality','fiapp_analytics_currency'];
+    'fiapp_walkthrough_v1','fiapp_personality','fiapp_analytics_currency',
+    'fiapp_currency_confirmed','fiapp_currency_confirm_pending'];
   function logOutStep(btn){
     if(btn.dataset.confirm!=='1'){
       btn.dataset.confirm='1';
@@ -580,7 +585,12 @@ document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===
          'fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
          'fiapp_income_undo_v1','fiapp_income_redo_v1',
          'fiapp_subs_undo_v4','fiapp_subs_redo_v4',
-         'fiapp_wt_backup_v1','fiapp_template_dismissed'].forEach(function(k){localStorage.removeItem(k);});
+         'fiapp_wt_backup_v1','fiapp_template_dismissed',
+         // Kept in sync with the fiapp_auth_user purge list above (two independent
+         // "different user" detectors existed in this file; a gap in either one
+         // leaked a previous account's currency/onboarding state onto the next).
+         'fiapp_analytics_currency','fiapp_personality',
+         'fiapp_currency_confirmed','fiapp_currency_confirm_pending'].forEach(function(k){localStorage.removeItem(k);});
         localStorage.setItem(_LAST_USER_KEY,_wtUser);
       }
     })();
