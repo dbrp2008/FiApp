@@ -155,8 +155,14 @@ function _existingMonths(){
   set[currentMK()]=1;   // the viewed month always counts, even if still empty
   return Object.keys(set);
 }
+// A top-level row lives in state.rows and so "exists" in every month via
+// effectiveRowsForMonth's fallback, even ones never forked yet. A subcategory row only
+// exists in the specific months whose fork explicitly includes it (addSubRow writes into
+// state.rowsByMonth, never state.rows) - so this check is a no-op restriction for ordinary
+// rows and a real one for subcategories, without needing to special-case child rows.
+function _rowExistsInMonth(rowId, mk2){ return getRows(mk2).some(r=>r.id===rowId); }
 function _recOptsFor(rowId){
-  return { existingMonths:_existingMonths(), isLocked:_isClosedMonth,
+  return { existingMonths:_existingMonths().filter(mk2=>_rowExistsInMonth(rowId, mk2)), isLocked:_isClosedMonth,
            getMonthTotal:function(mk2){ return _monthTotalForRow(rowId, mk2); } };
 }
 // Materialize an arbitrary month's rows/cols from the globals (forkCurrentMonth only does
@@ -190,6 +196,10 @@ function _recFillNewMonth(mk2){
   _recRules().forEach(rule=>{
     if(rule.draft) return;
     if(!FiRecurring.monthInScope(rule, mk2)) return;
+    // A subcategory only exists in months whose fork explicitly added it - a brand-new
+    // month forks from the top-level state.rows, which never contains subcategories, so
+    // silently skip rather than write an orphaned cell for a row that won't render here.
+    if(!_rowExistsInMonth(rule.rowId, mk2)) return;
     if(_monthTotalForRow(rule.rowId, mk2)!==0) return;
     _recWriteMonth(rule, mk2); wrote=true;
   });
@@ -269,6 +279,11 @@ function openRecurringConfig(rowId){
 
   // Scope
   const scLbl=document.createElement('div'); scLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; scLbl.textContent='Applies to'; m.panel.appendChild(scLbl);
+  if(row.parentId){
+    const scNote=document.createElement('div'); scNote.style.cssText='font-size:.76rem;color:var(--muted);margin-bottom:.5rem;line-height:1.4;';
+    scNote.textContent='Only applies to months that already have this subcategory - it won\'t create it elsewhere.';
+    m.panel.appendChild(scNote);
+  }
   const scWrap=document.createElement('div'); scWrap.style.cssText='display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;';
   const rangeWrap=document.createElement('div'); rangeWrap.style.cssText='display:none;gap:.4rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
   const rStart=document.createElement('input'); rStart.type='month'; rStart.value=draft.scope.start||currentMK();
@@ -398,7 +413,7 @@ function _onRecurringCellEdit(rowId, mk2, newTotal){
 
 // Checkbox list of in-scope existing months; checked months take newTotal as an override.
 function _pickSpecificMonths(rule, newTotal){
-  const months=_existingMonths().filter(mk2=>FiRecurring.monthInScope(rule, mk2)).sort();
+  const months=_existingMonths().filter(mk2=>FiRecurring.monthInScope(rule, mk2) && _rowExistsInMonth(rule.rowId, mk2)).sort();
   const m=_recModal();
   const h=document.createElement('h3'); h.style.cssText='margin:0 0 .8rem;font-size:1rem;color:var(--fg);'; h.textContent='Which months?'; m.panel.appendChild(h);
   const boxes={};
@@ -2674,6 +2689,8 @@ function renderTableBody(table){
     if(_recMonthly){
       const _mcols=getCols();
       const td=document.createElement('td'); td.colSpan=_mcols.length||1; td.className='rec-monthly-cell';
+      const wrap=document.createElement('div'); wrap.className='rec-monthly-wrap';
+      const badge=document.createElement('span'); badge.className='status-pill rec-pill'; badge.textContent='🔁 Monthly';
       const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='0.01';inp.inputMode='decimal';inp.className='num-input';
       inp.setAttribute('aria-label',(row.label||'Category')+' monthly amount');
       if(_isClosedMonth(currentMK())) inp.disabled=true;
@@ -2686,7 +2703,8 @@ function renderTableBody(table){
         if(isNaN(v)) return; if(v<0){ v=0; inp.value='0'; }
         _onRecurringCellEdit(row.id, currentMK(), v);
       });
-      td.appendChild(inp); tr.appendChild(td);
+      wrap.appendChild(badge); wrap.appendChild(inp);
+      td.appendChild(wrap); tr.appendChild(td);
     } else {
     getCols().forEach((col,colIdx)=>{
       const td=document.createElement('td');
