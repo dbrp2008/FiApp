@@ -373,38 +373,68 @@ function openRecurringConfig(rowId){
   // of viewport - the gear button is mobile-only (styles.css .row-gear-btn), but this modal
   // opens from both the mobile gear and the desktop 🔁 button.
   if(existing){
+    const _isExcepted=(existing.exceptions||[]).indexOf(currentMK())>=0;
     const sec=document.createElement('div'); sec.style.cssText='display:flex;gap:.9rem;justify-content:center;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--input-border);';
-    const delinkBtn=document.createElement('button'); delinkBtn.type='button'; delinkBtn.textContent='⛓ Delink this month';
-    delinkBtn.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:.78rem;padding:.2rem;';
-    delinkBtn.addEventListener('click',()=>{ m.close(); delinkMonth(rowId, currentMK()); });
+    const linkBtn=document.createElement('button'); linkBtn.type='button';
+    linkBtn.textContent=_isExcepted?'🔗 Relink this month':'⛓ Delink this month';
+    linkBtn.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:.78rem;padding:.2rem;';
+    linkBtn.addEventListener('click',()=>{ m.close(); _isExcepted?relinkMonth(rowId, currentMK()):delinkMonth(rowId, currentMK()); });
     const removeBtn=document.createElement('button'); removeBtn.type='button'; removeBtn.textContent='✖ Remove recurring';
     removeBtn.style.cssText='background:none;border:none;color:var(--sem-bad,#b91c1c);cursor:pointer;font-size:.78rem;padding:.2rem;';
     removeBtn.addEventListener('click',()=>{ m.close(); removeRecurring(rowId); });
-    sec.appendChild(delinkBtn); sec.appendChild(removeBtn); m.panel.appendChild(sec);
+    sec.appendChild(linkBtn); sec.appendChild(removeBtn); m.panel.appendChild(sec);
   }
   amt.focus();
 }
 
 // Apply a rule to all its fillable months, mark the row, and commit. If clashes exist the
-// rule is stored as a draft and the draft banner drives resolution.
+// rule is stored as a draft and the draft banner drives resolution. Writes can span every
+// month in scope (e.g. "All future months"), so this snapshots the rule + every cell it's
+// about to touch first and hands a single Undo back through the toast - one click reverts
+// the whole multi-month write, instead of fixing each month by hand.
 function commitRecurring(draft){
   const opts=_recOptsFor(draft.rowId);
   const clashes=FiRecurring.detectClashes(draft, opts);
   const rules=_recRules();
   const idx=rules.findIndex(r=>r.rowId===draft.rowId);
+  const prevRule=idx>=0?JSON.parse(JSON.stringify(rules[idx])):null;
+  function undoCommit(){
+    const rr=_recRules(); const i2=rr.findIndex(r=>r.rowId===draft.rowId);
+    if(prevRule){ if(i2>=0) rr[i2]=prevRule; else rr.push(prevRule); }
+    else if(i2>=0){ rr.splice(i2,1); }
+    markRowRecurring(draft.rowId, !!prevRule);
+  }
   if(clashes.length){
     draft.draft=true;
     if(idx>=0) rules[idx]=draft; else rules.push(draft);
     markRowRecurring(draft.rowId, true);
     save(); render(); _recDraftBannerRefresh();
+    showToast('🔁 Recurring needs review', false, 5000, ()=>{ undoCommit(); save(); render(); _recDraftBannerRefresh(); });
     return;
   }
+  const fillMonths=FiRecurring.fillableMonths(draft, opts);
+  const prevCellsByMonth={};
+  fillMonths.forEach(mk2=>{
+    const cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
+    const snap={};
+    cols.forEach(c=>{ const key=mk2+'|'+draft.rowId+'|'+c.id; snap[key]=Object.prototype.hasOwnProperty.call(state.cells||{},key)?state.cells[key]:undefined; });
+    prevCellsByMonth[mk2]=snap;
+  });
   draft.draft=false;
-  FiRecurring.fillableMonths(draft, opts).forEach(mk2=>_recWriteMonth(draft, mk2));
+  fillMonths.forEach(mk2=>_recWriteMonth(draft, mk2));
   if(idx>=0) rules[idx]=draft; else rules.push(draft);
   markRowRecurring(draft.rowId, true);
   save(); render(); _recDraftBannerRefresh();
-  showToast('🔁 Recurring saved');
+  showToast('🔁 Recurring saved - '+fillMonths.length+' month'+(fillMonths.length===1?'':'s')+' updated', false, 5000, ()=>{
+    undoCommit();
+    Object.keys(prevCellsByMonth).forEach(mk2=>{
+      const snap=prevCellsByMonth[mk2];
+      if(!state.cells) state.cells={};
+      Object.keys(snap).forEach(key=>{ if(snap[key]===undefined) delete state.cells[key]; else state.cells[key]=snap[key]; });
+    });
+    save(); render(); _recDraftBannerRefresh();
+    showToast('↩ Recurring change undone.', false, 1800);
+  });
 }
 
 // Write a single monthly value into mk2 (col0 holds it, other week cols cleared to 0).
@@ -477,7 +507,31 @@ function delinkMonth(rowId, mk2){
   if(rule.exceptions.indexOf(mk2)<0) rule.exceptions.push(mk2);
   if(rule.overrides) delete rule.overrides[mk2];
   save(); render(); _recDraftBannerRefresh();
-  showToast('Delinked '+_recMkLabel(mk2)+' from recurring');
+  showToast('Delinked '+_recMkLabel(mk2)+' from recurring', false, 5000, ()=>relinkMonth(rowId, mk2, true));
+}
+
+// Undo a delink, or manually re-include a month a rule's range/anchor still covers but that
+// was previously excepted out. Re-applies the rule's value the same way commitRecurring does
+// (skip if locked/mismatched -> draft for review, exactly like any other clash).
+function relinkMonth(rowId, mk2, silent){
+  const rule=_recRuleFor(rowId); if(!rule) return;
+  if(rule.exceptions){ const i=rule.exceptions.indexOf(mk2); if(i>=0) rule.exceptions.splice(i,1); }
+  if(!FiRecurring.monthInScope(rule, mk2)){
+    save(); render(); _recDraftBannerRefresh();
+    if(!silent) showToast(_recMkLabel(mk2)+' is outside this rule\'s scope, so relinking it alone had no effect.');
+    return;
+  }
+  const opts=_recOptsFor(rowId);
+  const clash=FiRecurring.detectClashes(rule, {existingMonths:[mk2], getMonthTotal:opts.getMonthTotal, isLocked:opts.isLocked});
+  if(clash.length){
+    rule.draft=true; markRowRecurring(rowId, true);
+    save(); render(); _recDraftBannerRefresh();
+    if(!silent) showToast('Relinked '+_recMkLabel(mk2)+' - needs review before it applies.');
+    return;
+  }
+  _recWriteMonth(rule, mk2);
+  save(); render(); _recDraftBannerRefresh();
+  if(!silent) showToast('Relinked '+_recMkLabel(mk2)+' to recurring');
 }
 
 function removeRecurring(rowId){
@@ -1854,7 +1908,8 @@ function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
     const _rule=_recRuleFor(row.id);
     mBtn(_rule?'🔁 Edit recurring':'🔁 Mark recurring',()=>{ openRecurringConfig(row.id); });
     if(_rule){
-      mBtn('⛓ Delink this month',()=>{ delinkMonth(row.id, currentMK()); });
+      const _isExcepted=(_rule.exceptions||[]).indexOf(currentMK())>=0;
+      mBtn(_isExcepted?'🔗 Relink this month':'⛓ Delink this month',()=>{ _isExcepted?relinkMonth(row.id, currentMK()):delinkMonth(row.id, currentMK()); });
       mBtn('✖ Remove recurring',()=>{ removeRecurring(row.id); });
     }
   }
