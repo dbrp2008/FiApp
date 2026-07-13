@@ -265,8 +265,14 @@ function _existingMonths(){
   set[currentMK()]=1;
   return Object.keys(set);
 }
+// A top-level row lives in state.rows and so "exists" in every month via
+// effectiveRowsForMonth's fallback, even ones never forked yet. A sub-source row only
+// exists in the specific months whose fork explicitly includes it (addSubRow writes into
+// state.rowsByMonth, never state.rows) - so this check is a no-op restriction for ordinary
+// rows and a real one for sub-sources, without needing to special-case child rows.
+function _rowExistsInMonth(rowId, mk2){ return getRows(mk2).some(r=>r.id===rowId); }
 function _recOptsFor(rowId){
-  return { existingMonths:_existingMonths(), isLocked:_isClosedMonth,
+  return { existingMonths:_existingMonths().filter(mk2=>_rowExistsInMonth(rowId, mk2)), isLocked:_isClosedMonth,
            getMonthTotal:function(mk2){ return _monthTotalForRow(rowId, mk2); } };
 }
 function _ensureMonthForked(mk2){
@@ -299,6 +305,10 @@ function _recFillNewMonth(mk2){
   _recRules().forEach(rule=>{
     if(rule.draft) return;
     if(!FiRecurring.monthInScope(rule, mk2)) return;
+    // A sub-source only exists in months whose fork explicitly added it - a brand-new
+    // month forks from the top-level state.rows, which never contains sub-sources, so
+    // silently skip rather than write an orphaned cell for a row that won't render here.
+    if(!_rowExistsInMonth(rule.rowId, mk2)) return;
     if(_monthTotalForRow(rule.rowId, mk2)!==0) return;
     _recWriteMonth(rule, mk2); wrote=true;
   });
@@ -419,6 +429,11 @@ function openRecurringConfig(rowId){
   curLbl.appendChild(curWrap); m.panel.appendChild(curLbl);
 
   const scLbl=document.createElement('div'); scLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; scLbl.textContent='Applies to'; m.panel.appendChild(scLbl);
+  if(row.parentId){
+    const scNote=document.createElement('div'); scNote.style.cssText='font-size:.76rem;color:var(--muted);margin-bottom:.5rem;line-height:1.4;';
+    scNote.textContent='Only applies to months that already have this sub-source - it won\'t create it elsewhere.';
+    m.panel.appendChild(scNote);
+  }
   const scWrap=document.createElement('div'); scWrap.style.cssText='display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;';
   const rangeWrap=document.createElement('div'); rangeWrap.style.cssText='display:none;gap:.4rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
   const rStart=document.createElement('input'); rStart.type='month'; rStart.value=draft.scope.start||currentMK();
@@ -536,7 +551,7 @@ function _onRecurringCellEdit(rowId, mk2, newTotal){
 }
 
 function _pickSpecificMonths(rule, newTotal){
-  const months=_existingMonths().filter(mk2=>FiRecurring.monthInScope(rule, mk2)).sort();
+  const months=_existingMonths().filter(mk2=>FiRecurring.monthInScope(rule, mk2) && _rowExistsInMonth(rule.rowId, mk2)).sort();
   const m=_recModal();
   const h=document.createElement('h3'); h.style.cssText='margin:0 0 .8rem;font-size:1rem;color:var(--fg);'; h.textContent='Which months?'; m.panel.appendChild(h);
   const boxes={};
