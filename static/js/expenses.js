@@ -368,6 +368,20 @@ function openRecurringConfig(rowId){
     commitRecurring(draft);
   });
   actions.appendChild(saveBtn); actions.appendChild(cancelBtn); m.panel.appendChild(actions);
+
+  // Delink/Remove live here (not just the mobile gear menu) so they're reachable regardless
+  // of viewport - the gear button is mobile-only (styles.css .row-gear-btn), but this modal
+  // opens from both the mobile gear and the desktop 🔁 button.
+  if(existing){
+    const sec=document.createElement('div'); sec.style.cssText='display:flex;gap:.9rem;justify-content:center;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--input-border);';
+    const delinkBtn=document.createElement('button'); delinkBtn.type='button'; delinkBtn.textContent='⛓ Delink this month';
+    delinkBtn.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:.78rem;padding:.2rem;';
+    delinkBtn.addEventListener('click',()=>{ m.close(); delinkMonth(rowId, currentMK()); });
+    const removeBtn=document.createElement('button'); removeBtn.type='button'; removeBtn.textContent='✖ Remove recurring';
+    removeBtn.style.cssText='background:none;border:none;color:var(--sem-bad,#b91c1c);cursor:pointer;font-size:.78rem;padding:.2rem;';
+    removeBtn.addEventListener('click',()=>{ m.close(); removeRecurring(rowId); });
+    sec.appendChild(delinkBtn); sec.appendChild(removeBtn); m.panel.appendChild(sec);
+  }
   amt.focus();
 }
 
