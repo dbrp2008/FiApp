@@ -2710,7 +2710,13 @@ function renderTableBody(table){
       rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
     }
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
-    if(row.recurring){const rb=document.createElement('span');rb.className='row-recur-badge';rb.textContent='🔁';rb.title='Recurring';rb.setAttribute('aria-label','Recurring');rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
+    // row.recurring is a row-wide flag (true if ANY month is governed by a rule), so it stays
+    // true after delinking just the viewed month - check monthInScope too, or a delinked month
+    // still shows the badge and reads as "still part of the chain" when it isn't anymore.
+    {
+      const _badgeRule=row.recurring?_recRuleFor(row.id):null;
+      if(_badgeRule && FiRecurring.monthInScope(_badgeRule, currentMK())){const rb=document.createElement('span');rb.className='row-recur-badge';rb.textContent='🔁';rb.title='Recurring';rb.setAttribute('aria-label','Recurring');rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
+    }
     if(!isChild && !row.linked && !row.snapshotLinkedRow){
       const dd=document.createElement('div');dd.className='sub-dropdown';
       const addBtn=document.createElement('button');addBtn.className='sub-add-btn';addBtn.textContent='+Sub';addBtn.title='Add subcategory';
