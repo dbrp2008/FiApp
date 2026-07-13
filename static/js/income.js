@@ -407,6 +407,27 @@ function openRecurringConfig(rowId){
   amt.style.cssText='display:block;width:100%;margin-top:.35rem;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
   amtLbl.appendChild(amt); m.panel.appendChild(amtLbl);
 
+  // Per-month overrides pin specific months to a custom amount that otherwise shadows the
+  // base amount above with no on-screen sign (this is the desync bug). Surface any pins here
+  // with a one-click reset so a rule can never silently apply a value the modal isn't showing.
+  if(existing && existing.overrides){
+    const _pins=Object.keys(existing.overrides).filter(mk2=>Math.abs((existing.overrides[mk2]||0)-(existing.amount||0))>1e-9).sort();
+    if(_pins.length){
+      const ov=document.createElement('div'); ov.style.cssText='font-size:.78rem;color:var(--fg);background:var(--hover-bg,rgba(0,0,0,.05));border:1px solid var(--input-border);border-radius:8px;padding:.55rem .6rem;margin-bottom:1rem;line-height:1.5;';
+      const t=document.createElement('div');
+      t.textContent=_pins.length+(_pins.length>1?' months are':' month is')+' pinned to a custom amount ('+_pins.map(mk2=>_recMkLabel(mk2)+': '+fmt(existing.overrides[mk2])).join(', ')+'), so the amount above does not apply there.';
+      ov.appendChild(t);
+      const rb=document.createElement('button'); rb.type='button'; rb.textContent='Reset those months to the amount above';
+      rb.style.cssText='margin-top:.5rem;padding:.4rem .7rem;border-radius:999px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-size:.78rem;';
+      rb.addEventListener('click',()=>{
+        const a=parseFloat(amt.value); const live=_recRuleFor(rowId);
+        if(live && !isNaN(a) && a>=0) live.amount=a;
+        m.close(); _recResetOverrides(rowId);
+      });
+      ov.appendChild(rb); m.panel.appendChild(ov);
+    }
+  }
+
   const curLbl=document.createElement('label'); curLbl.style.cssText='display:block;font-size:.8rem;color:var(--muted);margin-bottom:1rem;';
   curLbl.appendChild(document.createTextNode('Currency'));
   const curWrap=document.createElement('div'); curWrap.style.cssText='margin-top:.35rem;';
@@ -608,6 +629,18 @@ function _resolveClash(rowId, mk2, choice){
   save(); render(); _recDraftBannerRefresh();
 }
 
+// Clear every per-month override and rewrite the rule's in-scope, unlocked months from the
+// base amount, so the amount shown in the config modal governs all of them again. Backs the
+// modal's "reset those months" control.
+function _recResetOverrides(rowId){
+  const rule=_recRuleFor(rowId); if(!rule) return;
+  rule.overrides={}; rule.draft=false;
+  _existingMonths().filter(mk2=>FiRecurring.monthInScope(rule,mk2)&&_rowExistsInMonth(rowId,mk2)&&!_isClosedMonth(mk2))
+    .forEach(mk2=>_recWriteMonth(rule,mk2));
+  save(); render(); _recDraftBannerRefresh();
+  showToast('Reset to '+fmt(rule.amount)+'/mo');
+}
+
 let _recDraftBannerEl=null;
 function _recDraftBannerRefresh(){
   const drafts=_recRules().filter(r=>r.draft);
@@ -615,7 +648,7 @@ function _recDraftBannerRefresh(){
   drafts.forEach(rule=>{
     const row=(state.rows||[]).find(r=>r.id===rule.rowId)||{};
     FiRecurring.detectClashes(rule, _recOptsFor(rule.rowId)).forEach(c=>{
-      items.push({rowId:rule.rowId, label:row.label||'Source', mk:c.mk, reason:c.reason});
+      items.push({rowId:rule.rowId, label:row.label||'Source', mk:c.mk, reason:c.reason, want:c.want, have:c.have});
     });
   });
   if(_recDraftBannerEl){ _recDraftBannerEl.remove(); _recDraftBannerEl=null; }
@@ -630,12 +663,33 @@ function _recDraftBannerRefresh(){
     txt.textContent=it.label+' - '+_recMkLabel(it.mk)+' ('+(it.reason==='locked'?'locked':'different value')+')';
     txt.addEventListener('click',()=>{ jumpToMonth(it.mk); });
     const ap=document.createElement('button'); ap.type='button'; ap.className='rec-draft-apply'; ap.textContent='Apply here';
-    ap.addEventListener('click',()=>_resolveClash(it.rowId, it.mk, 'apply'));
+    ap.addEventListener('click',()=>_confirmApplyClash(it));
     const sk=document.createElement('button'); sk.type='button'; sk.className='rec-draft-skip'; sk.textContent='Skip';
     sk.addEventListener('click',()=>_resolveClash(it.rowId, it.mk, 'skip'));
     row.appendChild(txt); row.appendChild(ap); row.appendChild(sk); b.appendChild(row);
   });
   document.body.appendChild(b); _recDraftBannerEl=b;
+}
+// Preview exactly what "Apply here" will overwrite before it does, so applying a conflict is
+// never blind - the value written is the rule's, which may be a per-month override, not the
+// base amount shown in the config modal.
+function _confirmApplyClash(it){
+  const m=_recModal();
+  const h=document.createElement('h3'); h.style.cssText='margin:0 0 .6rem;font-size:1rem;color:var(--fg);';
+  h.textContent='Apply recurring to '+_recMkLabel(it.mk)+'?'; m.panel.appendChild(h);
+  const p=document.createElement('p'); p.style.cssText='margin:0 0 1rem;font-size:.85rem;color:var(--muted);line-height:1.5;';
+  p.textContent = it.reason==='locked'
+    ? it.label+' in '+_recMkLabel(it.mk)+' is a locked month. Applying unlocks it and sets it to '+fmt(it.want)+'.'
+    : it.label+' in '+_recMkLabel(it.mk)+' currently holds '+fmt(it.have)+'. Applying replaces it with '+fmt(it.want)+'.';
+  m.panel.appendChild(p);
+  const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;';
+  const ok=document.createElement('button'); ok.type='button'; ok.textContent='Replace with '+fmt(it.want);
+  ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.9rem;';
+  ok.addEventListener('click',()=>{ m.close(); _resolveClash(it.rowId, it.mk, 'apply'); });
+  const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
+  cancel.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;font-size:.9rem;';
+  cancel.addEventListener('click',m.close);
+  actions.appendChild(ok); actions.appendChild(cancel); m.panel.appendChild(actions);
 }
 function copyStructureFromPrevMonth(){
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
