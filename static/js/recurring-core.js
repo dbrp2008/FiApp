@@ -19,6 +19,7 @@ var FiRecurring = (function(){
     if(s.type === 'future') return s.anchor ? mk >= s.anchor : true;
     if(s.type === 'past')   return s.anchor ? mk <= s.anchor : true;
     if(s.type === 'range')  return (!s.start || mk >= s.start) && (!s.end || mk <= s.end);
+    if(s.type === 'specific') return Array.isArray(s.months) && s.months.indexOf(mk) >= 0;
     return false;
   }
 
