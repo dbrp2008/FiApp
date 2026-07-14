@@ -316,9 +316,37 @@ function openRecurringConfig(rowId){
   [rStart,rEnd].forEach(x=>{ x.min=_recRangeMin; x.max=_recRangeMax; x.style.cssText='padding:.4rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;'; });
   const rArrow=document.createElement('span'); rArrow.textContent='to'; rArrow.style.cssText='color:var(--muted);font-size:.85rem;';
   rangeWrap.appendChild(rStart); rangeWrap.appendChild(rArrow); rangeWrap.appendChild(rEnd);
+
+  // A continuous date range can't express "only months that have this subcategory" when its
+  // existence has gaps, so subcategory rows get a checklist of exactly the valid months
+  // instead of Custom range - the picker itself can no longer offer an invalid month.
+  const specWrap=document.createElement('div'); specWrap.style.cssText='display:none;flex-direction:column;gap:.3rem;max-height:180px;overflow-y:auto;border:1px solid var(--input-border);border-radius:8px;padding:.5rem;margin-bottom:1rem;';
+  const _specMonths=row.parentId?_existingMonths().filter(mk2=>_rowExistsInMonth(rowId,mk2)).sort():[];
+  if(!Array.isArray(draft.scope.months)) draft.scope.months=[];
+  function renderSpecList(){
+    specWrap.innerHTML='';
+    if(!_specMonths.length){
+      const none=document.createElement('div'); none.style.cssText='font-size:.8rem;color:var(--muted);'; none.textContent='This subcategory has no months with data yet.';
+      specWrap.appendChild(none); return;
+    }
+    _specMonths.forEach(mk2=>{
+      const lbl=document.createElement('label'); lbl.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--fg);cursor:pointer;';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=draft.scope.months.indexOf(mk2)>=0;
+      cb.addEventListener('change',()=>{
+        const i=draft.scope.months.indexOf(mk2);
+        if(cb.checked){ if(i<0) draft.scope.months.push(mk2); } else if(i>=0) draft.scope.months.splice(i,1);
+      });
+      lbl.appendChild(cb); lbl.appendChild(document.createTextNode(_recMkLabel(mk2)));
+      specWrap.appendChild(lbl);
+    });
+  }
+  renderSpecList();
+
   function renderScopeBtns(){
     scWrap.innerHTML='';
-    const opts=[['future','All future months'],['past','All past months'],['all','All months'],['range','Custom range']];
+    const opts=row.parentId
+      ? [['future','All future months'],['past','All past months'],['all','All months'],['specific','Specific months']]
+      : [['future','All future months'],['past','All past months'],['all','All months'],['range','Custom range']];
     opts.forEach(o=>{
       const active=draft.scope.type===o[0];
       const b=document.createElement('button'); b.type='button'; b.textContent=o[1];
@@ -327,7 +355,12 @@ function openRecurringConfig(rowId){
         draft.scope.type=o[0];
         if(o[0]==='future'||o[0]==='past'){ draft.scope.anchor=currentMK(); draft.scope.start=null; draft.scope.end=null; }
         else if(o[0]==='all'){ draft.scope.start=null; draft.scope.end=null; }
+        else if(o[0]==='specific'){
+          if(!draft.scope.months.length && _specMonths.indexOf(currentMK())>=0) draft.scope.months=[currentMK()];
+          renderSpecList();
+        }
         rangeWrap.style.display=o[0]==='range'?'flex':'none';
+        specWrap.style.display=o[0]==='specific'?'flex':'none';
         renderScopeBtns();
       });
       scWrap.appendChild(b);
@@ -336,6 +369,8 @@ function openRecurringConfig(rowId){
   renderScopeBtns(); m.panel.appendChild(scWrap);
   rangeWrap.style.display=draft.scope.type==='range'?'flex':'none';
   m.panel.appendChild(rangeWrap);
+  specWrap.style.display=draft.scope.type==='specific'?'flex':'none';
+  m.panel.appendChild(specWrap);
 
   const fb=document.createElement('div'); fb.style.cssText='font-size:.8rem;color:var(--sem-bad,#b91c1c);min-height:1em;margin-bottom:.6rem;'; m.panel.appendChild(fb);
 
@@ -355,6 +390,8 @@ function openRecurringConfig(rowId){
          (draft.scope.end&&(draft.scope.end<_recRangeMin||draft.scope.end>_recRangeMax))){
         fb.textContent='Pick a range within '+_recRangeMin.slice(0,4)+'-'+_recRangeMax.slice(0,4)+'.'; return;
       }
+    } else if(draft.scope.type==='specific' && !draft.scope.months.length){
+      fb.textContent='Pick at least one month.'; return;
     }
     // Monthly mode: amount is the single value. Weekly mode: distribute evenly unless a
     // per-week pattern already exists on the current month.
