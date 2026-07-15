@@ -140,6 +140,34 @@ function allSpendingMonths(exp, subs) {
   return Array.from(mks).sort();
 }
 
+// The month a streak/coverage calculation should treat as "now": the tracked month at
+// or before today, or the array's last entry if every tracked month is in the future.
+// A single future-dated outlier (test data, a mis-set clock, a pre-planned entry) can
+// end up as months[months.length-1] with a real gap right before it - anchoring here
+// instead of blindly trusting the array's tail stops that outlier from being mistaken
+// for "now" and hiding a genuine streak behind it.
+function mostRecentTrackedMonth(months) {
+  if (!months.length) return null;
+  var today = todayMK();
+  for (var i = months.length - 1; i >= 0; i--) {
+    if (months[i] <= today) return months[i];
+  }
+  return months[months.length - 1];
+}
+
+// Consecutive-month streak ending at mostRecentTrackedMonth(months), not at the raw
+// last array entry - see mostRecentTrackedMonth for why that distinction matters.
+function trackingStreakMonths(months) {
+  if (!months.length) return 0;
+  var anchor = mostRecentTrackedMonth(months);
+  var anchorIdx = months.indexOf(anchor);
+  var streak = 1;
+  for (var i = anchorIdx; i > 0; i--) {
+    if (prevMK(months[i]) === months[i - 1]) { streak++; } else break;
+  }
+  return streak;
+}
+
 // ---------------------------------------------------------------------------
 // Row → month spending index
 // ---------------------------------------------------------------------------
