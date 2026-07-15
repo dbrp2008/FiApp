@@ -141,10 +141,11 @@ function onSelChange(id){
   }
 }
 
-function applyOther(id){
+async function applyOther(id){
   const inp=document.getElementById(id+'_other');
   const note=document.getElementById(id+'_note');
   const sel=document.getElementById(id);
+  const btn=document.getElementById(id+'_other_btn');
   const raw=inp.value.trim().toUpperCase();
   if(!raw){ note.textContent='Enter a currency code.'; note.style.color='#dc2626'; return; }
   if(!/^[A-Z]{2,5}$/.test(raw)){
@@ -153,6 +154,25 @@ function applyOther(id){
 
   let opt=[...sel.options].find(o=>o.value===raw);
   if(!opt){
+    // Format-valid isn't the same as real - "RRR" passes the regex but isn't an actual
+    // currency, and the converter has no way to know until the exchange API 502s on it.
+    // Check the code against the same USD rates table fiappGetRates already fetches/caches
+    // (mirrors the validated ensureRate()/ratesCache pattern used for custom codes elsewhere
+    // in the app) so an unrecognized code is rejected here instead of failing at conversion.
+    note.textContent='Checking code…'; note.style.color='#6b7280';
+    inp.disabled=true; btn.disabled=true;
+    let known;
+    try{
+      const {rates}=await fiappGetRates('USD');
+      known=Object.prototype.hasOwnProperty.call(rates, raw);
+    }catch(e){
+      known=true; // can't verify (offline/API down) - don't block on an infra failure
+    }
+    inp.disabled=false; btn.disabled=false;
+    if(!known){
+      note.textContent='"'+raw+'" isn\'t a recognized currency code.'; note.style.color='#dc2626';
+      return;
+    }
     opt=document.createElement('option');
     opt.value=raw; opt.textContent=raw+' (custom)';
     opt.dataset.custom='1';
@@ -161,7 +181,7 @@ function applyOther(id){
   }
   sel.value=raw;
   inp.style.display='none';
-  document.getElementById(id+'_other_btn').style.display='none';
+  btn.style.display='none';
   note.textContent=''; note.style.color='#6b7280';
   inp.value='';
 }
