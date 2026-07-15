@@ -1132,15 +1132,18 @@ function renderFinancialPatterns(root){
     grid.appendChild(card);
   }
 
+  // A future-dated outlier month (test data, a mis-set clock, a pre-planned entry)
+  // sorts to the end of _allMonths, so anything that assumed the last entry means
+  // "now" would sit past a real gap and read as broken - anchor at today instead
+  // (see mostRecentTrackedMonth/trackingStreakMonths in analytics_core.js).
+  const _recentMK=mostRecentTrackedMonth(_allMonths);
+
   // 1. Tracking streak
-  let streak=1;
-  for(let i=_allMonths.length-1;i>0;i--){
-    if(prevMK(_allMonths[i])===_allMonths[i-1]){streak++;} else break;
-  }
-  addIndicator('🔥', streak>=2?streak+'-month streak of data':'Data tracked');
+  const streak=trackingStreakMonths(_allMonths);
+  addIndicator('🔥', streak>=2?streak+'-month streak of data':'Track 2+ months in a row to build a streak');
 
   // 2. Goals met last full month
-  const lastFull=_allMonths[_allMonths.length-1];
+  const lastFull=_recentMK;
   let goalsSet=0, goalsMet=0;
   if(_exp&&_exp.goals){
     Object.keys(_exp.goals).forEach(gk=>{
@@ -1158,15 +1161,17 @@ function renderFinancialPatterns(root){
 
   // 3. Monthly coverage
   if(_allMonths.length>=2){
-    const first=_allMonths[0]; const last=_allMonths[_allMonths.length-1];
+    const first=_allMonths[0]; const last=_recentMK;
     const [fy,fm]=first.split('-').map(Number); const [ly,lm]=last.split('-').map(Number);
     const totalPossible=(ly-fy)*12+(lm-fm)+1;
-    addIndicator('📅', _allMonths.length+' of '+totalPossible+' months tracked');
+    const trackedInRange=_allMonths.filter(mk2=>mk2<=last).length;
+    addIndicator('📅', trackedInRange+' of '+totalPossible+' months tracked');
   }
 
   // 4. Subscription spend trend (last 3 months)
-  if(_subs&&_allMonths.length>=3){
-    const last3=_allMonths.slice(-3);
+  const _recentIdx=_allMonths.indexOf(_recentMK);
+  if(_subs&&_recentIdx>=2){
+    const last3=_allMonths.slice(_recentIdx-2,_recentIdx+1);
     const costs=subCostPerMonth(_subs,last3);
     if(costs[0]>0&&costs[2]>0){
       const delta=costs[2]-costs[0];
