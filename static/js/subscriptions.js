@@ -268,7 +268,10 @@ function colByType(t){ return state.cols.find(c=>c.ctype===t); }
 
 
 function parseDate(str){ if(!str) return null; const d=new Date(str+'T00:00:00'); return isNaN(d.getTime())?null:d; }
-function toDateStr(d){ return d.toISOString().split('T')[0]; }
+// Not toISOString(): that converts to UTC, so a local-midnight Date built from
+// getFullYear/Month/Date (as every caller does) silently shifts a day backward in any
+// timezone ahead of UTC - e.g. the last day of the month reads as unselectable.
+function toDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function daysInMo(y,m){ return new Date(y,m+1,0).getDate(); }
 function firstOfViewedMonthStr(){
   return state.currentYear+'-'+String(state.currentMonth+1).padStart(2,'0')+'-01';
