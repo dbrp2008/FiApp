@@ -582,14 +582,10 @@
   }
 
   // ── Helper: consecutive-month streak ──
+  // trackingStreakMonths (analytics_core.js) anchors at today rather than the raw
+  // last tracked month, so a future-dated outlier can't hide a real streak.
   function trackingStreak() {
-    var months = allSpendingMonths(exp, subs);
-    if(!months.length) return 0;
-    var streak = 1, i = months.length - 1;
-    while(i > 0) {
-      if(prevMK(months[i]) === months[i-1]) { streak++; i--; } else break;
-    }
-    return streak;
+    return trackingStreakMonths(allSpendingMonths(exp, subs));
   }
 
   // ── Helper: earned identity badge ──
@@ -1068,9 +1064,12 @@
   };
   window.renderChart();
 
-  // Alerts: if no renewal/nudge landed in the dashboard alerts area, show an all-clear
+  // Alerts: if no renewal/nudge landed in the dashboard alerts area, show an all-clear -
+  // but only when the account actually has data. "You're all caught up" implies there was
+  // something to catch up ON; showing it on a brand-new, empty account is a false claim.
   (function(){
     var a = document.getElementById('dash-alerts'); if(!a) return;
+    if(!hasAnyData){ var _prevClear0=a.querySelector('.dash-allclear'); if(_prevClear0) _prevClear0.remove(); return; }
     if(!a.querySelector('.snap-renewal') && !a.querySelector('.snap-nudge')){
       var _plClear = document.documentElement.classList.contains('personality-playful');
       var allClearMsg = document.documentElement.classList.contains('personality-quiet')
