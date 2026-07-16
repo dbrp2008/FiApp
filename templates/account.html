@@ -574,8 +574,10 @@
   <div class="glass-panel" data-group="data">
     <h2>📥 Export &amp; Backup</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Download a CSV for spreadsheets, or a full JSON backup that preserves everything CSV drops - goals, per-row currencies, and multi-month history. Restoring a backup replaces your current data.</p>
-    <button class="btn btn-gradient btn-primary" id="export-csv-btn">Export all data as CSV</button>
-    <button class="btn btn-gradient btn-primary" id="export-backup-btn" style="margin-left:.5rem;">Download full backup (JSON)</button>
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+      <button class="btn btn-gradient btn-primary" id="export-csv-btn">Export all data as CSV</button>
+      <button class="btn btn-gradient btn-primary" id="export-backup-btn">Download full backup (JSON)</button>
+    </div>
     <div style="margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--panel-border);">
       <button class="btn btn-glass btn-ghost" id="restore-backup-btn">Restore from backup…</button>
       <input type="file" id="restore-backup-file" accept="application/json,.json" style="display:none;" />
