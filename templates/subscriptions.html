@@ -39,8 +39,8 @@
     table.sheet.forecast tbody td{font-style:italic;}
     .totals-panel.forecast-panel{background:#fffbeb;border-color:#fde68a;}
     html.dark .totals-panel.forecast-panel{background:#451a03;border-color:#78350f;}
-    .totals-panel.forecast-panel h3{color:#92400e;}
-    html.dark .totals-panel.forecast-panel h3{color:#fde68a;}
+    .totals-panel.forecast-panel h2{color:#92400e;}
+    html.dark .totals-panel.forecast-panel h2{color:#fde68a;}
     .add-bar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.65rem 1rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;margin-bottom:.6rem;}
     .add-bar label{font-weight:600;font-size:.88rem;margin:0;color:var(--fg);}
     .add-bar select,.add-bar input[type="text"]{padding:5px 9px;border:1px solid var(--input-border);border-radius:4px;font-size:.82rem;width:auto;background:var(--input-bg);color:var(--fg);}
@@ -52,7 +52,7 @@
     .disc-box summary{cursor:pointer;font-weight:600;color:var(--fg);user-select:none;}
     .disc-box p{margin:.3rem 0;line-height:1.5;color:var(--muted);}
     .totals-panel{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.5rem;padding:.9rem 1.1rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;margin-bottom:.75rem;}
-    .totals-panel h3{margin:0 0 .4rem;color:var(--link);font-size:.9rem;grid-column:1/-1;}
+    .totals-panel h2{margin:0 0 .4rem;color:var(--link);font-size:.9rem;grid-column:1/-1;}
     .tot-field label{font-size:.75rem;font-weight:600;color:var(--fg);display:block;margin-bottom:2px;}
     .tot-val{font-size:.95rem;font-weight:700;color:var(--link);}
     .curr-row{grid-column:1/-1;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
@@ -63,8 +63,8 @@
     
     .leaderboard{padding:.8rem 1rem;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;margin-bottom:.75rem;}
     html.dark .leaderboard{background:#422006;border-color:#78350f;}
-    .leaderboard h3{margin:0 0 .55rem;color:#92400e;font-size:.95rem;display:flex;justify-content:space-between;align-items:center;}
-    html.dark .leaderboard h3{color:#fde68a;}
+    .leaderboard h2{margin:0 0 .55rem;color:#92400e;font-size:.95rem;display:flex;justify-content:space-between;align-items:center;}
+    html.dark .leaderboard h2{color:#fde68a;}
     .lb-empty{color:var(--muted);font-size:.85rem;text-align:center;padding:.5rem 0;}
     .podium{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;margin-bottom:.55rem;}
     .podium-card{background:var(--panel-bg);border:1.5px solid var(--panel-border);border-radius:8px;padding:.55rem .65rem;text-align:center;display:flex;flex-direction:column;gap:.2rem;}
@@ -188,7 +188,10 @@
       .c-text,.c-num,.c-sel,.c-date,.cell-curr-sel,
       .add-bar select,.add-bar input[type="text"],
       .curr-row select,input.th-label{font-size:16px!important;}
-      .dropdown-menu{right:0;left:auto;}
+      /* Anchor to the right edge, and cap the width + let labels wrap: nowrap labels
+         (base rule) can force the menu wider than the screen even when right-anchored. */
+      .dropdown-menu{right:0;left:auto;max-width:calc(100vw - 2rem);}
+      .dropdown-menu button{white-space:normal;}
     }
 
     /* Glass chrome — let glass tokens win over the page-local panel styles.
@@ -292,7 +295,7 @@
       <button class="slide-arrow" id="slide-next-btn" aria-label="Next summary">▶</button>
     </div>
     <div class="totals-panel glass-panel" id="slide-panel-0">
-      <h3>Spending Summary - <span id="sum-label"></span></h3>
+      <h2>Spending Summary - <span id="sum-label"></span></h2>
       <div class="tot-field"><label>Monthly Cost (USD)</label><div class="tot-val" id="tot-m-usd">$0.00</div></div>
       <div class="tot-field"><label>Yearly Cost (USD)</label><div class="tot-val" id="tot-y-usd">$0.00</div></div>
       <p style="font-size:.72rem;color:var(--muted);margin:.25rem 0 .5rem;font-style:italic;">All non-USD costs normalized to USD at current exchange rates.</p>
@@ -321,7 +324,7 @@
     </div>
     
     <div class="leaderboard glass-panel" id="slide-panel-1" style="display:none">
-      <h3>🏆 Subscription Leaderboard <span id="lb-month-lbl" style="font-weight:500;font-size:.78rem;color:#92400e;"></span></h3>
+      <h2>🏆 Subscription Leaderboard <span id="lb-month-lbl" style="font-weight:500;font-size:.78rem;color:var(--sem-warn,#92400e);"></span></h2>
       <div id="lb-content"></div>
     </div>
   </div>
