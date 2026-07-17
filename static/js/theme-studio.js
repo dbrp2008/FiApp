@@ -42,7 +42,7 @@
 
     if (mode === 'dark') {
       t['--accent-strong'] = shade(accent, 0.20);
-      t['--link'] = tint(accent, 0.25); t['--link-text'] = tint(accent, 0.25);
+      t['--link'] = tint(accent, 0.25); t['--link-text'] = _ensureLinkContrast(tint(accent, 0.25), tintc);
       t['--panel-bg'] = mix(tintc, '#ffffff', 0.06);
       t['--panel-border'] = mix(tintc, '#ffffff', 0.12);
       t['--hover-bg'] = mix(tintc, '#ffffff', 0.12);
@@ -107,6 +107,14 @@
     if (!/^#/.test(a) || !/^#/.test(b)) return null;   // only hex pairs
     var la = _lum(a), lb = _lum(b), hi = Math.max(la,lb), lo = Math.min(la,lb);
     return (hi + 0.05) / (lo + 0.05);
+  }
+  // Lighten a link colour toward white until it clears WCAG AA (4.5:1) against the
+  // dark base, so custom dark themes with a deep accent still get a legible link
+  // rather than accent-on-accent that fails contrast (the ← Home link case).
+  function _ensureLinkContrast(fg, bg){
+    var out = fg;
+    for (var i = 0; i < 12 && contrastRatio(out, bg) < 4.5; i++){ out = tint(out, 0.12); }
+    return out;
   }
 
   // ---- editor state ----------------------------------------------------------
@@ -320,7 +328,7 @@
       row.appendChild(lab);
       if (type === 'color' && /^#/.test(editing.tokens[k] || '')){
         var inp = document.createElement('input'); inp.type = 'color'; inp.value = normHex(editing.tokens[k]);
-        inp.setAttribute('aria-label', k);
+        inp.setAttribute('aria-label', ADV_LABELS[k] || k.replace(/^--/,''));
         inp.addEventListener('input', function(){
           editing.tokens[k] = inp.value; editing.overrides[k] = inp.value; editing.preset = null; updateModeButtons(); liveApply();
         });
