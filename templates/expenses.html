@@ -39,7 +39,7 @@
 
     
     .income-panel{background:var(--total-soft);border:1px solid var(--success-border);border-radius:8px;padding:.9rem 1.1rem;margin-bottom:.75rem;}
-    .income-panel h3{margin:0 0 .6rem;font-size:.9rem;color:var(--total-fg);}
+    .income-panel h2{margin:0 0 .6rem;font-size:.9rem;color:var(--total-fg);}
     /* min 190px so the widest label ("Gross Monthly Income (Mex$)" + the synced (i) badge)
        always fits its cell; otherwise it overflowed and the (i) touched the next field's
        text. Verified against every CUR_SYMBOLS entry in expenses.js. The column gap then
@@ -55,7 +55,7 @@
     .income-field input[type="number"][readonly]{background:var(--total-soft);cursor:not-allowed;color:var(--muted);}
     .income-computed{display:block;padding:5px 7px;border:1px solid var(--panel-border);border-radius:5px;font-size:.88rem;background:var(--panel-bg);font-weight:700;color:var(--fg);}
     .tax-banner{grid-column:1/-1;font-size:.78rem;padding:.35rem .6rem;background:var(--total-bg);border:1px solid var(--success-border);border-radius:5px;color:var(--total-fg);}
-    .pos{color:var(--total-fg);} .neg{color:#ef4444;}
+    .pos{color:var(--total-fg);} .neg{color:var(--sem-bad,#ef4444);}
     .apply-row{grid-column:1/-1;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.2rem;}
 
     
@@ -85,8 +85,8 @@
     table.sheet.forecast tbody td:not(.rh-cell){font-style:italic;}
     .income-panel.forecast-panel{background:#fffbeb;border-color:#fde68a;}
     html.dark .income-panel.forecast-panel{background:#451a03;border-color:#78350f;}
-    .income-panel.forecast-panel h3{color:#92400e;}
-    html.dark .income-panel.forecast-panel h3{color:#fde68a;}
+    .income-panel.forecast-panel h2{color:#92400e;}
+    html.dark .income-panel.forecast-panel h2{color:#fde68a;}
     .gtotal-cell.forecast-total{background:#fef3c7!important;}
     html.dark .gtotal-cell.forecast-total{background:#451a03!important;}
     .gtotal-cell.forecast-total .gtotal-val{color:#92400e!important;}
@@ -304,7 +304,7 @@
     .mc-active.mc-child .mc-name::before{background:var(--accent);opacity:1;}
     .mc-total{font-weight:700;font-size:12px;color:var(--total-fg);background:var(--total-bg);padding:2px 7px;border-radius:10px;flex-shrink:0;}
     .mc-active .mc-total{background:var(--accent);color:#fff;}
-    .mc-subs-badge{font-size:10px;font-weight:700;background:#ec4899;color:#fff;padding:2px 6px;border-radius:8px;white-space:nowrap;text-decoration:none;flex-shrink:0;}
+    .mc-subs-badge{font-size:10px;font-weight:700;background:#be185d;color:#fff;padding:2px 6px;border-radius:8px;white-space:nowrap;text-decoration:none;flex-shrink:0;}
     .mc-gear{background:none;border:none;font-size:13px;color:var(--row-text,var(--muted));cursor:pointer;padding:0 1px;line-height:1;flex-shrink:0;}
     .mc-goal-btn{background:none;border:none;font-size:12px;cursor:pointer;padding:0 1px;line-height:1;flex-shrink:0;opacity:.7;}
     .mc-goal-btn:hover{opacity:1;}
@@ -421,7 +421,7 @@
 
 
   <div class="income-panel glass-panel" data-wt="expenses-tax-link">
-    <h3>Monthly Budget - <span id="budget-month"></span></h3>
+    <h2>Monthly Budget - <span id="budget-month"></span></h2>
     <p style="font-size:.75rem;color:var(--muted);margin:-.3rem 0 .6rem;">Set a monthly spending limit per category with the 🎯 in the totals column.</p>
     <div class="income-grid" id="income-grid">
       <div class="income-field">
