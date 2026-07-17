@@ -185,6 +185,29 @@
     try { var m = document.querySelector('meta[name="theme-color"]'); if (m && hex) m.setAttribute('content', hex); } catch(_) {}
   }
 
+  // Accessibility repair: custom themes saved before the Studio enforced a link contrast
+  // floor can carry a --link-text too close to --bg (fails WCAG AA - the nav "back" link).
+  // Lift it toward the opposite luminance at apply time so links stay legible without the
+  // user having to re-save the theme. Hex pairs only; only ever increases contrast.
+  function _lin(c){ c/=255; return c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+  function _hx(h){ h=h.replace('#',''); if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+  function _lum(rgb){ return 0.2126*_lin(rgb[0])+0.7152*_lin(rgb[1])+0.0722*_lin(rgb[2]); }
+  function _ct(a,b){ var la=_lum(a), lb=_lum(b), hi=Math.max(la,lb), lo=Math.min(la,lb); return (hi+0.05)/(lo+0.05); }
+  function _toHex(rgb){ return '#'+rgb.map(function(c){ var s=Math.max(0,Math.min(255,Math.round(c))).toString(16); return s.length<2?'0'+s:s; }).join(''); }
+  var _HEXPAIR = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+  function _repairLinkText(tokens){
+    var lt = tokens['--link-text'], bg = tokens['--bg'];
+    if (!_HEXPAIR.test(lt||'') || !_HEXPAIR.test(bg||'')) return null;
+    var bgRgb = _hx(bg);
+    if (_ct(_hx(lt), bgRgb) >= 4.5) return null;          // already legible
+    var target = _lum(bgRgb) < 0.5 ? 255 : 0;             // dark bg -> lighten, light bg -> darken
+    var rgb = _hx(lt);
+    for (var i=0; i<12 && _ct(rgb, bgRgb) < 4.5; i++){
+      rgb = [rgb[0]+(target-rgb[0])*0.12, rgb[1]+(target-rgb[1])*0.12, rgb[2]+(target-rgb[2])*0.12];
+    }
+    return _toHex(rgb);
+  }
+
   function fiappApplyTheme(value){
     var el = document.documentElement, ok = true, mode = 'light', css = '', meta = GRAD_LIGHT;
     if (value === 'dark') {
@@ -198,9 +221,10 @@
         // Build the whole inline custom-property block as one string; assigning it via
         // cssText below is a single style mutation (one recalc/paint) instead of dozens
         // of setProperty/removeProperty calls each churning style invalidation.
+        var _fixLink = _repairLinkText(theme.tokens);
         for (var tk in theme.tokens) {
           if (ALL_TOKENS[tk] && fiappValidTokenValue(ALL_TOKENS[tk], theme.tokens[tk])) {
-            css += tk + ':' + theme.tokens[tk] + ';';
+            css += tk + ':' + ((tk === '--link-text' && _fixLink) ? _fixLink : theme.tokens[tk]) + ';';
           }
         }
         if (theme.tokens['--grad-from']) meta = theme.tokens['--grad-from'];
