@@ -271,6 +271,10 @@ textarea:focus-visible {
   align-items: center;
   gap: .5rem;
 }
+/* The back link is nav chrome, not a content link. It sits directly on the aurora
+   glow (no panel behind it), where an accent-tinted --link-text can drop below AA in
+   some themes. Use --fg, which is built to stay legible over the aurora everywhere. */
+.nav > a { color: var(--fg); }
 
 a {
   color: var(--link-text);
