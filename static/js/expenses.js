@@ -320,24 +320,25 @@ function openRecurringConfig(rowId){
   // A continuous date range can't express "only months that have this subcategory" when its
   // existence has gaps, so subcategory rows get a checklist of exactly the valid months
   // instead of Custom range - the picker itself can no longer offer an invalid month.
-  const specWrap=document.createElement('div'); specWrap.style.cssText='display:none;flex-direction:column;gap:.3rem;max-height:180px;overflow-y:auto;border:1px solid var(--input-border);border-radius:8px;padding:.5rem;margin-bottom:1rem;';
+  const specWrap=document.createElement('div'); specWrap.className='rec-spec-grid'; specWrap.style.display='none';
   const _specMonths=row.parentId?_existingMonths().filter(mk2=>_rowExistsInMonth(rowId,mk2)).sort():[];
   if(!Array.isArray(draft.scope.months)) draft.scope.months=[];
   function renderSpecList(){
     specWrap.innerHTML='';
     if(!_specMonths.length){
-      const none=document.createElement('div'); none.style.cssText='font-size:.8rem;color:var(--muted);'; none.textContent='This subcategory has no months with data yet.';
+      const none=document.createElement('div'); none.className='rec-spec-empty'; none.textContent='This subcategory has no months with data yet.';
       specWrap.appendChild(none); return;
     }
     _specMonths.forEach(mk2=>{
-      const lbl=document.createElement('label'); lbl.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--fg);cursor:pointer;';
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=draft.scope.months.indexOf(mk2)>=0;
-      cb.addEventListener('change',()=>{
+      const selected=draft.scope.months.indexOf(mk2)>=0;
+      const chip=document.createElement('button'); chip.type='button'; chip.className='rec-spec-chip'+(selected?' selected':'');
+      chip.textContent=_recMkLabel(mk2); chip.setAttribute('aria-pressed', selected?'true':'false');
+      chip.addEventListener('click',()=>{
         const i=draft.scope.months.indexOf(mk2);
-        if(cb.checked){ if(i<0) draft.scope.months.push(mk2); } else if(i>=0) draft.scope.months.splice(i,1);
+        if(i<0){ draft.scope.months.push(mk2); chip.classList.add('selected'); chip.setAttribute('aria-pressed','true'); }
+        else{ draft.scope.months.splice(i,1); chip.classList.remove('selected'); chip.setAttribute('aria-pressed','false'); }
       });
-      lbl.appendChild(cb); lbl.appendChild(document.createTextNode(_recMkLabel(mk2)));
-      specWrap.appendChild(lbl);
+      specWrap.appendChild(chip);
     });
   }
   renderSpecList();
@@ -3146,7 +3147,9 @@ function renderMobileCards(){
     const _goal=state.goals?.[_goalKey(row.id)];
     if(_goal&&!isNaN(_goal)&&_goal>0){
       const _pct=Math.round(_spent/_goal*100);
-      totalEl.style.background=_pct>=100?'#ef4444':_pct>=75?'#f59e0b':'#22c55e';
+      // Darker shades so the white pill text clears WCAG AA (the bright -500 hues used for
+      // the goal-status text elsewhere fail as a white-on-fill badge). Theme-independent.
+      totalEl.style.background=_pct>=100?'#b91c1c':_pct>=75?'#b45309':'#15803d';
       totalEl.style.color='#fff';
     }
     hdr.appendChild(totalEl);
