@@ -258,17 +258,23 @@
   // so the "new" snapshot is captured fully switched. Falls back to an instant swap
   // when the API is missing or the user prefers reduced motion.
   // Software-rendered devices (no GPU compositing) cannot animate a fullscreen fade
-  // smoothly no matter the technique, so the fade self-disables: a fade that blows its
-  // .22s budget by ~75%+ marks the device and later switches swap instantly for a week
-  // (re-probing after that in case the machine's GPU situation gets fixed).
-  var FADE_OFF_KEY = 'fiapp_theme_fade_off_until', FADE_JANK_MS = 380;
+  // smoothly no matter the technique, so the fade self-disables - but only after TWO
+  // consecutive janky fades (a single transient hitch - DevTools open, a GC pause, a busy
+  // tab - must not punish a capable machine), and only for a day before it re-probes. Any
+  // smooth fade clears the strike count.
+  var FADE_OFF_KEY = 'fiapp_theme_fade_off_until', FADE_STRIKE_KEY = 'fiapp_theme_fade_strikes', FADE_JANK_MS = 450;
   function _fadeDisabled(){
     try { return Date.now() < (+localStorage.getItem(FADE_OFF_KEY) || 0); } catch(_) { return false; }
   }
   function _noteFadeDuration(ms){
     // Hidden tabs skip the animation (~0ms) and can't false-trigger; only judge visible fades.
-    if (ms <= FADE_JANK_MS || document.visibilityState !== 'visible') return;
-    try { localStorage.setItem(FADE_OFF_KEY, String(Date.now() + 7 * 24 * 3600 * 1000)); } catch(_) {}
+    if (document.visibilityState !== 'visible') return;
+    try {
+      if (ms <= FADE_JANK_MS){ localStorage.removeItem(FADE_STRIKE_KEY); return; }   // smooth fade: reset strikes
+      var strikes = (+localStorage.getItem(FADE_STRIKE_KEY) || 0) + 1;
+      if (strikes >= 2){ localStorage.setItem(FADE_OFF_KEY, String(Date.now() + 24 * 3600 * 1000)); localStorage.removeItem(FADE_STRIKE_KEY); }
+      else { localStorage.setItem(FADE_STRIKE_KEY, String(strikes)); }
+    } catch(_) {}
   }
 
   function fiappApplyThemeAnimated(value, afterApply){
