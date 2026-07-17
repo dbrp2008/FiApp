@@ -296,6 +296,8 @@
       gap: .5rem;
     }
     html.dark .snap-renewal { background: #451a0333; color: #fcd34d; border-color: #f59e0b33; }
+    .snap-renewal-cta { color: #92400e; font-weight: 600; }
+    html.dark .snap-renewal-cta { color: #fcd34d; }
     /* Overspend nudge — deliberately higher-contrast than the gentle amber
        banners above; this is the one "firm" trajectory signal (W6). */
     .snap-nudge {
@@ -861,7 +863,7 @@
     var first=renewals[0];
     var when=first.daysUntil===0?'today':first.daysUntil===1?'tomorrow':'in '+first.daysUntil+' days';
     var extra=renewals.length>1?' (+'+( renewals.length-1)+' more)':'';
-    slot.innerHTML='<div class="snap-renewal">⚠ <strong>'+escapeHtml(first.name)+'</strong> renews '+when+extra+'. <a href="/subscriptions" style="color:#92400e;font-weight:600">Review subscriptions →</a></div>';
+    slot.innerHTML='<div class="snap-renewal">⚠ <strong>'+escapeHtml(first.name)+'</strong> renews '+when+extra+'. <a href="/subscriptions" class="snap-renewal-cta">Review subscriptions →</a></div>';
   })();
 
   // W6: Overspend nudge — pace-vs-calendar projection for the live current
