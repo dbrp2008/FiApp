@@ -1046,6 +1046,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .rec-monthly-wrap{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
 .rec-monthly-wrap .num-input{flex:1;min-width:0;}
 .rec-pill{background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent-strong);flex-shrink:0;}
+/* In dark themes --accent-strong is a darkened accent that vanishes on the dark row, and a
+   12% tint barely reads as a pill. Use body color for guaranteed legibility over a stronger
+   accent tint so the "Monthly" badge is visible in every dark custom theme. */
+html.dark .rec-pill{background:color-mix(in srgb, var(--accent) 22%, transparent);color:var(--fg);}
 .rec-draft-banner{position:fixed;left:50%;bottom:calc(4.5rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:99999;background:var(--panel-bg);border:1px solid var(--sem-warn,#b45309);border-radius:10px;box-shadow:var(--elev-3,0 12px 32px rgba(0,0,0,.35));padding:.7rem .85rem;max-width:min(560px,calc(100vw - 1.5rem));width:max-content;font-size:.85rem;color:var(--fg);}
 .rec-draft-head{font-weight:600;margin-bottom:.5rem;color:var(--sem-warn,#b45309);}
 .rec-draft-item{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.25rem 0;border-top:1px solid var(--panel-border);}
