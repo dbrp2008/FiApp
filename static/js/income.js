@@ -470,24 +470,25 @@ function openRecurringConfig(rowId){
   // A continuous date range can't express "only months that have this sub-source" when its
   // existence has gaps, so subcategory rows get a checklist of exactly the valid months
   // instead of Custom range - the picker itself can no longer offer an invalid month.
-  const specWrap=document.createElement('div'); specWrap.style.cssText='display:none;flex-direction:column;gap:.3rem;max-height:180px;overflow-y:auto;border:1px solid var(--input-border);border-radius:8px;padding:.5rem;margin-bottom:1rem;';
+  const specWrap=document.createElement('div'); specWrap.className='rec-spec-grid'; specWrap.style.display='none';
   const _specMonths=row.parentId?_existingMonths().filter(mk2=>_rowExistsInMonth(rowId,mk2)).sort():[];
   if(!Array.isArray(draft.scope.months)) draft.scope.months=[];
   function renderSpecList(){
     specWrap.innerHTML='';
     if(!_specMonths.length){
-      const none=document.createElement('div'); none.style.cssText='font-size:.8rem;color:var(--muted);'; none.textContent='This sub-source has no months with data yet.';
+      const none=document.createElement('div'); none.className='rec-spec-empty'; none.textContent='This sub-source has no months with data yet.';
       specWrap.appendChild(none); return;
     }
     _specMonths.forEach(mk2=>{
-      const lbl=document.createElement('label'); lbl.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--fg);cursor:pointer;';
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=draft.scope.months.indexOf(mk2)>=0;
-      cb.addEventListener('change',()=>{
+      const selected=draft.scope.months.indexOf(mk2)>=0;
+      const chip=document.createElement('button'); chip.type='button'; chip.className='rec-spec-chip'+(selected?' selected':'');
+      chip.textContent=_recMkLabel(mk2); chip.setAttribute('aria-pressed', selected?'true':'false');
+      chip.addEventListener('click',()=>{
         const i=draft.scope.months.indexOf(mk2);
-        if(cb.checked){ if(i<0) draft.scope.months.push(mk2); } else if(i>=0) draft.scope.months.splice(i,1);
+        if(i<0){ draft.scope.months.push(mk2); chip.classList.add('selected'); chip.setAttribute('aria-pressed','true'); }
+        else{ draft.scope.months.splice(i,1); chip.classList.remove('selected'); chip.setAttribute('aria-pressed','false'); }
       });
-      lbl.appendChild(cb); lbl.appendChild(document.createTextNode(_recMkLabel(mk2)));
-      specWrap.appendChild(lbl);
+      specWrap.appendChild(chip);
     });
   }
   renderSpecList();
@@ -526,7 +527,7 @@ function openRecurringConfig(rowId){
 
   const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;';
   const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='btn'; saveBtn.textContent=existing?'Update recurring':'Make recurring';
-  saveBtn.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.9rem;';
+  saveBtn.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer;font-size:.9rem;';
   const cancelBtn=document.createElement('button'); cancelBtn.type='button'; cancelBtn.textContent='Cancel';
   cancelBtn.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;font-size:.9rem;';
   cancelBtn.addEventListener('click',m.close);
@@ -667,7 +668,7 @@ function _pickSpecificMonths(rule, newTotal){
     m.panel.appendChild(lbl);
   });
   const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;margin-top:1rem;';
-  const ok=document.createElement('button'); ok.type='button'; ok.textContent='Apply'; ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;';
+  const ok=document.createElement('button'); ok.type='button'; ok.textContent='Apply'; ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer;';
   const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel'; cancel.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;';
   cancel.addEventListener('click',()=>{ m.close(); render(); });
   ok.addEventListener('click',()=>{
@@ -791,7 +792,7 @@ function _confirmApplyClash(it){
   m.panel.appendChild(p);
   const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;';
   const ok=document.createElement('button'); ok.type='button'; ok.textContent='Replace with '+fmt(it.want);
-  ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.9rem;';
+  ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer;font-size:.9rem;';
   ok.addEventListener('click',()=>{ m.close(); _resolveClash(it.rowId, it.mk, 'apply'); });
   const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
   cancel.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;font-size:.9rem;';
