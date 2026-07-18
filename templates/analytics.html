@@ -534,7 +534,9 @@ function renderAll(){
           if(active){
             
             const ch=Chart.getChart('chart-'+p.id);
-            if(ch) setTimeout(()=>ch.resize(),0);
+            // Deferred resize: the canvas can be detached (card re-rendered) before the
+            // timeout fires; Chart.js's resize reads canvas.ownerDocument (null) and throws.
+            if(ch) setTimeout(()=>{ if(ch.canvas && ch.canvas.isConnected) ch.resize(); },0);
           }
         });
         lbl.textContent=pairs[idx].title+' ('+  (idx+1)+' / '+pairs.length+')';
