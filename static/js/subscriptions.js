@@ -118,7 +118,8 @@ var _sync=createSyncManager(STORAGE_KEY,'/api/save/subs','/api/load/subs',{
   onReload:function(){state=loadState();render();recalcTotals();},
   onMerge:showToast,
   showQuotaWarning:showSaveQuotaWarning,
-  contentGuard:function(d){return Array.isArray(d.rows)||Array.isArray(d.cols)||d.cells;}
+  contentGuard:function(d){return Array.isArray(d.rows)||Array.isArray(d.cols)||d.cells;},
+  maxRows:MAX_SUBS, maxCols:12
 });
 var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
