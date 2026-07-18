@@ -377,7 +377,7 @@ function openRecurringConfig(rowId){
 
   const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;';
   const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='btn'; saveBtn.textContent=existing?'Update recurring':'Make recurring';
-  saveBtn.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.9rem;';
+  saveBtn.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer;font-size:.9rem;';
   const cancelBtn=document.createElement('button'); cancelBtn.type='button'; cancelBtn.textContent='Cancel';
   cancelBtn.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;font-size:.9rem;';
   cancelBtn.addEventListener('click',m.close);
@@ -528,7 +528,7 @@ function _pickSpecificMonths(rule, newTotal){
     m.panel.appendChild(lbl);
   });
   const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;margin-top:1rem;';
-  const ok=document.createElement('button'); ok.type='button'; ok.textContent='Apply'; ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;';
+  const ok=document.createElement('button'); ok.type='button'; ok.textContent='Apply'; ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer;';
   const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel'; cancel.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;';
   cancel.addEventListener('click',()=>{ m.close(); render(); });
   ok.addEventListener('click',()=>{
@@ -656,7 +656,7 @@ function _confirmApplyClash(it){
   m.panel.appendChild(p);
   const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:.5rem;';
   const ok=document.createElement('button'); ok.type='button'; ok.textContent='Replace with '+fmt(it.want);
-  ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.9rem;';
+  ok.style.cssText='flex:2;padding:.6rem;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer;font-size:.9rem;';
   ok.addEventListener('click',()=>{ m.close(); _resolveClash(it.rowId, it.mk, 'apply'); });
   const cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
   cancel.style.cssText='flex:1;padding:.6rem;border-radius:8px;border:1px solid var(--input-border);background:transparent;color:var(--fg);cursor:pointer;font-size:.9rem;';
