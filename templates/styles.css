@@ -43,6 +43,10 @@
   --secondary-fg:#374151;
   --secondary-hover:#d1d5db;
   --grad-from:#7c3aed; --grad-to:#0891b2;
+  /* Label colour for filled accent/gradient buttons. Custom themes get these computed at
+     apply time (theme-core.js) from their accent; the built-ins set them here. Light's
+     accent is a dark purple, so white reads. */
+  --on-accent:#ffffff; --on-gradient:#ffffff;
   --glow-1:rgba(124,58,237,.20); --glow-2:rgba(8,145,178,.16);
   --glass-bg:rgba(255,255,255,.72); --glass-border:rgba(255,255,255,.65); --glass-blur:12px;
   --shell-rail-bg:rgba(255,255,255,.72);
@@ -101,6 +105,9 @@ html.dark{
   --secondary-fg:#e2e8f0;
   --secondary-hover:#475569;
   --grad-from:#a855f7; --grad-to:#22d3ee;
+  /* Built-in dark's accent (#a78bfa) and gradient (lavender->cyan) are light, so white
+     labels fail contrast - use near-black instead. */
+  --on-accent:#1a1a1a; --on-gradient:#1a1a1a;
   --glow-1:rgba(168,85,247,.30); --glow-2:rgba(34,211,238,.22);
   --glass-bg:rgba(255,255,255,.06); --glass-border:rgba(255,255,255,.12); --glass-blur:12px;
   --shell-rail-bg:rgba(13,13,22,.85);
@@ -458,7 +465,7 @@ a.theme-opt-new:hover { color:var(--fg); }
   bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   right: 1.25rem;
   width: 56px; height: 56px; border-radius: 50%;
-  background: var(--accent); color: #fff; border: none;
+  background: var(--accent); color: var(--on-accent, #fff); border: none;
   font-size: 1.5rem; cursor: pointer; z-index: 9997;
   align-items: center; justify-content: center;
   box-shadow: 0 4px 16px rgba(0,0,0,.25);
@@ -648,7 +655,7 @@ html.fiapp-lock-pending body { visibility: hidden !important; }
   gap:1rem;margin:0 0 1.25rem;flex-wrap:wrap;}
 .page-header h1{font-size:1.5rem;font-weight:500;letter-spacing:-.01em;margin:0;}
 .field{margin-bottom:1rem;}
-.btn.btn-gradient{background:linear-gradient(135deg,var(--grad-from),var(--grad-to));border:none;box-shadow:var(--elev-cta);}
+.btn.btn-gradient{background:linear-gradient(135deg,var(--grad-from),var(--grad-to));border:none;box-shadow:var(--elev-cta);color:var(--on-gradient,#fff);}
 .btn.btn-glass{background:var(--glass-bg);border:1px solid var(--glass-border);color:var(--fg);
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
 .aurora-bg{position:relative;}
@@ -1055,7 +1062,7 @@ html.dark .rec-pill{background:color-mix(in srgb, var(--accent) 22%, transparent
 .rec-draft-item{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.25rem 0;border-top:1px solid var(--panel-border);}
 .rec-draft-jump{flex:1;min-width:140px;text-align:left;background:none;border:none;color:var(--fg);font-family:inherit;font-size:.83rem;cursor:pointer;text-decoration:underline;padding:0;}
 .rec-draft-apply,.rec-draft-skip{border:1px solid var(--input-border);border-radius:6px;background:transparent;color:var(--fg);font-family:inherit;font-size:.78rem;padding:.3rem .6rem;cursor:pointer;flex-shrink:0;}
-.rec-draft-apply{background:var(--accent);color:#fff;border-color:var(--accent);}
+.rec-draft-apply{background:var(--accent);color:var(--on-accent,#fff);border-color:var(--accent);}
 .rec-spec-grid{display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow-y:auto;padding:.15rem;margin-bottom:1rem;}
 .rec-spec-chip{border:1px solid var(--panel-border);color:var(--fg);font-size:.8rem;font-weight:500;padding:6px 13px;border-radius:999px;background:none;cursor:pointer;font-family:inherit;}
 .rec-spec-chip.selected{border-color:var(--accent);color:var(--accent-strong);background:color-mix(in srgb, var(--accent) 12%, transparent);border-width:1.5px;}
