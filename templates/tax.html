@@ -42,8 +42,8 @@
       white-space: nowrap;
     }
     .tax-mode-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-    .tax-mode-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .tax-mode-btn.active:hover:not(:disabled) { color: #fff; }
+    .tax-mode-btn.active { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
+    .tax-mode-btn.active:hover:not(:disabled) { color: var(--on-accent, #fff); }
     .tax-mode-btn:disabled { opacity: .35; cursor: not-allowed; }
 
     .tax-picker { margin-top: .85rem; }
@@ -63,8 +63,8 @@
       transition: background .12s, color .12s;
     }
     .tax-year-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-    .tax-year-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .tax-year-btn.active:hover:not(:disabled) { color: #fff; }
+    .tax-year-btn.active { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
+    .tax-year-btn.active:hover:not(:disabled) { color: var(--on-accent, #fff); }
     .tax-year-btn:disabled { opacity: .35; cursor: not-allowed; }
 
     .tax-month-sel {
@@ -93,9 +93,9 @@
       transition: background .12s, color .12s;
     }
     .tax-chip:hover:not(:disabled):not(.at-limit) { border-color: var(--accent); }
-    .tax-chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tax-chip.selected { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
     .tax-chip.no-data, .tax-chip:disabled { opacity: .32; cursor: not-allowed; }
-    .tax-chip.at-limit { opacity: .42; cursor: not-allowed; }
+    .tax-chip.at-limit { opacity: .6; cursor: not-allowed; }
 
     .tax-preview {
       display: none;
@@ -116,7 +116,7 @@
     .tax-use-btn {
       padding: .32rem .75rem;
       background: var(--accent);
-      color: #fff;
+      color: var(--on-accent, #fff);
       border: none;
       border-radius: 6px;
       font-size: .82rem;
