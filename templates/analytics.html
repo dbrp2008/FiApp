@@ -67,7 +67,9 @@
       transition: background .12s, color .12s, border-color .12s;
     }
     .btn-toggle:hover { border-color:var(--accent); color:var(--accent); }
-    .btn-toggle-active { background:var(--accent); color:#fff !important; border-color:var(--accent); }
+    /* Accent tint + --fg (not white-on-accent, which fails contrast for light accents like
+       sunset's orange). --fg stays legible over a partial accent tint in every theme/mode. */
+    .btn-toggle-active { background:color-mix(in srgb, var(--accent) 25%, transparent); color:var(--fg) !important; border-color:var(--accent); }
 
 
     .period-row {
