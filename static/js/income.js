@@ -946,7 +946,8 @@ var _sync=createSyncManager(STORAGE_KEY,'/api/save/income','/api/load/income',{
   getState:function(){return state;},
   onReload:function(){state=loadState();render();},
   onMerge:showToast,
-  showQuotaWarning:showSaveQuotaWarning
+  showQuotaWarning:showSaveQuotaWarning,
+  maxRows:MAX_ROWS, maxCols:MAX_COLS
 });
 var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
