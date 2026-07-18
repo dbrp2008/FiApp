@@ -207,6 +207,20 @@
     }
     return _toHex(rgb);
   }
+  // Label colour for a filled (accent/gradient) surface: white or near-black, whichever
+  // contrasts better. Lets a filled button stay legible whether the accent is dark (indigo
+  // -> white text) or light (sunset orange -> dark text). Computed at apply time so every
+  // theme, including ones saved before this existed, is fixed with no re-save. Hex only.
+  function _onColor(hex){
+    if (!_HEXPAIR.test(hex||'')) return null;
+    var rgb = _hx(hex);
+    return _ct([255,255,255], rgb) >= _ct([26,26,26], rgb) ? '#ffffff' : '#1a1a1a';
+  }
+  function _avgHex(a, b){
+    if (!_HEXPAIR.test(a||'')) return _HEXPAIR.test(b||'') ? b : null;
+    if (!_HEXPAIR.test(b||'')) return a;
+    var A=_hx(a), B=_hx(b); return _toHex([(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2]);
+  }
 
   function fiappApplyTheme(value){
     var el = document.documentElement, ok = true, mode = 'light', css = '', meta = GRAD_LIGHT;
@@ -227,6 +241,11 @@
             css += tk + ':' + ((tk === '--link-text' && _fixLink) ? _fixLink : theme.tokens[tk]) + ';';
           }
         }
+        // Adaptive label colours for filled accent/gradient buttons (computed, not stored).
+        var _oa = _onColor(theme.tokens['--accent']);
+        if (_oa) css += '--on-accent:' + _oa + ';';
+        var _og = _onColor(_avgHex(theme.tokens['--grad-from'], theme.tokens['--grad-to']));
+        if (_og) css += '--on-gradient:' + _og + ';';
         if (theme.tokens['--grad-from']) meta = theme.tokens['--grad-from'];
       } else {
         // Cache miss (fresh device): keep the right base luminance so nothing flashes;
