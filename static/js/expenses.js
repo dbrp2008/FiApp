@@ -64,10 +64,10 @@ function freshState(){
   return {
     rows:[],
     cols:[
-      {id:uid(),label:'Week 1',width:120},
-      {id:uid(),label:'Week 2',width:120},
-      {id:uid(),label:'Week 3',width:120},
-      {id:uid(),label:'Week 4',width:120},
+      {id:'col-wk1',label:'Week 1',width:120},
+      {id:'col-wk2',label:'Week 2',width:120},
+      {id:'col-wk3',label:'Week 3',width:120},
+      {id:'col-wk4',label:'Week 4',width:120},
     ],
     headerColWidth:185, totalColWidth:110,
     cells:{}, cellTimes:{}, income:{}, collapsed:{},
@@ -103,6 +103,10 @@ function loadState(){
       if(!Array.isArray(s.cols)) s.cols=freshState().cols;
       if(!s.rowsByMonth) s.rowsByMonth={};
       if(!s.colsByMonth) s.colsByMonth={};
+      // Self-heal the historical cold-boot duplication bug: fresh-id default columns could
+      // union-accumulate past MAX_COLS in the GLOBAL template (per-month forks are
+      // authoritative and untouched), which then 400s every save. Trim it back to the cap.
+      if(Array.isArray(s.cols)&&s.cols.length>MAX_COLS) s.cols=s.cols.slice(0,MAX_COLS);
       if(!s.goals) s.goals={};
       if(!Array.isArray(s.recurringRules)) s.recurringRules=[];
       delete s.cellCurrencies; delete s.displayCurrency;
@@ -722,7 +726,8 @@ var _sync=createSyncManager(STORAGE_KEY,'/api/save/expenses','/api/load/expenses
   getState:function(){return state;},
   onReload:function(){state=loadState();render();syncIncomeInputs();},
   onMerge:showToast,
-  showQuotaWarning:showSaveQuotaWarning
+  showQuotaWarning:showSaveQuotaWarning,
+  maxRows:MAX_ROWS, maxCols:MAX_COLS
 });
 var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
