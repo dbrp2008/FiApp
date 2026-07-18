@@ -21,7 +21,7 @@
     /* Fixed-size inline-flex circle: an inline span with vertical padding overflows its line
        box (covering the field below) and makes the hover area unstable/flickery. */
     .help-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:18px;height:18px;font-size:.72rem;font-weight:700;border-radius:50%;border:1.5px solid var(--accent);background:none;color:var(--accent);cursor:pointer;margin-left:.4rem;vertical-align:middle;line-height:1;}
-    .help-btn:hover{background:var(--accent);color:#fff;}
+    .help-btn:hover{background:var(--accent);color:var(--on-accent,#fff);}
     /* Use only the JS #swatch-tip tooltip here (as .rh-inner does); suppress the CSS ::after
        so the label doesn't show two tooltips at once. */
     .help-btn.tip-host::after,.help-btn.tip-host::before{display:none!important;}
@@ -107,7 +107,7 @@
     tr.tr-drop-before>td{border-top:2px solid var(--accent)!important;}
     tr.tr-drop-after>td{border-bottom:2px solid var(--accent)!important;}
     
-    .subs-link-btn{display:inline-flex;align-items:center;margin-left:5px;padding:1px 7px;border-radius:4px;background:var(--accent);color:#fff!important;font-size:.72rem;font-weight:700;text-decoration:none;opacity:.82;transition:opacity .15s;cursor:pointer;border:none;}
+    .subs-link-btn{display:inline-flex;align-items:center;margin-left:5px;padding:1px 7px;border-radius:4px;background:var(--accent);color:var(--on-accent,#fff)!important;font-size:.72rem;font-weight:700;text-decoration:none;opacity:.82;transition:opacity .15s;cursor:pointer;border:none;}
     .subs-link-btn:hover{opacity:1;text-decoration:none;}
     table.sheet{border-collapse:collapse;table-layout:fixed;min-width:max-content;margin-inline:auto;}
     table.sheet th,table.sheet td{border:1px solid var(--input-border);position:relative;overflow:hidden;padding:0;}
@@ -156,7 +156,7 @@
     .sub-other-form input:focus{border-color:var(--accent);}
     .sub-other-form .row{display:flex;gap:.3rem;}
     .sub-other-form button{flex:1;padding:.3rem .5rem;border:none;border-radius:4px;font-size:.78rem;cursor:pointer;}
-    .sub-other-form .ok{background:var(--accent);color:#fff;}
+    .sub-other-form .ok{background:var(--accent);color:var(--on-accent,#fff);}
     .sub-other-form .cancel{background:var(--secondary-bg);color:var(--secondary-fg);}
     .sub-other-err{color:#ef4444;font-size:.74rem;}
 
@@ -182,7 +182,7 @@
     .goal-pop-stat{font-size:.8rem;font-weight:700;margin-bottom:.65rem;}
     .goal-pop-inp{width:100%;box-sizing:border-box;padding:.3rem .5rem;font-size:.85rem;border:1px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--fg);margin-bottom:.5rem;}
     .goal-pop-btns{display:flex;gap:.4rem;}
-    .goal-pop-save{flex:1;padding:.28rem 0;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:700;cursor:pointer;}
+    .goal-pop-save{flex:1;padding:.28rem 0;background:var(--accent);color:var(--on-accent,#fff);border:none;border-radius:6px;font-size:.82rem;font-weight:700;cursor:pointer;}
     .goal-pop-clear{padding:.28rem .6rem;background:none;border:1.5px solid var(--panel-border);border-radius:6px;font-size:.82rem;color:var(--muted);cursor:pointer;}
 
     
@@ -303,7 +303,7 @@
     .mc-child .mc-name::before{content:'';width:2px;height:11px;background:var(--muted);border-radius:1px;flex-shrink:0;opacity:.5;}
     .mc-active.mc-child .mc-name::before{background:var(--accent);opacity:1;}
     .mc-total{font-weight:700;font-size:12px;color:var(--total-fg);background:var(--total-bg);padding:2px 7px;border-radius:10px;flex-shrink:0;}
-    .mc-active .mc-total{background:var(--accent);color:#fff;}
+    .mc-active .mc-total{background:var(--accent);color:var(--on-accent,#fff);}
     .mc-subs-badge{font-size:10px;font-weight:700;background:#be185d;color:#fff;padding:2px 6px;border-radius:8px;white-space:nowrap;text-decoration:none;flex-shrink:0;}
     .mc-gear{background:none;border:none;font-size:13px;color:var(--row-text,var(--muted));cursor:pointer;padding:0;line-height:1;flex-shrink:0;min-width:28px;min-height:28px;display:inline-flex;align-items:center;justify-content:center;}
     .mc-goal-btn{background:none;border:none;font-size:12px;cursor:pointer;padding:0;line-height:1;flex-shrink:0;opacity:.7;min-width:28px;min-height:28px;display:inline-flex;align-items:center;justify-content:center;}
@@ -332,7 +332,7 @@
     .mc-ei{flex:1;font-size:16px!important;padding:7px 8px;border:1px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--fg);min-width:0;width:100%;box-sizing:border-box;font-family:inherit;}
     .mc-ei:focus{border-color:var(--accent);outline:none;}
     .mc-ebtns{display:flex;gap:7px;margin-top:9px;}
-    .mc-esave{flex:1;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}
+    .mc-esave{flex:1;background:var(--accent);color:var(--on-accent,#fff);border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}
     .mc-ecancel{flex:1;background:var(--panel-bg);color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
 
     /* ── Modern-UI chrome polish: glass toolbar ── */
