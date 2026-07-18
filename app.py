@@ -79,7 +79,9 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' and not app.debug
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # 1 hour — caches /static/ files per session
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31_536_000  # 1 year — every /static/ asset is
+# loaded with ?v=ASSET_V (bumped each deploy), so the URL changes when the file changes;
+# a long cache is therefore safe and lets repeat visits skip re-downloading (~219 KiB).
 
 # Cache-busting stamp appended to asset URLs as ?v=ASSET_V. Recomputed at startup from the
 # newest static/template file mtime, so each deploy yields a new value and browsers fetch the
@@ -652,8 +654,9 @@ def _within_limits(data):
 @app.route('/styles.css')
 def serve_css():
     resp = send_from_directory('templates', 'styles.css', mimetype='text/css')
-    resp.cache_control.max_age = 3600
+    resp.cache_control.max_age = 31_536_000   # 1 year — always requested with ?v=ASSET_V
     resp.cache_control.public = True
+    resp.cache_control.immutable = True
     return resp
 
 
