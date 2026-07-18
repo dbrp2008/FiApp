@@ -55,7 +55,7 @@ function _deepEqual(a, b) {
 // (which operates on `cells`/`cellTimes` independently) keeps the values that
 // reference them — leaving orphaned cells that point at rows/cols which no
 // longer exist, and are therefore permanently invisible in the UI.
-function _mergeIdArrays(localArr, serverArr) {
+function _mergeIdArrays(localArr, serverArr, maxLen) {
   var local  = Array.isArray(localArr)  ? localArr  : [];
   var server = Array.isArray(serverArr) ? serverArr : [];
   var byId = {};
@@ -70,16 +70,22 @@ function _mergeIdArrays(localArr, serverArr) {
     if (!Object.prototype.hasOwnProperty.call(byId, item.id)) order.push(item.id);
     byId[item.id] = item; // local wins when both sides have this id
   });
-  return order.map(function(id) { return byId[id]; });
+  var out = order.map(function(id) { return byId[id]; });
+  // Hard backstop: repeated cold-boot seeds (fresh random ids for the SAME default rows/
+  // cols) would otherwise union-accumulate past the server's MAX_ROWS/MAX_COLS cap and make
+  // every save 400 (the "16 duplicate columns" bug). Bound the merged length. maxLen
+  // omitted -> no cap (preserves prior behavior for callers that don't pass one).
+  if (maxLen && out.length > maxLen) out = out.slice(0, maxLen);
+  return out;
 }
 
 // Same id-union merge, applied per month-key for rowsByMonth/colsByMonth maps.
-function _mergeArraysByMonth(localMap, serverMap) {
+function _mergeArraysByMonth(localMap, serverMap, maxLen) {
   var local  = (localMap  && typeof localMap  === 'object') ? localMap  : {};
   var server = (serverMap && typeof serverMap === 'object') ? serverMap : {};
   var out = {};
   Object.keys(server).forEach(function(mk) { out[mk] = server[mk]; });
-  Object.keys(local).forEach(function(mk) { out[mk] = _mergeIdArrays(local[mk], server[mk]); });
+  Object.keys(local).forEach(function(mk) { out[mk] = _mergeIdArrays(local[mk], server[mk], maxLen); });
   return out;
 }
 
@@ -93,15 +99,16 @@ function _mergeArraysByMonth(localMap, serverMap) {
 //     server's blob — EXCEPT currentYear/currentMonth, which (mirroring loadFromServer's
 //     existing stale-reload behavior below) stay on the local device's own choice,
 //     since they're per-device viewing state, not synced data.
-function _mergeTrackerBlobs(localBlob, serverBlob) {
+function _mergeTrackerBlobs(localBlob, serverBlob, caps) {
   var local  = (localBlob  && typeof localBlob  === 'object') ? localBlob  : {};
   var server = (serverBlob && typeof serverBlob === 'object') ? serverBlob : local;
   var merged = JSON.parse(JSON.stringify(server));
+  caps = caps || {};
 
-  if (local.rows  || server.rows)  merged.rows = _mergeIdArrays(local.rows, server.rows);
-  if (local.cols  || server.cols)  merged.cols = _mergeIdArrays(local.cols, server.cols);
-  if (local.rowsByMonth || server.rowsByMonth) merged.rowsByMonth = _mergeArraysByMonth(local.rowsByMonth, server.rowsByMonth);
-  if (local.colsByMonth || server.colsByMonth) merged.colsByMonth = _mergeArraysByMonth(local.colsByMonth, server.colsByMonth);
+  if (local.rows  || server.rows)  merged.rows = _mergeIdArrays(local.rows, server.rows, caps.rows);
+  if (local.cols  || server.cols)  merged.cols = _mergeIdArrays(local.cols, server.cols, caps.cols);
+  if (local.rowsByMonth || server.rowsByMonth) merged.rowsByMonth = _mergeArraysByMonth(local.rowsByMonth, server.rowsByMonth, caps.rows);
+  if (local.colsByMonth || server.colsByMonth) merged.colsByMonth = _mergeArraysByMonth(local.colsByMonth, server.colsByMonth, caps.cols);
 
   // expenses.js's per-month budget-panel figures (gross/tax/taxCurrency), keyed by
   // month like rowsByMonth. This merge only runs while a local edit is unsynced
@@ -186,6 +193,9 @@ function isWalkthroughActive() {
 
 function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   opts = opts || {};
+  // Per-tracker row/col caps for the merge backstop (see _mergeIdArrays). Undefined when a
+  // tracker doesn't declare them -> merge stays uncapped, as before.
+  var _caps = { rows: opts.maxRows, cols: opts.maxCols };
 
   // Pages with a live sync manager own their key's flushing; the global flusher
   // in sw-register.js skips these (see window.__fiappFlushDirtyTrackers).
@@ -243,7 +253,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     var localBlob = null;
     try { localBlob = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (_) {}
 
-    var merged = _mergeTrackerBlobs(localBlob, serverData);
+    var merged = _mergeTrackerBlobs(localBlob, serverData, _caps);
     var changed = !_deepEqual(merged, localBlob);
 
     localStorage.setItem(storageKey, JSON.stringify(merged));
@@ -362,7 +372,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
             // the server acks that save.
             var _dirtyLocal = null;
             try { _dirtyLocal = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (_) {}
-            localStorage.setItem(storageKey, JSON.stringify(_mergeTrackerBlobs(_dirtyLocal, data)));
+            localStorage.setItem(storageKey, JSON.stringify(_mergeTrackerBlobs(_dirtyLocal, data, _caps)));
             _serverLoaded = true;
             _attemptSave(_MAX_MERGE_RETRIES);
             return;
