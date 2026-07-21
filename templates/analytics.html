@@ -204,7 +204,14 @@
     .tracker-head{position:relative;z-index:20;}
     .ana-month-btn{background:none;border:none;padding:2px 6px;font-weight:600;font-size:.85rem;
       color:var(--fg);cursor:pointer;font-family:inherit;white-space:nowrap;}
-    .ana-month-menu{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
+    /* Right-aligned to the pill, NOT centred. The pill is the last thing in the header, so
+       it sits flush against the right edge of the canvas; a centred menu spills past it by
+       (menuWidth - pillWidth) / 2 (32px with real month labels, more with longer ones) and,
+       being position:absolute, that spill extends the document's scrollable width and forces
+       a horizontal scrollbar. Anchoring the right edges means the menu can only ever grow
+       leftwards into the canvas, where there is always room. */
+    .ana-month-menu{position:absolute;top:calc(100% + 6px);right:0;left:auto;
+      max-width:calc(100vw - 1rem);
       z-index:200;display:flex;flex-direction:column;gap:2px;max-height:320px;
       overflow-y:auto;padding:.4rem;}
     .ana-month-item{background:none;border:none;text-align:left;padding:.45rem .7rem;
