@@ -197,28 +197,11 @@
     }
 
 
-    /* The month-pill carries a backdrop-filter, which makes it a stacking context that
-       traps its dropdown's z-index. Since the header sits before #root in the DOM, the
-       hero stat cards (also stacking contexts) would otherwise paint over the open menu.
-       Lifting the whole header into its own stacking context above #root fixes that. */
+    /* The month-pill carries a backdrop-filter, which makes it a stacking context. Since the
+       header sits before #root in the DOM, the hero stat cards (also stacking contexts) would
+       otherwise paint over an open glass-picker wheel. Lifting the whole header into its own
+       stacking context above #root fixes that. */
     .tracker-head{position:relative;z-index:20;}
-    .ana-month-btn{background:none;border:none;padding:2px 6px;font-weight:600;font-size:.85rem;
-      color:var(--fg);cursor:pointer;font-family:inherit;white-space:nowrap;}
-    /* Right-aligned to the pill, NOT centred. The pill is the last thing in the header, so
-       it sits flush against the right edge of the canvas; a centred menu spills past it by
-       (menuWidth - pillWidth) / 2 (32px with real month labels, more with longer ones) and,
-       being position:absolute, that spill extends the document's scrollable width and forces
-       a horizontal scrollbar. Anchoring the right edges means the menu can only ever grow
-       leftwards into the canvas, where there is always room. */
-    .ana-month-menu{position:absolute;top:calc(100% + 6px);right:0;left:auto;
-      max-width:calc(100vw - 1rem);
-      z-index:200;display:flex;flex-direction:column;gap:2px;max-height:320px;
-      overflow-y:auto;padding:.4rem;}
-    .ana-month-item{background:none;border:none;text-align:left;padding:.45rem .7rem;
-      border-radius:8px;font-size:.85rem;color:var(--fg);cursor:pointer;font-family:inherit;
-      white-space:nowrap;}
-    .ana-month-item:hover{background:var(--hover-bg,rgba(0,0,0,.06));}
-    .ana-month-item.active{background:var(--accent);color:var(--on-accent,#fff);}
 </style>
 {% endblock %}
 {% block content %}
@@ -412,26 +395,20 @@ function renderAll(){
       pill.setAttribute('data-wt','analytics-period');
       const prevBtn=document.createElement('button');
       prevBtn.id='ana-prev-btn'; prevBtn.setAttribute('aria-label','Previous month'); prevBtn.textContent='‹';
-      // Desktop (fine pointer + hover) gets the custom glass menu: a native <select>'s open
-      // option list is OS-rendered and ignores our glass styling. Touch devices fall through
-      // to the native picker instead - same split every other dropdown uses via glass-picker.js.
-      const _anaDesktop=!(!window.matchMedia||!window.matchMedia('(hover:hover) and (pointer:fine)').matches);
-      let monthCtrl;
-      if(_anaDesktop){
-        monthCtrl=document.createElement('button');
-        monthCtrl.type='button'; monthCtrl.id='ana-month-lbl'; monthCtrl.className='ana-month-btn';
-        monthCtrl.setAttribute('aria-haspopup','listbox');
-        monthCtrl.addEventListener('click',function(e){ e.stopPropagation(); toggleAnaMonthMenu(monthCtrl); });
-      } else {
-        monthCtrl=document.createElement('select');
-        monthCtrl.id='ana-month-sel'; monthCtrl.className='ana-month-native';
-        monthCtrl.setAttribute('aria-label','Select month');
-        _allMonths.forEach(function(m2){
-          const o=document.createElement('option'); o.value=m2; o.textContent=_anaMonthFullLabel(m2);
-          if(m2===_anaMK) o.selected=true; monthCtrl.appendChild(o);
-        });
-        monthCtrl.addEventListener('change',function(){ _anaMK=monthCtrl.value; _saveAnaMK(); _updateAnaMonthLabel(); renderHeroStats(); });
-      }
+      // A plain native <select class="month-jump">, exactly like the trackers' month nav.
+      // glass-picker.js delegates on that class and upgrades it to the glass scroll-wheel on
+      // desktop (fine pointer + hover), falling through to the native OS picker on touch -
+      // the same split this file used to hand-roll itself, minus the viewport-overflow bug
+      // that came with hand-rolling it (the bespoke menu centred on the pill, which sits at
+      // the header's right edge, so it routinely spilled off the right side of the page).
+      const monthCtrl=document.createElement('select');
+      monthCtrl.id='ana-month-sel'; monthCtrl.className='month-jump';
+      monthCtrl.setAttribute('aria-label','Select month');
+      _allMonths.forEach(function(m2){
+        const o=document.createElement('option'); o.value=m2; o.textContent=_anaMonthFullLabel(m2);
+        if(m2===_anaMK) o.selected=true; monthCtrl.appendChild(o);
+      });
+      monthCtrl.addEventListener('change',function(){ _anaMK=monthCtrl.value; _saveAnaMK(); _updateAnaMonthLabel(); renderHeroStats(); });
       const nextBtn=document.createElement('button');
       nextBtn.id='ana-next-btn'; nextBtn.setAttribute('aria-label','Next month'); nextBtn.textContent='›';
       prevBtn.addEventListener('click',()=>shiftAnaMonth(-1));
@@ -660,38 +637,10 @@ function _anaMonthFullLabel(m2){
   const parts=m2.split('-'); const y=parseInt(parts[0],10), mo=parseInt(parts[1],10);
   return new Date(y,mo-1,1).toLocaleString('default',{month:'long'})+' '+y;
 }
-let _anaMonthMenuEl=null;
-function closeAnaMonthMenu(){
-  if(_anaMonthMenuEl){ _anaMonthMenuEl.remove(); _anaMonthMenuEl=null; }
-  document.removeEventListener('click',closeAnaMonthMenu,true);
-}
-function toggleAnaMonthMenu(btn){
-  if(_anaMonthMenuEl){ closeAnaMonthMenu(); return; }
-  const menu=document.createElement('div'); menu.className='ana-month-menu glass-panel'; menu.setAttribute('role','listbox');
-  _allMonths.forEach(function(m2){
-    const item=document.createElement('button');
-    item.type='button'; item.className='ana-month-item'+(m2===_anaMK?' active':'');
-    item.textContent=_anaMonthFullLabel(m2);
-    item.setAttribute('role','option');
-    item.addEventListener('click',function(e){
-      e.stopPropagation();
-      _anaMK=m2; _saveAnaMK(); _updateAnaMonthLabel(); renderHeroStats(); closeAnaMonthMenu();
-    });
-    menu.appendChild(item);
-  });
-  menu.style.minWidth=Math.max(160,btn.closest('.month-pill').getBoundingClientRect().width)+'px';
-  btn.closest('.month-pill').appendChild(menu);
-  _anaMonthMenuEl=menu;
-  const activeEl=menu.querySelector('.active');
-  if(activeEl) activeEl.scrollIntoView({block:'center'});
-  setTimeout(()=>document.addEventListener('click',closeAnaMonthMenu,true),0);
-}
 function _updateAnaMonthLabel(){
   if(!_anaMK) return;
   const idx=_allMonths.indexOf(_anaMK);
-  const btn=document.getElementById('ana-month-lbl');            // desktop glass control
-  if(btn) btn.textContent=_anaMonthFullLabel(_anaMK);
-  const sel=document.getElementById('ana-month-sel');            // mobile native control
+  const sel=document.getElementById('ana-month-sel');
   if(sel&&sel.value!==_anaMK) sel.value=_anaMK;
   const prevBtn=document.getElementById('ana-prev-btn');
   const nextBtn=document.getElementById('ana-next-btn');
@@ -1481,6 +1430,7 @@ function reRenderCharts(){
     }
   }catch(e){}
 })();
+
 
 window.addEventListener('storage', e=>{
   if(e.key===EXP_KEY||e.key===SUBS_KEY||e.key===INC_KEY) renderAll();
