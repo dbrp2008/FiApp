@@ -50,25 +50,20 @@ function getAllUsedCurrencies(){
   return [...set];
 }
 
-// Every row total in the grid is rowTotalUSD * currentRate, so changing currentRate
-// invalidates every cell already on screen. updateSummaryBar() only refreshes the summary,
-// which left the grid showing totals computed at whatever rate was live when each row was
-// last drawn - a mix of rates down one column. The boot path hits this every time: render()
-// runs first, then the rate resolves asynchronously. Re-render so the whole grid agrees.
-function _reRenderForRate(){ try{ render(); }catch(_){} }
+// currentRate drives ONLY the converted-total card in the summary (see updateSummaryBar).
+// The grid itself is entirely in USD, so a rate change never invalidates it - updating the
+// summary is sufficient.
 function showConvFields(cur,rate){
   currentRate=rate;
   document.getElementById('conv-lbl').textContent='Total ('+cur+')';
   document.getElementById('conv-wrap').style.display='';
   updateSummaryBar();
-  _reRenderForRate();
 }
 function hideConvFields(){
   currentRate=1;
   document.getElementById('conv-wrap').style.display='none';
   document.getElementById('curr-note').textContent='';
   updateSummaryBar();
-  _reRenderForRate();
 }
 function onCurrencyChange(){
   const sel=document.getElementById('curr-sel');
@@ -1453,10 +1448,14 @@ function rowTotalUSD(rId){
   if(kids.length) return kids.reduce((s,c)=>s+rowTotalUSD(c.id),0);
   return getCols().reduce((s,col)=>s+amountToUSD(getCell(rId,col.id), currentMK(), rId),0);
 }
+// The income grid is USD throughout: cells are entered in each row's own currency and
+// normalised via amountToUSD, and colTotal/grandTotal are plain USD. rowTotal used to be
+// the lone exception, multiplying by currentRate - so the Total column read in the display
+// currency while the TOTAL beneath it read USD, both wearing a "$". Converted money belongs
+// in the dedicated "Total (<currency>)" summary card, which is the one place that applies
+// the rate and labels it.
 function rowTotal(rId){
-  
-  const usd=rowTotalUSD(rId);
-  return usd*currentRate;
+  return rowTotalUSD(rId);
 }
 function grandTotal(){
   const usd=getRows().filter(r=>!r.parentId).reduce((s,r)=>s+rowTotalUSD(r.id),0);
