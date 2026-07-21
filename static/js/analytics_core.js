@@ -108,6 +108,43 @@ function incRows(inc, mk2) {
   return (inc && inc.rowsByMonth && inc.rowsByMonth[mk2]) ? inc.rowsByMonth[mk2] : (inc && inc.rows) || [];
 }
 
+// Per-category totals for two months plus their deltas, for the "vs last month"
+// card. Child rows (parentId) roll up into their parent so the comparison is at
+// the same granularity the user budgets at; categories with no spend in either
+// month are dropped; sorted by absolute delta so the biggest movers lead.
+// Keyed by label rather than id, so a category renamed or re-created between
+// months still lines up.
+function momCategoryDeltas(exp, curMk, prevMk) {
+  function totals(mk2) {
+    var rows = expRows(exp, mk2);
+    var cells = (exp && exp.cells) || {};
+    var out = {};
+    rows.filter(function (r) { return r && !r.parentId; }).forEach(function (row) {
+      var ids = [row.id].concat(
+        rows.filter(function (r) { return r && r.parentId === row.id; })
+            .map(function (r) { return r.id; }));
+      var sum = 0;
+      Object.keys(cells).forEach(function (k) {
+        var p = k.split('|');
+        if (p[0] !== mk2) return;
+        if (ids.indexOf(p[1]) >= 0) sum += parseFloat(cells[k]) || 0;
+      });
+      var label = row.label || row.id;
+      out[label] = (out[label] || 0) + sum;
+    });
+    return out;
+  }
+  var cur = totals(curMk), prev = totals(prevMk), names = {};
+  Object.keys(cur).forEach(function (n) { names[n] = 1; });
+  Object.keys(prev).forEach(function (n) { names[n] = 1; });
+  var rows = Object.keys(names).map(function (n) {
+    var c = cur[n] || 0, p = prev[n] || 0;
+    return { label: n, cur: c, prev: p, delta: c - p };
+  }).filter(function (r) { return r.cur > 0 || r.prev > 0; });
+  rows.sort(function (a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+  return rows;
+}
+
 // ---------------------------------------------------------------------------
 // Month collection
 // ---------------------------------------------------------------------------
