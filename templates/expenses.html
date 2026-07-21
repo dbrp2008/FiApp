@@ -366,6 +366,7 @@
           <button id="export-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-download"/></svg>Export</button>
           <button id="paste-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-clipboard"/></svg>Paste</button>
           <button id="import-btn" data-wt="expenses-import"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-folder"/></svg>Import</button>
+          <button id="manage-rec-btn"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-repeat"/></svg>Manage recurring</button>
           <button id="expand-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-down"/></svg>Expand all</button>
           <button id="collapse-btn" style="display:none"><svg class="fi-ico" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-chevron-right"/></svg>Collapse all</button>
           <button id="reset-btn" class="btn btn-reset">⚠ Reset</button>
@@ -523,4 +524,4 @@
   </div>
 </div>
 {% endblock %}
-{% block body_scripts %}<script src="/static/js/expenses.js?v={{ ASSET_V }}"></script><script src="/static/js/import.js?v={{ ASSET_V }}"></script><script src="/static/js/voice-input.js?v={{ ASSET_V }}"></script><script nonce="{{ csp_nonce }}">VoiceInput && VoiceInput.init('expenses');</script>{% endblock %}
+{% block body_scripts %}<script src="/static/js/grid-nav.js?v={{ ASSET_V }}"></script><script src="/static/js/expenses.js?v={{ ASSET_V }}"></script><script src="/static/js/import.js?v={{ ASSET_V }}"></script><script src="/static/js/voice-input.js?v={{ ASSET_V }}"></script><script nonce="{{ csp_nonce }}">VoiceInput && VoiceInput.init('expenses');</script>{% endblock %}
