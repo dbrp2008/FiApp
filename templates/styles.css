@@ -736,7 +736,11 @@ body{max-width:none;margin:0;padding:0;}
 .app-rail{display:none;}
 .app-canvas{max-width:1080px;margin:0 auto;padding:1.25rem 1.25rem 4rem;}
 @media (min-width:900px){
+  /* box-sizing matters here: the body offset below is a hard-coded 230px, so the rail's
+     padding and border must sit INSIDE that width. Without it the rail measured 256.6px
+     and the canvas ran ~27px underneath it, eating almost the whole content gap. */
   .app-rail{display:flex;flex-direction:column;gap:.2rem;position:fixed;top:0;left:0;bottom:0;
+    box-sizing:border-box;
     width:230px;padding:1.1rem .8rem;background:var(--shell-rail-bg);
     border-right:1px solid var(--panel-border);backdrop-filter:blur(var(--glass-blur));
     -webkit-backdrop-filter:blur(var(--glass-blur));overflow-y:auto;z-index:50;}
