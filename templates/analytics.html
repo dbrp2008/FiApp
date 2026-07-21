@@ -180,6 +180,15 @@
     .insight-val  { color:var(--muted); white-space:nowrap; }
 
     
+    /* Month-over-month comparison table. Spending UP is bad (red), DOWN is good
+       (green) - the same delta semantics the stat cards use. */
+    .mom-table{width:100%;font-size:.82rem;border-collapse:collapse;}
+    .mom-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:right;padding:.25rem .4rem;font-weight:700;}
+    .mom-table td{text-align:right;padding:.3rem .4rem;border-top:1px solid var(--panel-border);font-variant-numeric:tabular-nums;}
+    .mom-table th:first-child,.mom-table td:first-child{text-align:left;}
+    .mom-up{color:var(--sem-bad);}
+    .mom-down{color:var(--sem-ok);}
+    .mom-total td{font-weight:700;}
     .chart-note {
       text-align: right;
       font-size: .82rem;
@@ -457,6 +466,22 @@ function renderAll(){
     return card;
   }
 
+  // Same chrome as addChartCard, but the body is a plain container rather than a
+  // canvas - for cards whose content is a table (the month-over-month comparison).
+  function addTableCard(id, title, target){
+    target = target || root;
+    const card=document.createElement('div');
+    card.className='chart-card'; card.id='card-'+id;
+    const hdr=document.createElement('div'); hdr.className='chart-card-header';
+    const h2=document.createElement('h2'); h2.textContent=title;
+    hdr.appendChild(h2);
+    card.appendChild(hdr);
+    const body=document.createElement('div'); body.id='body-'+id;
+    card.appendChild(body);
+    target.appendChild(card);
+    return card;
+  }
+
   function addSectionTitle(text){
     const d=document.createElement('div');
     d.className='section-title'; d.textContent=text;
@@ -487,6 +512,9 @@ function renderAll(){
     addChartCard('breakdown', 'Category Breakdown',             spendSlide);
     if(_allMonths.length>=2) addChartCard('cattrends', 'Category Trends Over Time', spendSlide);
     if(Object.keys(_monthIncomes).length) addChartCard('savings', 'Income vs Expenses', spendSlide);
+    // Standalone (not in the slideshow): a direct answer to "what changed since
+    // last month", which is the question the charts make you infer.
+    if(_allMonths.length>=2) addTableCard('mom', 'vs last month');
   }
 
   
@@ -1348,6 +1376,31 @@ function renderMemory(root){
   root.appendChild(section);
 }
 
+// Month-over-month category comparison. Spending UP is red and DOWN is green,
+// matching the delta semantics used everywhere else in the app.
+function renderMoMCard(curMk){
+  const el=document.getElementById('body-mom');
+  if(!el) return;
+  const pMk=prevMK(curMk);
+  const rows=momCategoryDeltas(_exp, curMk, pMk);
+  if(!rows.length){
+    el.innerHTML='<p class="chart-note">Track two consecutive months to compare.</p>';
+    return;
+  }
+  let tc=0, tp=0;
+  const body=rows.map(r=>{
+    tc+=r.cur; tp+=r.prev;
+    const cls=r.delta>0?'mom-up':r.delta<0?'mom-down':'';
+    return '<tr><td>'+escapeHtml(r.label)+'</td><td>'+fmtMoney(r.cur)+'</td><td>'+fmtMoney(r.prev)+'</td>'
+      +'<td class="'+cls+'">'+(r.delta>0?'+':'')+fmtMoney(r.delta)+'</td></tr>';
+  }).join('');
+  const d=tc-tp, cls=d>0?'mom-up':d<0?'mom-down':'';
+  el.innerHTML='<table class="mom-table"><thead><tr><th>Category</th><th>'+escapeHtml(mkLabel(curMk))
+    +'</th><th>'+escapeHtml(mkLabel(pMk))+'</th><th>Change</th></tr></thead><tbody>'+body
+    +'<tr class="mom-total"><td>Total</td><td>'+fmtMoney(tc)+'</td><td>'+fmtMoney(tp)+'</td>'
+    +'<td class="'+cls+'">'+(d>0?'+':'')+fmtMoney(d)+'</td></tr></tbody></table>';
+}
+
 function reRenderCharts(){
   _refreshPeriodCache();
   renderStatCards();
@@ -1358,6 +1411,7 @@ function reRenderCharts(){
   renderSavingsChart();
   renderSubBreakChart();
   renderSubTrendChart();
+  renderMoMCard(mostRecentTrackedMonth(_allMonths));
 }
 
 
