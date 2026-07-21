@@ -47,7 +47,23 @@ var FiRecurring = (function(){
     });
   }
 
+  // One-line scope summary for the rules manager, so a rule is legible without
+  // opening its config modal. Mirrors monthInScope's field names exactly.
+  function describeScope(s){
+    if(!s || !s.type) return '';
+    if(s.type === 'all')    return 'All months';
+    if(s.type === 'future') return 'From ' + (s.anchor || 'the start') + ' onward';
+    if(s.type === 'past')   return 'Up to ' + (s.anchor || 'the end');
+    if(s.type === 'range')  return (s.start || 'the start') + ' to ' + (s.end || 'the end');
+    if(s.type === 'specific'){
+      var n = Array.isArray(s.months) ? s.months.length : 0;
+      return n + ' selected month' + (n === 1 ? '' : 's');
+    }
+    return '';
+  }
+
   return { ruleValueForMonth:ruleValueForMonth, monthInScope:monthInScope,
-           detectClashes:detectClashes, fillableMonths:fillableMonths };
+           detectClashes:detectClashes, fillableMonths:fillableMonths,
+           describeScope:describeScope };
 })();
 if(typeof window !== 'undefined') window.FiRecurring = FiRecurring;
