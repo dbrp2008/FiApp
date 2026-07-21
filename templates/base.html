@@ -278,9 +278,30 @@
       // Plain light/dark drift (the pre-custom behavior): push the string up.
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
     } else if(isCustom&&_lsT!==_srvT){
-      // Custom active locally, server points elsewhere, list already synced: string-only
-      // PATCH (the id exists server-side, so this is accepted without resending the list).
-      fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
+      // Custom active locally, server points elsewhere. USUALLY the id already exists
+      // server-side, so a string-only PATCH is enough. But when this device's list was
+      // never pushed (or another device replaced it), the server rejects the unknown id
+      // with 400 "Invalid theme" - and with no dirty flag set, nothing ever retries. The
+      // theme is then stuck permanently, re-firing the same failing PATCH on every load.
+      // Self-heal by resending the list once on rejection.
+      //
+      // The retry MERGES the server's themes into ours first: save_prefs does a full-list
+      // replace, so pushing our list alone would delete any theme created on another
+      // device. Merge order matters more than it looks.
+      fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})})
+        .then(function(r){
+          if(r.status!==400||!window.fiappThemesCache) return null;
+          return fiappFetchTimeout('/api/prefs',8000,{headers:{'Accept':'application/json'}})
+            .then(function(r2){return r2.json();}).then(function(srv){
+              var srvThemes=(srv&&srv.themes_custom&&srv.themes_custom.themes)||[];
+              var cache=fiappThemesCache.read(), ids={};
+              cache.themes.forEach(function(t){ if(t) ids[t.id]=1; });
+              srvThemes.forEach(function(t){ if(t&&!ids[t.id]) cache.themes.push(t); });
+              fiappThemesCache.write(cache);
+              return fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},
+                body:JSON.stringify({theme:_lsT,themes_custom:cache})});
+            });
+        }).catch(function(){});
     }
   })();
   (function(){
