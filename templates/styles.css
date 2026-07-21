@@ -329,6 +329,8 @@ h1, h2, h3, h4 { color: var(--fg); }
 #sync-status:not(:empty) { opacity: 1; }
 #sync-status.synced { color: var(--sem-ok); }
 #sync-status.failed { color: var(--sem-bad); }
+/* Guest / offline-queued: nothing failed, so stay neutral rather than alarming. */
+#sync-status.local { color: var(--muted); }
 #sync-revision-note {
   font-size: .75rem;
   color: var(--muted);
@@ -446,15 +448,6 @@ a.theme-opt-new:hover { color:var(--fg); }
 @media (max-width: 640px) {
   input, select, textarea { font-size: max(16px, 1rem); }
   #sync-revision-note { display: none; }
-}
-
-/* ── Hamburger 44×44 touch target ───────────────────────────── */
-.hamburger-btn {
-  min-width: 44px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* ── Voice Input ─────────────────────────────────────────────── */
@@ -759,7 +752,6 @@ body{max-width:none;margin:0;padding:0;}
     border:1px solid var(--glass-border);}
   .rail-account{margin-top:auto;}
   .rail-ico{font-size:1.05rem;width:1.3rem;text-align:center;}
-  .hamburger-btn{display:none;}
   body:has(.app-rail){padding-left:230px;}
   .app-canvas{margin:0 auto;max-width:960px;padding:1.5rem 2rem 4rem;}
   /* Trackers hold wide data tables, so they opt into a wider content column (via the
@@ -914,6 +906,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .sync-pill .fi-ico{font-size:13px;}
 .sync-pill.synced{color:var(--sem-ok);}
 .sync-pill.failed{color:var(--sem-bad);}
+.sync-pill.local{color:var(--muted);}
 
 /* Round icon-only glass button (overflow menus etc.) */
 .btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;
@@ -941,8 +934,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 :root{ --tabbar-h:64px; }
 .tab-bar{display:none;}
 @media(max-width:899px){
-  .hamburger-btn{display:none;}
-  #drawer-overlay,#side-drawer{display:none;}
   body{padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px));}
   .tab-bar{
     display:flex; position:fixed; left:0; right:0; bottom:0; z-index:940;
@@ -1057,6 +1048,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
    12% tint barely reads as a pill. Use body color for guaranteed legibility over a stronger
    accent tint so the "Monthly" badge is visible in every dark custom theme. */
 html.dark .rec-pill{background:color-mix(in srgb, var(--accent) 22%, transparent);color:var(--fg);}
+.rec-mgr-item{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem 0;border-top:1px solid var(--panel-border);}
+.rec-mgr-name{font-weight:600;font-size:.9rem;}
+.rec-mgr-meta{font-size:.78rem;color:var(--muted);}
+.rec-mgr-btns{display:flex;gap:.3rem;flex-shrink:0;}
 .rec-draft-banner{position:fixed;left:50%;bottom:calc(4.5rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:99999;background:var(--panel-bg);border:1px solid var(--sem-warn,#b45309);border-radius:10px;box-shadow:var(--elev-3,0 12px 32px rgba(0,0,0,.35));padding:.7rem .85rem;max-width:min(560px,calc(100vw - 1.5rem));width:max-content;font-size:.85rem;color:var(--fg);}
 .rec-draft-head{font-weight:600;margin-bottom:.5rem;color:var(--sem-warn,#b45309);}
 .rec-draft-item{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.25rem 0;border-top:1px solid var(--panel-border);}
