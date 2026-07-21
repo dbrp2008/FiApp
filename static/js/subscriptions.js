@@ -5,6 +5,10 @@ const MONTHS_SHORT= ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const BILLING_OPTS= ['Monthly','Quarterly','Semi-Annual','Annual','Weekly','Bi-Weekly'];
 const STATUS_OPTS = ['Active','Trial','Paused','Cancelled'];
+// Declared up here with the other module constants because createSyncManager (below)
+// reads it at top-level execution time - a `const` further down the file is still in
+// its temporal dead zone at that point and throws, killing the whole script.
+const MAX_SUBS    = 100;
 const TRIAL_OPTS  = [
   {v:'none',  l:'No free trial'},
   {v:'week',  l:'1st week free'},
@@ -699,7 +703,6 @@ function nameAlreadyExists(name){
   const lower=name.trim().toLowerCase();
   return state.rows.some(r=>(getCell(r.id,svc.id)||'').trim().toLowerCase()===lower);
 }
-const MAX_SUBS = 100;
 function addSubscription(){
   const sel=document.getElementById('sub-sel'); let name=sel.value;
   if(!name){showToast('Please select a service.');return;}
