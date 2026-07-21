@@ -281,9 +281,20 @@
   // consecutive janky fades (a single transient hitch - DevTools open, a GC pause, a busy
   // tab - must not punish a capable machine), and only for a day before it re-probes. Any
   // smooth fade clears the strike count.
-  var FADE_OFF_KEY = 'fiapp_theme_fade_off_until', FADE_STRIKE_KEY = 'fiapp_theme_fade_strikes', FADE_JANK_MS = 450;
+  var FADE_OFF_KEY = 'fiapp_theme_fade_off_until', FADE_STRIKE_KEY = 'fiapp_theme_fade_strikes',
+      FADE_JANK_MS = 450, FADE_OFF_MS = 24 * 3600 * 1000;
   function _fadeDisabled(){
-    try { return Date.now() < (+localStorage.getItem(FADE_OFF_KEY) || 0); } catch(_) { return false; }
+    try {
+      var until = +localStorage.getItem(FADE_OFF_KEY) || 0;
+      if (!until) return false;
+      // An earlier version of this heuristic locked the fade out for SEVEN days on a single
+      // janky frame. Softening the rule did not invalidate timestamps the old code had
+      // already written, so anyone marked under it stayed locked out long after the fix
+      // shipped - the bug looked like it had "come back". Any expiry further out than one
+      // current lockout window cannot have come from the current rule: discard it.
+      if (until > Date.now() + FADE_OFF_MS){ localStorage.removeItem(FADE_OFF_KEY); return false; }
+      return Date.now() < until;
+    } catch(_) { return false; }
   }
   function _noteFadeDuration(ms){
     // Hidden tabs skip the animation (~0ms) and can't false-trigger; only judge visible fades.
@@ -291,7 +302,7 @@
     try {
       if (ms <= FADE_JANK_MS){ localStorage.removeItem(FADE_STRIKE_KEY); return; }   // smooth fade: reset strikes
       var strikes = (+localStorage.getItem(FADE_STRIKE_KEY) || 0) + 1;
-      if (strikes >= 2){ localStorage.setItem(FADE_OFF_KEY, String(Date.now() + 24 * 3600 * 1000)); localStorage.removeItem(FADE_STRIKE_KEY); }
+      if (strikes >= 2){ localStorage.setItem(FADE_OFF_KEY, String(Date.now() + FADE_OFF_MS)); localStorage.removeItem(FADE_STRIKE_KEY); }
       else { localStorage.setItem(FADE_STRIKE_KEY, String(strikes)); }
     } catch(_) {}
   }
