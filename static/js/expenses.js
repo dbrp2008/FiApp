@@ -583,6 +583,65 @@ function removeRecurring(rowId){
   save(); render(); _recDraftBannerRefresh();
 }
 
+// Rules manager: every recurring rule in one list. Without it a rule is only
+// visible by opening the row that owns it, which made scope/override/delink state
+// effectively invisible. Row labels are looked up across every month's fork, since
+// a rule can outlive the row in the currently-viewed month.
+function _recRowLabel(rowId){
+  const all=[...(state.rows||[])];
+  Object.values(state.rowsByMonth||{}).forEach(a=>{(a||[]).forEach(r=>{ if(r) all.push(r); });});
+  const r=all.find(x=>x&&x.id===rowId);
+  return r?(r.label||'(unnamed row)'):'(deleted row)';
+}
+function openRecurringManager(){
+  const prev=document.getElementById('rec-mgr-overlay'); if(prev) prev.remove();
+  const overlay=document.createElement('div'); overlay.id='rec-mgr-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:20000;background:var(--overlay);display:flex;align-items:center;justify-content:center;padding:1rem;';
+  const panel=document.createElement('div');
+  panel.style.cssText='background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:14px;max-width:480px;width:100%;max-height:85vh;overflow:auto;padding:1.1rem 1.2rem;box-shadow:var(--elev-3,0 12px 32px rgba(0,0,0,.4));';
+  const h=document.createElement('h2'); h.textContent='Recurring rules';
+  h.style.cssText='font-size:1rem;margin:0 0 .6rem;'; panel.appendChild(h);
+  const rules=_recRules();
+  if(!rules.length){
+    const p=document.createElement('p'); p.style.cssText='color:var(--muted);font-size:.88rem;margin:0;';
+    p.textContent='No recurring rules yet. Use the 🔁 button on a row to create one.';
+    panel.appendChild(p);
+  }
+  rules.forEach(rule=>{
+    const item=document.createElement('div'); item.className='rec-mgr-item';
+    const info=document.createElement('div'); info.className='rec-mgr-info';
+    const name=document.createElement('div'); name.className='rec-mgr-name';
+    name.textContent=_recRowLabel(rule.rowId)+(rule.draft?' (needs review)':'');
+    const meta=document.createElement('div'); meta.className='rec-mgr-meta';
+    const ov=Object.keys(rule.overrides||{}).length, ex=(rule.exceptions||[]).length;
+    meta.textContent=fmt(rule.amount)+' '+(rule.mode==='weekly'?'weekly':'monthly')
+      +' · '+FiRecurring.describeScope(rule.scope)
+      +(ov?' · '+ov+' override'+(ov===1?'':'s'):'')
+      +(ex?' · '+ex+' delinked':'');
+    info.appendChild(name); info.appendChild(meta); item.appendChild(info);
+    const btns=document.createElement('div'); btns.className='rec-mgr-btns';
+    const edit=document.createElement('button'); edit.className='btn-ghost btn-sm'; edit.textContent='Edit';
+    edit.addEventListener('click',()=>{ overlay.remove(); openRecurringConfig(rule.rowId); });
+    const del=document.createElement('button'); del.className='btn-ghost btn-sm'; del.textContent='Remove';
+    del.addEventListener('click',()=>{
+      if(!confirm('Remove the recurring rule for "'+_recRowLabel(rule.rowId)+'"? Existing amounts stay; only the rule is deleted.')) return;
+      removeRecurring(rule.rowId); overlay.remove(); openRecurringManager();
+    });
+    btns.appendChild(edit); btns.appendChild(del); item.appendChild(btns);
+    panel.appendChild(item);
+  });
+  const close=document.createElement('button'); close.className='btn-ghost btn-sm'; close.textContent='Close';
+  close.style.cssText='margin-top:.8rem;';
+  close.addEventListener('click',()=>overlay.remove());
+  panel.appendChild(close);
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) overlay.remove(); });
+  document.addEventListener('keydown',function _esc(e){
+    if(e.key==='Escape'){ overlay.remove(); document.removeEventListener('keydown',_esc); }
+  });
+  overlay.appendChild(panel); document.body.appendChild(overlay);
+  close.focus();
+}
+
 // Resolve one clash: apply (unlock+write, or overwrite) or skip (add to exceptions). When a
 // rule's clashes are all cleared it leaves draft state and fills its remaining months.
 function _resolveClash(rowId, mk2, choice){
@@ -4098,6 +4157,7 @@ document.getElementById('more-menu-toggle').addEventListener('click',function(e)
 document.getElementById('add-row-btn').addEventListener('click',function(){addRow();closeDropdown('dd-more');});
 document.getElementById('add-col-btn').addEventListener('click',function(){addCol();closeDropdown('dd-more');});
 document.getElementById('share-btn').addEventListener('click',function(){shareSheet();closeDropdown('dd-more');});
+document.getElementById('manage-rec-btn').addEventListener('click',function(){closeDropdown('dd-more');openRecurringManager();});
 (function(){
   var exportBtn=document.getElementById('export-btn');
   exportBtn.addEventListener('mouseenter',function(e){ _cancelExportClose(); showExportMenu(e); });
