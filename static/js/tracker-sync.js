@@ -293,9 +293,14 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
         return r.json().then(function(resp) { _resolveConflict(resp, retriesLeft); });
       }
       _setDirty();
-      setSyncStatus('⚠ Sync failed', 'failed');
+      // Surface the server's specific reason (e.g. "Too many columns (max 12)")
+      // rather than a bare "Sync failed" that needs DevTools to diagnose.
+      return r.json().catch(function() { return {}; }).then(function(resp) {
+        var why = (resp && resp.error) ? ' - ' + resp.error : '';
+        setSyncStatus('⚠ Sync failed' + why, 'failed');
+      });
     })
-    .catch(function() { _setDirty(); setSyncStatus('Saved locally - will sync when online', 'failed'); });
+    .catch(function() { _setDirty(); setSyncStatus('Saved locally - will sync when online', 'local'); });
   }
 
   function syncToServer() {
@@ -307,7 +312,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     // saveLocal so per-device view-state writes (month navigation, derived income
     // mirrors - saveLocal-only callers) don't flag the blob as needing merge/flush.
     _setDirty();
-    if (!window.__currentUser) { setSyncStatus('Saved locally - will sync when online', 'failed'); return; }
+    if (!window.__currentUser) { setSyncStatus('Local only - sign in to sync', 'local'); return; }
     if (!_serverLoaded) {
       if (_wtWasBlocking && !_reloadPending) {
         _reloadPending = true;
