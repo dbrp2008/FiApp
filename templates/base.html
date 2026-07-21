@@ -86,20 +86,6 @@
   {% block head_scripts %}{% endblock %}
   {% block head_styles %}{% endblock %}
   <style>
-    .hamburger-btn{background:none;border:none;font-size:1.35rem;cursor:pointer;color:var(--fg);padding:.2rem .4rem;border-radius:6px;margin-right:.4rem;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
-    .hamburger-btn:hover{background:var(--hover-bg,rgba(0,0,0,.07));}
-    #drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s ease,visibility .25s ease;}
-    #drawer-overlay.open{opacity:1;visibility:visible;pointer-events:auto;}
-    #side-drawer{position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--panel-bg);border-right:1px solid var(--panel-border);z-index:901;transform:translateX(-100%);transition:transform .25s ease;padding:1rem;padding-top:max(1rem,env(safe-area-inset-top));padding-bottom:max(1rem,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:.5rem;overflow-y:auto;}
-    #side-drawer.open{transform:translateX(0);}
-    .drawer-close{align-self:flex-end;background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--muted);padding:.2rem .4rem;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
-    .drawer-close:hover{color:var(--fg);}
-    #side-drawer h2{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.5rem 0 .25rem;}
-    #side-drawer ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.15rem;}
-    #side-drawer a{display:block;padding:.6rem .75rem;border-radius:8px;text-decoration:none;color:var(--fg);font-size:.9rem;font-weight:600;}
-    #side-drawer a:hover{background:var(--hover-bg,rgba(0,0,0,.07));}
-    #side-drawer a.drawer-link-active{font-weight:800;color:var(--accent);background:var(--hover-bg);pointer-events:none;}
-    
     #wt-overlay{display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0);pointer-events:auto;}
     #wt-overlay.wt-allow-scroll{pointer-events:none;}
     #wt-highlight{display:none;position:fixed;z-index:9501;border-radius:10px;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(0,0,0,.42);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease;}
@@ -177,7 +163,6 @@
   </div>
   <main class="app-canvas {% block canvas_class %}{% endblock %}">
   <div class="{% block nav_class %}nav{% endblock %}">
-    <button class="hamburger-btn" id="hamburger-btn" aria-label="Open navigation menu">☰</button>
     {% block nav_extra %}<a href="/">← Home</a>{% endblock %}
     <span id="sync-status" aria-live="polite" aria-atomic="true"></span>
     <span id="auth-badge-container" style="display:none"></span>
@@ -392,15 +377,8 @@
       setTimeout(function(){ document.addEventListener('click',handler,true); },0);
     }
   }
-  function openDrawer(){
-    document.getElementById('side-drawer').classList.add('open');
-    document.getElementById('drawer-overlay').classList.add('open');
-  }
-  function closeDrawer(){
-    document.getElementById('side-drawer').classList.remove('open');
-    document.getElementById('drawer-overlay').classList.remove('open');
-  }
-  // Mobile pull-up nav drawer (replaces the hamburger/side-drawer on phones).
+  // Mobile pull-up nav drawer (the only nav drawer; the old hamburger/side-drawer
+  // it replaced has been removed).
   function openNavDrawer(){
     var d=document.getElementById('nav-drawer');
     document.getElementById('nav-drawer-backdrop').classList.add('open');
@@ -419,7 +397,7 @@
     return !!(d && d.classList.contains('open'));
   }
   document.addEventListener('keydown',function(e){
-    if(e.key==='Escape'){ closeDrawer(); if(isNavDrawerOpen()) closeNavDrawer(); }
+    if(e.key==='Escape'){ if(isNavDrawerOpen()) closeNavDrawer(); }
     if(e.key==='Tab'){
       var bubble=document.getElementById('wt-bubble');
       var trapRoot = (bubble && bubble.style.display!=='none') ? bubble
@@ -433,8 +411,6 @@
     }
   });
   document.addEventListener('DOMContentLoaded',function(){
-    var hamburger=document.getElementById('hamburger-btn');
-    if(hamburger) hamburger.addEventListener('click',openDrawer);
     var acctBtn=document.getElementById('acct-menu-btn');
     if(acctBtn) acctBtn.addEventListener('click',function(e){toggleAcctMenu(e.currentTarget);});
     var logoutBtn=document.getElementById('logout-btn');
@@ -449,10 +425,6 @@
       });
     });
     renderThemeDropdown();
-    var drawerOverlay=document.getElementById('drawer-overlay');
-    if(drawerOverlay) drawerOverlay.addEventListener('click',closeDrawer);
-    var drawerClose=document.getElementById('drawer-close-btn');
-    if(drawerClose) drawerClose.addEventListener('click',closeDrawer);
     var helpBtn=document.getElementById('topbar-help-btn');
     if(helpBtn) helpBtn.addEventListener('click',function(){
       if(typeof window.wtStart==='function') window.wtStart();
@@ -536,21 +508,7 @@
 
   {% block body_scripts %}{% endblock %}
 
-  <div id="drawer-overlay"></div>
-  <nav id="side-drawer">
-    <button class="drawer-close" id="drawer-close-btn" aria-label="Close navigation menu">✕</button>
-    <h2>Tools</h2>
-    <ul>
-      {% for path, icon, label in NAV_ITEMS %}
-      <li><a href="{{ path }}" class="drawer-link" data-path="{{ path }}"><span aria-hidden="true">{{ icon }}</span> {{ label }}</a></li>
-      {% endfor %}
-    </ul>
-    {% if current_user|default(none) %}
-    <a href="/account" class="drawer-link" data-path="/account" style="margin-top:auto"><span aria-hidden="true">⚙</span> Account</a>
-    {% endif %}
-  </nav>
-  <script nonce="{{ csp_nonce }}">document.querySelectorAll('.drawer-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('drawer-link-active');});
-document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('rail-active');});</script>
+  <script nonce="{{ csp_nonce }}">document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('rail-active');});</script>
 
   
   <div id="wt-overlay" aria-hidden="true"></div>
