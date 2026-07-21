@@ -6,6 +6,7 @@ import time
 import hmac
 import secrets
 from datetime import datetime, timezone, timedelta
+from calendar import monthrange
 import psycopg2
 import psycopg2.extras
 from psycopg2 import sql as _sql
@@ -531,6 +532,9 @@ def init_db():
                     -- push_enabled is a per-user gate; device_tokens holds one row per
                     -- device (token is globally unique); push_sent dedups the daily scan.
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS push_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+                    -- Separate opt-in from renewal reminders: overspend alerts are a
+                    -- judgement about spending, so they stay off unless asked for.
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS push_overspend BOOLEAN NOT NULL DEFAULT FALSE;
                     CREATE TABLE IF NOT EXISTS device_tokens (
                         id SERIAL PRIMARY KEY,
                         user_id INTEGER NOT NULL REFERENCES users(id),
@@ -601,43 +605,48 @@ def _ctx():
 _DUMMY_PWHASH = generate_password_hash('timing-equalizer')
 
 def _within_limits(data):
-    """Server-side mirror of the client MAX_ROWS/MAX_COLS caps."""
+    """Server-side mirror of the client MAX_ROWS/MAX_COLS caps.
+
+    Returns None when the blob is acceptable, else a short human-readable reason.
+    The reason is surfaced verbatim in the client's sync status pill - a bare
+    "limit exceeded" covered ~6 distinct checks and made save failures undebuggable
+    without DevTools."""
     rows = data.get('rows')
     if not isinstance(rows, list) or len(rows) > MAX_ROWS:
-        return False
+        return "Too many rows (max %d)" % MAX_ROWS
     cols = data.get('cols')
     if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
-        return False
+        return "Too many columns (max %d)" % MAX_COLS
     rows_by_month = data.get('rowsByMonth') or {}
     cols_by_month = data.get('colsByMonth') or {}
     if len(rows_by_month) > MAX_TRACKED_MONTHS or len(cols_by_month) > MAX_TRACKED_MONTHS:
-        return False
+        return "Too many tracked months"
     for arr in rows_by_month.values():
         if isinstance(arr, list) and len(arr) > MAX_ROWS:
-            return False
+            return "Too many rows in one month (max %d)" % MAX_ROWS
         for row in (arr or []):
             if isinstance(row, dict) and isinstance(row.get('label'), str) and len(row['label']) > MAX_LABEL_LEN:
-                return False
+                return "A row label is too long"
     for arr in cols_by_month.values():
         if isinstance(arr, list) and len(arr) > MAX_COLS:
-            return False
+            return "Too many columns in one month (max %d)" % MAX_COLS
         for col in (arr or []):
             if isinstance(col, dict) and isinstance(col.get('label'), str) and len(col['label']) > MAX_LABEL_LEN:
-                return False
+                return "A column label is too long"
     cells = data.get('cells')
     if cells is not None:
         if not isinstance(cells, dict) or len(cells) > MAX_CELLS:
-            return False
+            return "Too many cells"
         for val in cells.values():
             if isinstance(val, str) and len(val) > MAX_LABEL_LEN:
-                return False
+                return "A cell value is too long"
     income = data.get('income')
     if income is not None:
         if not isinstance(income, dict) or len(income) > MAX_INCOME_MONTHS:
-            return False
+            return "Too many budget income months"
         for entry in income.values():
             if not isinstance(entry, dict):
-                return False
+                return "Invalid budget income entry"
             for field in ('gross', 'tax'):
                 val = entry.get(field)
                 if val in ('', None):
@@ -645,10 +654,10 @@ def _within_limits(data):
                 try:
                     num = float(val)
                 except (TypeError, ValueError):
-                    return False
+                    return "Invalid budget income/tax value"
                 if not math.isfinite(num) or num < 0 or num > MAX_INCOME_VALUE:
-                    return False
-    return True
+                    return "Budget income/tax value out of range"
+    return None
 
 
 @app.route('/styles.css')
@@ -695,6 +704,15 @@ def web_manifest():
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
             {"src": "/static/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+        # Long-press the installed app icon to jump straight to a tracker.
+        "shortcuts": [
+            {"name": "Add expense", "url": "/expenses",
+             "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]},
+            {"name": "Subscriptions", "url": "/subscriptions",
+             "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]},
+            {"name": "Analytics", "url": "/analytics",
+             "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]},
         ],
     })
     resp.mimetype = 'application/manifest+json'
@@ -1520,8 +1538,9 @@ def save_expenses():
     data, base_version, force = _parse_save_body(body)
     if not isinstance(data, dict) or 'rows' not in data:
         return jsonify({"error": "Missing required field: rows"}), 400
-    if not _within_limits(data):
-        return jsonify({"error": "Row/column limit exceeded"}), 400
+    limit_err = _within_limits(data)
+    if limit_err:
+        return jsonify({"error": limit_err}), 400
     status, resp = _save_tracker_versioned('expenses', data, base_version, force=force)
     return jsonify(resp), status
 
@@ -1567,8 +1586,9 @@ def save_income():
     data, base_version, force = _parse_save_body(body)
     if not isinstance(data, dict) or 'rows' not in data:
         return jsonify({"error": "Missing required field: rows"}), 400
-    if not _within_limits(data):
-        return jsonify({"error": "Row/column limit exceeded"}), 400
+    limit_err = _within_limits(data)
+    if limit_err:
+        return jsonify({"error": limit_err}), 400
     status, resp = _save_tracker_versioned('income', data, base_version, force=force)
     return jsonify(resp), status
 
@@ -1744,20 +1764,21 @@ def get_prefs():
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT theme, personality, analytics_currency, themes_custom, push_enabled FROM users WHERE id=%s",
+            cur.execute("SELECT theme, personality, analytics_currency, themes_custom, push_enabled, push_overspend FROM users WHERE id=%s",
                         (session['user_id'],))
             row = cur.fetchone()
     finally:
         release_db(conn)
     if not row:
         return jsonify({"error": "not found"}), 404
-    theme, personality, analytics_currency, themes_custom, push_enabled = row
+    theme, personality, analytics_currency, themes_custom, push_enabled, push_overspend = row
     if not isinstance(themes_custom, dict):
         themes_custom = {'v': 1, 'themes': themes_custom if isinstance(themes_custom, list) else []}
     return jsonify({
         "theme": theme, "personality": personality, "analytics_currency": analytics_currency,
         "themes_custom": themes_custom, "theme_dark": _theme_is_dark(theme, themes_custom),
         "push_enabled": bool(push_enabled),
+        "push_overspend": bool(push_overspend),
     })
 
 
@@ -1815,6 +1836,9 @@ def save_prefs():
         if not _CCY_RE.match(analytics_currency):
             return jsonify({"error": "Invalid currency"}), 400
         set_clauses.append("analytics_currency=%s"); params.append(analytics_currency)
+
+    if 'push_overspend' in data:
+        set_clauses.append("push_overspend=%s"); params.append(bool(data.get('push_overspend')))
 
     if not set_clauses:
         return jsonify({"error": "No valid fields to update"}), 400
@@ -1890,6 +1914,65 @@ def _sub_next_renewal(start, billing, today):
     while nxt <= today_dt:
         nxt += timedelta(days=days)
     return nxt.date()
+
+
+def _due_overspend(exp, today):
+    """Pure port of expenses.js computeOverspendNudge() (category stage only).
+
+    Returns [{'row_id','label','projected','over_by','limit'}] for top-level
+    categories whose month-to-date linear pace is materially (>15 percentage
+    points) ahead of the calendar AND projects past their goal - the same two
+    conditions the on-screen nudge uses, so the notification never contradicts
+    the banner. Child rows roll up into their parent. Tolerant of malformed
+    blobs: anything unparseable is skipped rather than raising."""
+    out = []
+    if not isinstance(exp, dict):
+        return out
+    mk = today.strftime('%Y-%m')
+    days_passed = today.day
+    if days_passed < 7:
+        return out                      # too early for a pace signal to mean anything
+    dim = monthrange(today.year, today.month)[1]
+    tf = days_passed / dim
+    rows = (exp.get('rowsByMonth') or {}).get(mk) or exp.get('rows') or []
+    cols = (exp.get('colsByMonth') or {}).get(mk) or exp.get('cols') or []
+    cells = exp.get('cells') or {}
+    goals = exp.get('goals') or {}
+    if not isinstance(rows, list) or not isinstance(cols, list) \
+            or not isinstance(cells, dict) or not isinstance(goals, dict):
+        return out
+    for row in rows:
+        if not isinstance(row, dict) or row.get('parentId'):
+            continue
+        rid = row.get('id')
+        try:
+            goal = float(goals.get('%s|%s' % (mk, rid)) or 0)
+        except (TypeError, ValueError):
+            continue
+        if goal <= 0:
+            continue
+        child_ids = [r.get('id') for r in rows
+                     if isinstance(r, dict) and r.get('parentId') == rid]
+        spent = 0.0
+        for c in cols:
+            if not isinstance(c, dict):
+                continue
+            for r2 in [rid] + child_ids:
+                try:
+                    spent += float(cells.get('%s|%s|%s' % (mk, r2, c.get('id'))))
+                except (TypeError, ValueError):
+                    pass
+        if spent <= 0:
+            continue
+        projected = (spent / days_passed) * dim
+        over_by = projected - goal
+        if over_by <= 0:
+            continue
+        if (spent / goal) - tf <= 0.15:
+            continue
+        out.append({'row_id': rid, 'label': row.get('label') or 'a category',
+                    'projected': projected, 'over_by': over_by, 'limit': goal})
+    return out
 
 
 def _due_reminders(subs_blob, today):
@@ -2126,6 +2209,36 @@ def run_renewal_scan():
                         reminders_sent += _send_push(
                             tokens, 'Upcoming renewal', '%s renews %s.' % (r['name'], when),
                             {'route': '/subscriptions'})
+
+                # Stage 2: overspend pace alerts. Separate opt-in (push_overspend), and
+                # dedup_key is per category per month so a category can only ever warn
+                # once in a month no matter how many days the scan runs.
+                cur.execute("""
+                    SELECT u.id, ud.expenses_data
+                    FROM users u JOIN user_data ud ON ud.user_id = u.id
+                    WHERE u.push_overspend = TRUE AND ud.expenses_data IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM device_tokens dt WHERE dt.user_id = u.id)
+                """)
+                mk_now = today.strftime('%Y-%m')
+                for uid, exp_blob in cur.fetchall():
+                    fresh_over = []
+                    for h in _due_overspend(exp_blob, today):
+                        key = "%s|overspend|%s|%s" % (uid, h['row_id'], mk_now)
+                        cur.execute(
+                            "INSERT INTO push_sent (user_id, dedup_key) VALUES (%s,%s) "
+                            "ON CONFLICT (dedup_key) DO NOTHING RETURNING id", (uid, key))
+                        if cur.fetchone():
+                            fresh_over.append(h)
+                    if not fresh_over:
+                        continue
+                    cur.execute("SELECT token FROM device_tokens WHERE user_id=%s", (uid,))
+                    tokens = [t[0] for t in cur.fetchall()]
+                    for h in fresh_over:
+                        reminders_sent += _send_push(
+                            tokens, 'Spending pace alert',
+                            '%s is pacing about %.0f over its %.0f goal this month.'
+                            % (h['label'], h['over_by'], h['limit']),
+                            {'route': '/expenses'})
     finally:
         release_db(conn)
     return jsonify(ok=True, users_scanned=users_scanned, reminders_sent=reminders_sent)
