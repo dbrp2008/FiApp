@@ -114,12 +114,18 @@ function incRows(inc, mk2) {
 // month are dropped; sorted by absolute delta so the biggest movers lead.
 // Keyed by label rather than id, so a category renamed or re-created between
 // months still lines up.
-function momCategoryDeltas(exp, curMk, prevMk) {
+function momCategoryDeltas(exp, subs, curMk, prevMk) {
   function totals(mk2) {
     var rows = expRows(exp, mk2);
     var cells = (exp && exp.cells) || {};
     var out = {};
-    rows.filter(function (r) { return r && !r.parentId; }).forEach(function (row) {
+    // Skip linked rows (the expense tracker's "Subscriptions" mirror): its per-month cells
+    // are a snapshot that only exists for months the user actually opened, so it reads 0 for
+    // any un-snapshotted month. Real subscription spend is added below from the subscription
+    // tracker via calcSubCostForMonth - the same way combinedCategoryTotals does it - so this
+    // card agrees with the hero "Top category" and the breakdown charts instead of contradicting
+    // them.
+    rows.filter(function (r) { return r && !r.parentId && !r.linked; }).forEach(function (row) {
       var ids = [row.id].concat(
         rows.filter(function (r) { return r && r.parentId === row.id; })
             .map(function (r) { return r.id; }));
@@ -132,6 +138,13 @@ function momCategoryDeltas(exp, curMk, prevMk) {
       var label = row.label || row.id;
       out[label] = (out[label] || 0) + sum;
     });
+    if (subs && subs.rows && subs.cols) {
+      var parts = mk2.split('-').map(Number);
+      var subTotal = (subs.rows || []).reduce(function (s, r) {
+        return s + calcSubCostForMonth(r, subs, parts[0], parts[1] - 1);
+      }, 0);
+      if (subTotal) out['Subscriptions'] = (out['Subscriptions'] || 0) + subTotal;
+    }
     return out;
   }
   var cur = totals(curMk), prev = totals(prevMk), names = {};
