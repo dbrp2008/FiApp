@@ -245,6 +245,11 @@ function _recModal(){
 }
 
 function openRecurringConfig(rowId){
+  // Guarded at the choke point, not per call site: the 🔁 row button, the mobile gear menu
+  // and the rules manager all land here. Without this the modal opens during the walkthrough
+  // and TRAPS the user - it is appended to <body>, outside the current step's target, so the
+  // walkthrough's capture-phase click guard swallows every click inside it, Cancel included.
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   const row=getRows().find(r=>r.id===rowId)||(state.rows||[]).find(r=>r.id===rowId);
   if(!row) return;
   const existing=_recRuleFor(rowId);
@@ -594,6 +599,9 @@ function _recRowLabel(rowId){
   return r?(r.label||'(unnamed row)'):'(deleted row)';
 }
 function openRecurringManager(){
+  // Same trap as openRecurringConfig: this overlay is body-appended, so the walkthrough's
+  // click guard would block its Edit/Remove/Close buttons.
+  if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   const prev=document.getElementById('rec-mgr-overlay'); if(prev) prev.remove();
   const overlay=document.createElement('div'); overlay.id='rec-mgr-overlay';
   overlay.style.cssText='position:fixed;inset:0;z-index:20000;background:var(--overlay);display:flex;align-items:center;justify-content:center;padding:1rem;';
