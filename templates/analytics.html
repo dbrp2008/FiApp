@@ -458,10 +458,23 @@ function renderAll(){
     card.className='chart-card'; card.id='card-'+id;
     const hdr=document.createElement('div'); hdr.className='chart-card-header';
     const h2=document.createElement('h2'); h2.textContent=title;
-    hdr.appendChild(h2);
+    // Collapse toggle: this card is a large table some users won't want taking up space.
+    // State persists in CARD_COLLAPSED_KEY so it stays the way they left it across reloads.
+    const toggle=document.createElement('button');
+    toggle.type='button'; toggle.className='btn-ghost btn-sm';
+    toggle.setAttribute('aria-controls','body-'+id);
+    hdr.appendChild(h2); hdr.appendChild(toggle);
     card.appendChild(hdr);
     const body=document.createElement('div'); body.id='body-'+id;
     card.appendChild(body);
+    let collapsed=isCardCollapsed(id);
+    function applyCollapse(){
+      body.style.display=collapsed?'none':'';
+      toggle.textContent=collapsed?'Show':'Hide';
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+    }
+    applyCollapse();
+    toggle.addEventListener('click',function(){ collapsed=!collapsed; setCardCollapsed(id,collapsed); applyCollapse(); });
     target.appendChild(card);
     return card;
   }
@@ -587,6 +600,16 @@ function _refreshPeriodCache(){
 const HIDDEN_STATS_KEY='fiapp_analytics_hidden_stats';
 function hiddenStats(){ return JSON.parse(localStorage.getItem(HIDDEN_STATS_KEY)||'[]'); }
 function setHiddenStats(arr){ localStorage.setItem(HIDDEN_STATS_KEY,JSON.stringify(arr)); }
+// Per-card collapse state (currently just the month-over-month table card). Kept separate
+// from HIDDEN_STATS_KEY, which is specifically the stat-box Customize list in the grids.
+const CARD_COLLAPSED_KEY='fiapp_analytics_cards_collapsed';
+function collapsedCards(){ try{ return JSON.parse(localStorage.getItem(CARD_COLLAPSED_KEY)||'[]'); }catch(_){ return []; } }
+function isCardCollapsed(id){ return collapsedCards().includes(id); }
+function setCardCollapsed(id,val){
+  const s=collapsedCards(), i=s.indexOf(id);
+  if(val&&i<0) s.push(id); else if(!val&&i>=0) s.splice(i,1);
+  try{ localStorage.setItem(CARD_COLLAPSED_KEY,JSON.stringify(s)); }catch(_){}
+}
 function toggleStatPanel(panelId){
   const p=document.getElementById(panelId); if(!p) return;
   const open=p.style.display==='none';
@@ -696,6 +719,11 @@ function renderHeroStats(){
   strip.appendChild(catCard);
 
   root.insertBefore(strip, root.firstChild);
+
+  // The month-over-month card mirrors whatever month is selected here, so refresh it on
+  // every month change (no-op on the first call, before the card DOM exists - reRenderCharts
+  // renders it once it does).
+  renderMoMCard(_anaMK);
 }
 
 function renderStatCards(){
@@ -1367,7 +1395,7 @@ function reRenderCharts(){
   renderSavingsChart();
   renderSubBreakChart();
   renderSubTrendChart();
-  renderMoMCard(mostRecentTrackedMonth(_allMonths));
+  renderMoMCard(_anaMK);
 }
 
 
