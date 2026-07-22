@@ -1366,7 +1366,7 @@ function renderMoMCard(curMk){
   const el=document.getElementById('body-mom');
   if(!el) return;
   const pMk=prevMK(curMk);
-  const rows=momCategoryDeltas(_exp, curMk, pMk);
+  const rows=momCategoryDeltas(_exp, _subs, curMk, pMk);
   if(!rows.length){
     el.innerHTML='<p class="chart-note">Track two consecutive months to compare.</p>';
     return;
