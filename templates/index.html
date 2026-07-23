@@ -371,6 +371,13 @@
     .snap-check-link:hover { text-decoration: underline; }
     .dash-hero-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:.85rem;margin-bottom:1.25rem;}
     .hero-delta{font-size:.78rem;margin-top:.2rem;}
+    /* The icon chip sits BESIDE the label rather than stacked above it. Stacked, the 32px
+       chip plus its .55rem margin added ~41px of pure height to each of the three cards -
+       the single biggest contributor to how tall the dashboard opened. Inline, the chip
+       fits inside the text block's own height and costs nothing. min-width:0 lets long
+       currency-prefixed values ("CAD 1,937.48") shrink instead of overflowing the card. */
+    .hero-card-row{display:flex;align-items:center;gap:.6rem;}
+    .hero-card-body{min-width:0;}
     @media (max-width:600px){
       .dash-hero-grid{grid-template-columns:1fr 1fr;}
       .hero-net-card{grid-column:1 / -1;}
@@ -418,18 +425,30 @@
   {% if current_user %}
   <div class="dash-hero-grid" id="snap-hero" style="display:none">
     <div class="gradient-card hero-net-card">
-      <span class="icon-chip chip-on-gradient" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-wallet"/></svg></span>
-      <div class="stat-label" style="color:rgba(255,255,255,.85)">Net balance · this month</div>
-      <div class="stat-value" id="hero-net" style="color:#fff">$0</div>
-      <div class="hero-delta" id="hero-delta" style="color:rgba(255,255,255,.9)"></div>
+      <div class="hero-card-row">
+        <span class="icon-chip chip-on-gradient"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-wallet"/></svg></span>
+        <div class="hero-card-body">
+          <div class="stat-label" style="color:rgba(255,255,255,.85)">Net balance · this month</div>
+          <div class="stat-value" id="hero-net" style="color:#fff">$0</div>
+          <div class="hero-delta" id="hero-delta" style="color:rgba(255,255,255,.9)"></div>
+        </div>
+      </div>
     </div>
     <div class="stat-card">
-      <span class="icon-chip chip-success" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-trending-up"/></svg></span>
-      <div class="stat-label">Income</div><div class="stat-value" id="hero-income">$0</div>
+      <div class="hero-card-row">
+        <span class="icon-chip chip-success"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-trending-up"/></svg></span>
+        <div class="hero-card-body">
+          <div class="stat-label">Income</div><div class="stat-value" id="hero-income">$0</div>
+        </div>
+      </div>
     </div>
     <div class="stat-card">
-      <span class="icon-chip chip-danger" style="margin-bottom:.55rem;"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-trending-down"/></svg></span>
-      <div class="stat-label">Expenses</div><div class="stat-value" id="hero-expenses">$0</div>
+      <div class="hero-card-row">
+        <span class="icon-chip chip-danger"><svg class="fi-ico" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-trending-down"/></svg></span>
+        <div class="hero-card-body">
+          <div class="stat-label">Expenses</div><div class="stat-value" id="hero-expenses">$0</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -451,9 +470,9 @@
     <div class="glass-panel dash-tools">
       <div class="dash-tools-title">Quick tools</div>
       <div class="dash-tools-list">
-        <a href="/interest" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-percent"/></svg>Interest</a>
-        <a href="/tax" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-receipt"/></svg>Income tax</a>
-        <a href="/currency" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-exchange"/></svg>Currency</a>
+        <a href="/interest" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-percent"/></svg>Interest calculator</a>
+        <a href="/tax" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-receipt"/></svg>Income tax calculator</a>
+        <a href="/currency" class="dash-tool"><svg class="fi-ico dash-tool-ic" aria-hidden="true"><use href="/static/icons/ui-sprite.svg?v={{ ASSET_V }}#fi-exchange"/></svg>Currency converter</a>
       </div>
       <a href="/expenses" class="btn btn-gradient dash-add-btn">+ Add expense</a>
       {% if current_user %}<div id="dash-alerts"><div id="snap-renewal-slot"></div><div id="snap-nudge-slot"></div></div>{% endif %}
