@@ -102,6 +102,16 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 if os.environ.get('TRUST_PROXY') == '1':
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+# Password hashing algorithm, stated explicitly rather than inherited from whatever
+# Werkzeug's default happens to be on the deployed version. scrypt is deliberately slow and
+# memory-hard, so a stolen database cannot be brute-forced at speed: N=32768 is the CPU/memory
+# cost, r=8 the block size, p=1 the parallelism.
+#
+# The parameters are stored inside each hash ("scrypt:32768:8:1$<salt>$<digest>"), so
+# check_password_hash reads them back per row - changing this constant does not invalidate
+# existing passwords, it only affects hashes written from then on.
+PWHASH_METHOD = 'scrypt:32768:8:1'
+
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31_536_000  # 1 year — every /static/ asset is
 # loaded with ?v=ASSET_V (bumped each deploy), so the URL changes when the file changes;
@@ -637,7 +647,7 @@ def _ctx():
 
 # Constant-time guard: comparing against a real hash when the user is absent
 # keeps the "no such user" path as slow as the "wrong password" path.
-_DUMMY_PWHASH = generate_password_hash('timing-equalizer')
+_DUMMY_PWHASH = generate_password_hash('timing-equalizer', method=PWHASH_METHOD)
 
 def _json_dict():
     """Return (body, error) where body is the request's JSON object.
@@ -1013,7 +1023,7 @@ def register():
             with conn.cursor() as cur:
                 cur.execute(
                     "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING id",
-                    (username, generate_password_hash(password))
+                    (username, generate_password_hash(password, method=PWHASH_METHOD))
                 )
                 user_id = cur.fetchone()[0]
                 cur.execute("INSERT INTO user_data (user_id) VALUES (%s)", (user_id,))
@@ -1539,7 +1549,7 @@ def change_password():
         with conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET password_hash=%s WHERE id=%s",
-                    (generate_password_hash(new_password), user_id))
+                    (generate_password_hash(new_password, method=PWHASH_METHOD), user_id))
         return jsonify({"ok": True})
     finally:
         release_db(conn)
