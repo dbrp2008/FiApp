@@ -20,7 +20,16 @@ var OFFLINE_URL = '/__offline';
 
 // Top-level pages (mirrors base.html's NAV_ITEMS) proactively cached rather than
 // left to "whatever you happened to click into" - see precacheNavPages().
-var NAV_PAGES = ['/', '/income', '/expenses', '/subscriptions', '/analytics', '/currency', '/tax', '/interest', '/account'];
+var NAV_PAGES = ['/', '/income', '/expenses', '/subscriptions', '/analytics', '/currency', '/tax', '/interest'];
+
+// Never written to the cache, on any path. Cache-Control: no-store does NOT bind the Cache
+// Storage API, so /account - which renders the email address, Google linkage and revision
+// history - would otherwise sit on disk until an explicit logout purge, and survive the app
+// simply being closed. It is the one page whose contents are worth more than its offline
+// availability. Checked in BOTH precacheNavPages and the navigation handler, since a plain
+// visit caches a page too.
+var NEVER_CACHE = ['/account'];
+function isSensitive(pathname) { return NEVER_CACHE.indexOf(pathname) !== -1; }
 
 // Pulls same-origin static asset URLs out of page HTML (src=/href= attributes) or
 // CSS (url(...) values). Only /static/* and /styles.css are eligible; everything
@@ -95,6 +104,7 @@ async function precacheNavPages() {
   var assetUrls = {};
 
   await Promise.all(NAV_PAGES.map(async function (path) {
+    if (isSensitive(path)) return;
     try {
       var res = await fetch(path, { credentials: 'same-origin' });
       if (cacheable(res)) {
@@ -134,13 +144,18 @@ self.addEventListener('message', function (event) {
   if (event.data && event.data.type === 'refresh-precache') {
     event.waitUntil(precacheNavPages());
   }
-  // Logout / account-delete: drop every FiApp cache so a prior user's cached page
-  // shells (which embed identity metadata) can't be served offline to the next user.
+  // Logout / account-delete / a 401 from /auth/me: drop every FiApp cache so a prior
+  // user's cached page shells (which embed the CSRF token and username) can't be served
+  // offline to the next user. Acks over the MessagePort when the caller supplies one, so
+  // logout can await the purge instead of racing the page unload.
   if (event.data && event.data.type === 'clear-cache') {
+    var ack = event.ports && event.ports[0];
     event.waitUntil(caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (k) {
         return k.indexOf('fiapp-') === 0 ? caches.delete(k) : null;
       }));
+    }).then(function () {
+      if (ack) { try { ack.postMessage({ ok: true }); } catch (e) { /* caller went away */ } }
     }));
   }
 });
@@ -175,7 +190,7 @@ self.addEventListener('fetch', function (event) {
     event.respondWith((async function () {
       try {
         var fresh = await fetch(req);
-        if (cacheable(fresh)) {
+        if (cacheable(fresh) && !isSensitive(url.pathname)) {
           var c = await caches.open(CACHE);
           c.put(req, fresh.clone());
         }
