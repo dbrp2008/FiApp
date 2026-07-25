@@ -2905,7 +2905,9 @@ function lazyLoadXlsx(){
   if(_xlsxLoading) return _xlsxLoading;
   _xlsxLoading=new Promise((res,rej)=>{
     const s=document.createElement('script');
-    s.src='/static/js/vendor/xlsx.full.min.js';
+    // ?v= matters here: /static/ is served with a 1-year max-age, so without the stamp a
+    // user who has exported once keeps the old vendored build until the cache expires.
+    s.src='/static/js/vendor/xlsx.full.min.js?v='+(window.ASSET_V||'');
     s.onload=()=>{_xlsxLoaded=true;res();};
     s.onerror=()=>rej(new Error('Failed to load XLSX library'));
     document.head.appendChild(s);
@@ -3067,7 +3069,9 @@ function showShareModal(title,text){
 })();
 
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
-function _esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+// Retired _esc (a DOM serializer) in favour of escapeHtml, which this file already
+// defines. _esc only entity-encoded & < >, leaving " and ' intact - safe in a text
+// node, silently unsafe the moment a result is moved into an attribute.
 
 (async()=>{
   // Local-first: render whatever this device already has BEFORE any network I/O,
@@ -3117,7 +3121,7 @@ function _esc(s){const d=document.createElement('div');d.textContent=s;return d.
     if(badge){
       if(me.username){
         badge.innerHTML='<div class="acct-menu-wrap">'
-          +'<button class="btn-ghost btn-sm" id="dyn-acct-menu-btn">👤 '+_esc(me.username)+'</button>'
+          +'<button class="btn-ghost btn-sm" id="dyn-acct-menu-btn">👤 '+escapeHtml(me.username)+'</button>'
           +'<div class="acct-dropdown">'
           +'<a href="/account" class="acct-item">⚙ Account settings</a>'
           +'<button class="acct-item acct-logout" id="dyn-logout-btn">⬅ Log out</button>'
