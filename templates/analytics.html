@@ -1141,10 +1141,14 @@ function renderFinancialPatterns(root){
   const grid=document.createElement('div');
   grid.className='stat-grid'; grid.style.marginTop='.75rem';
 
+  // Escaped at the sink rather than at each call site: no caller passes intentional markup,
+  // and two of them interpolate a month label derived from expense cell KEYS - which a
+  // crafted backup file controls. analytics_core.js validates those keys now, so this is the
+  // second layer, and it also covers any future caller that forgets.
   function addIndicator(icon, text){
     const card=document.createElement('div'); card.className='stat-card';
-    card.innerHTML='<div style="font-size:1.1rem;margin-bottom:.35rem">'+icon+'</div>'
-      +'<div style="font-size:.82rem;color:var(--fg);line-height:1.4">'+text+'</div>';
+    card.innerHTML='<div style="font-size:1.1rem;margin-bottom:.35rem">'+escapeHtml(icon)+'</div>'
+      +'<div style="font-size:.82rem;color:var(--fg);line-height:1.4">'+escapeHtml(text)+'</div>';
     grid.appendChild(card);
   }
 
