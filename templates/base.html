@@ -376,17 +376,38 @@
       return;
     }
     FIAPP_USER_KEYS.forEach(function(k){localStorage.removeItem(k);});
-    fiappClearSWCache();
-    fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':_CSRF}}).then(function(){ window.location='/login'; });
+    // Await the purge before navigating: the old fire-and-forget call could lose the
+    // message to the page unload that follows.
+    fiappClearSWCache().then(function(){
+      return fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':_CSRF}});
+    }).then(function(){ window.location='/login'; })
+      .catch(function(){ window.location='/login'; });
   }
-  // Purge the service-worker page caches (they store authenticated page shells with
-  // identity metadata) so nothing of this user survives offline for the next one.
+  // Purge the service-worker page caches (they store authenticated page shells carrying
+  // the CSRF token and username) so nothing of this user survives for the next one.
+  // Resolves once the SW has confirmed, or immediately when there is no SW at all.
+  //
+  // Uses navigator.serviceWorker.ready rather than .controller: on the very first load
+  // after registration the SW is active but not yet controlling this page, so .controller
+  // is null and the old version silently did nothing - exactly when a shared-device user
+  // is most likely to log straight back out.
   function fiappClearSWCache(){
     try{
-      if(navigator.serviceWorker && navigator.serviceWorker.controller){
-        navigator.serviceWorker.controller.postMessage({type:'clear-cache'});
-      }
-    }catch(_){}
+      if(!navigator.serviceWorker) return Promise.resolve();
+      return Promise.race([
+        navigator.serviceWorker.ready.then(function(reg){
+          var target=(navigator.serviceWorker.controller)||(reg && reg.active);
+          if(!target) return;
+          return new Promise(function(resolve){
+            var ch=new MessageChannel();
+            ch.port1.onmessage=function(){ resolve(); };
+            target.postMessage({type:'clear-cache'},[ch.port2]);
+          });
+        }),
+        // Never block logout on a wedged SW.
+        new Promise(function(resolve){ setTimeout(resolve,1500); })
+      ]);
+    }catch(_){ return Promise.resolve(); }
   }
   window.fiappClearSWCache=fiappClearSWCache;
   function toggleAcctMenu(btn){
@@ -518,7 +539,11 @@
         // clear-cache call logOutStep normally makes - so a prior user's authenticated
         // page shells (username, and on /account the email) could otherwise sit in the SW
         // cache for whoever uses this device next. Purge them here too.
-        fetch('/auth/me').then(function(r){if(r.status===401){fiappClearSWCache();window.location='/login';}}).catch(function(){});
+        // Await the purge before navigating, or the redirect can cancel it (same reason
+        // logOutStep awaits it).
+        fetch('/auth/me').then(function(r){
+          if(r.status===401){ fiappClearSWCache().then(function(){ window.location='/login'; }); }
+        }).catch(function(){});
       }
     }
   });
