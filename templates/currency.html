@@ -203,16 +203,26 @@ document.getElementById('rates-info-panel').addEventListener('click',function(e)
   else if(act.dataset.action==='close-rates') closeRatesPanel();
 });
 
+// This page does not load analytics_core.js, so it had no escaper at all - which is
+// exactly why the three helpers below were interpolating raw. They are reached with
+// server-derived text (err.message ultimately carries /api/exchange's `error` field) and
+// with localStorage-derived currency codes, neither of which is guaranteed markup-free.
+function escapeHtml(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function showError(msg){
-  document.getElementById('msg-area').innerHTML='<div class="error">'+msg+'</div>';
+  document.getElementById('msg-area').innerHTML='<div class="error">'+escapeHtml(msg)+'</div>';
   document.getElementById('result-box').style.display='none';
 }
 function clearMsg(){ document.getElementById('msg-area').innerHTML=''; }
 function showInfo(msg){
-  document.getElementById('msg-area').innerHTML='<div class="success">'+msg+'</div>';
+  document.getElementById('msg-area').innerHTML='<div class="success">'+escapeHtml(msg)+'</div>';
 }
 function showWarn(msg){
-  document.getElementById('msg-area').innerHTML='<div class="warn">'+msg+'</div>';
+  document.getElementById('msg-area').innerHTML='<div class="warn">'+escapeHtml(msg)+'</div>';
 }
 
 
@@ -353,7 +363,7 @@ function _buildRatesPanel(){
   const now=Date.now();
   let html='<div style="font-weight:700;margin-bottom:.45rem;color:var(--fg);">🕐 Rate Cache</div>';
   if(userCurs.length>1)
-    html+='<div style="color:var(--muted);font-size:.77rem;margin-bottom:.5rem;">Your currencies: '+userCurs.join(', ')+'</div>';
+    html+='<div style="color:var(--muted);font-size:.77rem;margin-bottom:.5rem;">Your currencies: '+escapeHtml(userCurs.join(', '))+'</div>';
   if(!bases.length){
     html+='<div style="color:var(--muted);padding:.2rem 0;">No cached rates yet - convert something first.</div>';
   } else {
@@ -361,14 +371,18 @@ function _buildRatesPanel(){
       const fetched=new Date(b.fetched_at);
       const msRefresh=fetched.getTime()+_LS_TTL_MS-now;
       const msExpire=new Date(b.last_used_at).getTime()+_DEAD_TTL_MS-now;
-      html+='<div class="rates-info-row"><span class="rates-info-label">Base: '+b.base+'</span>'
+      // b.base comes from a localStorage key name, so it is not guaranteed to be a clean
+      // currency code. Two of these four uses sit inside double-quoted attributes, where a
+      // bare " would break out - escape every one.
+      const base=escapeHtml(b.base);
+      html+='<div class="rates-info-row"><span class="rates-info-label">Base: '+base+'</span>'
         +'<span style="display:flex;align-items:center;gap:.5rem;">'
-        +'<span>'+fetched.toLocaleDateString()+' '+fetched.toLocaleTimeString()+'</span>'
-        +'<button type="button" class="btn-ghost btn-sm" style="padding:.1rem .4rem;font-size:.75rem;" data-refresh-base="'+b.base+'" aria-label="Refresh rates for '+b.base+'">↻</button>'
+        +'<span>'+escapeHtml(fetched.toLocaleDateString()+' '+fetched.toLocaleTimeString())+'</span>'
+        +'<button type="button" class="btn-ghost btn-sm" style="padding:.1rem .4rem;font-size:.75rem;" data-refresh-base="'+base+'" aria-label="Refresh rates for '+base+'">↻</button>'
         +'</span></div>'
         +'<div style="font-size:.77rem;padding-bottom:.38rem;color:var(--muted);">'
-        +'Next refresh: <span class="rates-countdown" id="rcd-ref-'+b.base+'">'+(msRefresh<=0?'<span style="color:var(--accent)">overdue</span>':_fmtCountdown(msRefresh))+'</span>'
-        +' &nbsp;·&nbsp; Expires in: <span class="rates-countdown" id="rcd-exp-'+b.base+'">'+_fmtCountdown(msExpire)+'</span>'
+        +'Next refresh: <span class="rates-countdown" id="rcd-ref-'+base+'">'+(msRefresh<=0?'<span style="color:var(--accent)">overdue</span>':_fmtCountdown(msRefresh))+'</span>'
+        +' &nbsp;·&nbsp; Expires in: <span class="rates-countdown" id="rcd-exp-'+base+'">'+_fmtCountdown(msExpire)+'</span>'
         +'</div>';
     });
   }
