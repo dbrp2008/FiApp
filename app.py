@@ -60,6 +60,10 @@ MAX_TRACKED_MONTHS = MAX_INCOME_MONTHS
 MAX_CELLS = 200_000
 MAX_LABEL_LEN = 200
 
+# Push device tokens retained per account. FCM tokens rotate, so some churn is expected;
+# this only stops unbounded row growth from repeated registration.
+MAX_DEVICE_TOKENS = 20
+
 # Sync conflict detection (W3): how many revisions to retain per (user, tracker).
 _REVISION_KEEP = 20
 
@@ -77,8 +81,27 @@ if not app.secret_key:
     raise RuntimeError("SECRET_KEY environment variable is required")
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_INSECURE') != '1' and not app.debug
+# Secure is dropped only for a local debug run over plain http. COOKIE_INSECURE used to be
+# OR'd with app.debug, so setting it on a production deploy silently shipped the session
+# cookie over http; it is now ignored unless debug is on.
+app.config['SESSION_COOKIE_SECURE'] = not app.debug
+if os.environ.get('COOKIE_INSECURE') == '1' and not app.debug:
+    app.logger.warning(
+        "COOKIE_INSECURE=1 ignored - the Secure cookie flag is only dropped in debug mode.")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
+
+# Behind a TLS-terminating proxy (Render) request.remote_addr is the PROXY's address, so
+# every client shares one rate-limit bucket - the 5/min on /auth/register and 10/min on
+# /auth/login become global rather than per-attacker, which both weakens brute-force
+# protection and lets one client exhaust everybody's budget.
+#
+# Gated on TRUST_PROXY because trusting X-Forwarded-For unconditionally is WORSE than not
+# trusting it: a client able to reach the origin directly could then forge its own address
+# and evade the limits entirely. Set TRUST_PROXY=1 only where a proxy really does terminate
+# every request. x_for=1 trusts exactly one hop - the nearest proxy - not the whole chain.
+if os.environ.get('TRUST_PROXY') == '1':
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31_536_000  # 1 year — every /static/ asset is
 # loaded with ?v=ASSET_V (bumped each deploy), so the URL changes when the file changes;
@@ -111,6 +134,14 @@ if not EXCHANGE_API_KEY:
 # Currency codes are ISO-4217 three-letter uppercase. Validating before building
 # the upstream URL prevents control-char/path injection into the exchange API call.
 _CCY_RE = re.compile(r'^[A-Z]{3}$')
+
+# Tracker cell keys are machine-built, never typed: "YYYY-MM|rowId|colId" for expenses and
+# income (ck() in expenses.js/income.js), "rowId|colId" for subscriptions, where ids are
+# uid() ('_' + base36) or a seeded literal like "col-wk1". This allowlist admits every
+# legitimate shape and excludes < > " ' & and whitespace. It matters because the client
+# slices the month key out of this string and renders it, so a key carrying markup must
+# never be persisted or synced to the user's other devices.
+_CELL_KEY_RE = re.compile(r'^[A-Za-z0-9_|-]{1,128}$')
 
 # ── Theme Studio: custom-theme validation ──────────────────────────────────
 # Theme token values are written straight into style.setProperty on the client, so they
@@ -572,7 +603,11 @@ def csrf_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('X-CSRF-Token', '')
-        if not token or not hmac.compare_digest(token, session.get('csrf_token') or ''):
+        # Compare as bytes: Werkzeug decodes headers as latin-1, so a byte >= 0x80 yields a
+        # non-ASCII str and compare_digest raises TypeError - turning a clean 403 into a 500.
+        if not token or not hmac.compare_digest(
+                token.encode('utf-8', 'replace'),
+                (session.get('csrf_token') or '').encode('utf-8', 'replace')):
             return jsonify({"error": "Invalid CSRF token"}), 403
         return f(*args, **kwargs)
     return decorated
@@ -604,21 +639,53 @@ def _ctx():
 # keeps the "no such user" path as slow as the "wrong password" path.
 _DUMMY_PWHASH = generate_password_hash('timing-equalizer')
 
-def _within_limits(data):
+def _json_dict():
+    """Return (body, error) where body is the request's JSON object.
+
+    request.get_json(silent=True) hands back whatever JSON arrived - a list, a bare
+    string, a number - and `or {}` only rescues the falsy ones. Callers then do .get()
+    or `in` on it, which raises and surfaces as a 500 instead of a 400. The `in` case is
+    the sharpest: `'themes_custom' in "some string"` is a substring test that can PASS,
+    so the failure lands a line later on .get().
+
+    A missing body stays {} so endpoints that legitimately accept no body (push
+    unregister, for one) keep working; only a body that is present and not an object
+    is rejected.
+    """
+    body = request.get_json(silent=True)
+    if body is None:
+        return {}, None
+    if not isinstance(body, dict):
+        return None, (jsonify({"error": "Invalid data format"}), 400)
+    return body, None
+
+
+def _within_limits(data, max_rows=None):
     """Server-side mirror of the client MAX_ROWS/MAX_COLS caps.
+
+    max_rows is a parameter because the subscriptions tracker allows MAX_SUBS rows, not
+    MAX_ROWS - without it, save_subs could not reuse this and was left with no cell,
+    label-length or per-month validation at all.
 
     Returns None when the blob is acceptable, else a short human-readable reason.
     The reason is surfaced verbatim in the client's sync status pill - a bare
     "limit exceeded" covered ~6 distinct checks and made save failures undebuggable
     without DevTools."""
+    if max_rows is None:
+        max_rows = MAX_ROWS
     rows = data.get('rows')
-    if not isinstance(rows, list) or len(rows) > MAX_ROWS:
-        return "Too many rows (max %d)" % MAX_ROWS
+    if not isinstance(rows, list) or len(rows) > max_rows:
+        return "Too many rows (max %d)" % max_rows
     cols = data.get('cols')
     if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
         return "Too many columns (max %d)" % MAX_COLS
     rows_by_month = data.get('rowsByMonth') or {}
     cols_by_month = data.get('colsByMonth') or {}
+    # isinstance first: len()/.values() on a non-dict raises, which turned a malformed
+    # body into a 500 instead of a clean 400. `cells` and `income` below were already
+    # guarded this way - these two were the gap.
+    if not isinstance(rows_by_month, dict) or not isinstance(cols_by_month, dict):
+        return "Invalid per-month structure"
     if len(rows_by_month) > MAX_TRACKED_MONTHS or len(cols_by_month) > MAX_TRACKED_MONTHS:
         return "Too many tracked months"
     for arr in rows_by_month.values():
@@ -637,7 +704,14 @@ def _within_limits(data):
     if cells is not None:
         if not isinstance(cells, dict) or len(cells) > MAX_CELLS:
             return "Too many cells"
-        for val in cells.values():
+        for key, val in cells.items():
+            # Cell keys are machine-built ("YYYY-MM|rowId|colId", or "rowId|colId" for
+            # subs) and never typed. Validating the charset here is the server-side half
+            # of the backup-restore hardening: the month key is sliced out of this string
+            # client-side and rendered, so a key carrying markup must never be persisted
+            # or synced to the user's other devices, even if a client is bypassed.
+            if not isinstance(key, str) or not _CELL_KEY_RE.match(key):
+                return "Invalid cell key"
             if isinstance(val, str) and len(val) > MAX_LABEL_LEN:
                 return "A cell value is too long"
     income = data.get('income')
@@ -858,7 +932,9 @@ def interest():
                 flash('Invalid interest type selected.', 'error')
                 return render_template('interest.html', **_ctx())
 
-        except ValueError:
+        # TypeError too: a POST omitting a field makes request.form.get() return None, and
+        # float(None) raises TypeError, not ValueError - which fell through to a 500.
+        except (ValueError, TypeError):
             flash('Please enter valid numeric inputs.', 'error')
             return render_template('interest.html', **_ctx())
 
@@ -912,7 +988,9 @@ def tax():
 @app.route('/auth/register', methods=['POST'])
 @_rl("5 per minute", "20 per hour")
 def register():
-    data = request.get_json()
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
     if not username or not password:
@@ -955,7 +1033,9 @@ def register():
 @app.route('/auth/login', methods=['POST'])
 @_rl("10 per minute", "50 per hour")
 def auth_login():
-    data = request.get_json()
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
     conn = get_db()
@@ -972,6 +1052,12 @@ def auth_login():
             # check_password_hash(None, ...) would raise (AttributeError, not the
             # ValueError it guards against) and surface as a generic client-side
             # "Network error" — name the real reason instead.
+            # Burn a hash before answering. The message itself is a deliberate UX call
+            # (it is the only way a Google-only user learns why their password fails),
+            # but returning it INSTANTLY also leaked the same fact through timing, to an
+            # attacker who never reads the body. Equalise against the password path so
+            # only the intended, visible disclosure remains.
+            check_password_hash(_DUMMY_PWHASH, password)
             return jsonify({"error": "This account signs in with Google - there's no password set. Use \"Continue with Google\" below."}), 401
         if not check_password_hash(row[1], password):
             return jsonify({"error": "Invalid username or password"}), 401
@@ -1181,7 +1267,9 @@ def google_complete():
     email = session.get('pending_google_email')
     if not sub or not email:
         return jsonify({"error": "No pending Google sign-up. Please start again."}), 400
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     username = (data.get('username') or '').strip()
     if not username:
         return jsonify({"error": "Username is required"}), 400
@@ -1215,7 +1303,9 @@ def google_native():
     entry point is rate-limited but not @csrf_required, like GET /auth/google/login."""
     if not _google_enabled:
         return jsonify({"error": "Google sign-in is not available."}), 400
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     raw = data.get('id_token') or ''
     if not raw:
         return jsonify({"error": "Missing id_token"}), 400
@@ -1255,7 +1345,9 @@ def google_native_link():
         return jsonify({"error": "error"}), 400
     if not _stepup_fresh():
         return jsonify({"error": "stepup"}), 403
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     raw = data.get('id_token') or ''
     if not raw:
         return jsonify({"error": "error"}), 400
@@ -1293,7 +1385,9 @@ def google_native_link():
 @_rl("10 per minute", "50 per hour")
 def google_stepup():
     """Re-confirm current identity (password) before a Google change/disconnect."""
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     password = data.get('password') or ''
     conn = get_db()
     try:
@@ -1340,7 +1434,9 @@ def google_disconnect():
 @csrf_required
 @_rl("3 per minute")
 def delete_account():
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     user_id = session['user_id']
     conn = get_db()
     try:
@@ -1372,7 +1468,9 @@ def delete_account():
 @csrf_required
 @_rl("5 per minute")
 def change_username():
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     new_username = (data.get('new_username') or '').strip()
     if not new_username:
         return jsonify({"error": "New username is required"}), 400
@@ -1409,7 +1507,9 @@ def change_username():
 @csrf_required
 @_rl("5 per minute")
 def change_password():
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     new_password = data.get('new_password') or ''
     if not new_password:
         return jsonify({"error": "New password is required"}), 400
@@ -1566,6 +1666,12 @@ def save_subs():
     cols = data.get('cols')
     if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
         return jsonify({"error": "Column limit exceeded"}), 400
+    # Subs previously skipped _within_limits entirely, so its cells, label lengths and
+    # per-month structures were bounded only by the 1 MB body cap - and its cell keys were
+    # never validated. The two checks above stay for their clearer messages.
+    limit_err = _within_limits(data, max_rows=MAX_SUBS)
+    if limit_err:
+        return jsonify({"error": limit_err}), 400
     status, resp = _save_tracker_versioned('subs', data, base_version, force=force)
     return jsonify(resp), status
 
@@ -1787,7 +1893,9 @@ def get_prefs():
 @csrf_required
 @_rl("30 per minute")
 def save_prefs():
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     set_clauses, params = [], []
     theme_env = None      # parsed themes_custom, if provided this request
 
@@ -2106,7 +2214,9 @@ def _send_push(tokens, title, body, data=None):
 @csrf_required
 @_rl("20 per minute", "200 per hour")
 def push_register():
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     token = (data.get('token') or '').strip()
     platform = (data.get('platform') or '').strip()[:20]
     if not _PUSH_TOKEN_RE.match(token):
@@ -2125,13 +2235,31 @@ def push_register():
                 # device handoff (a different person logs into FiApp on the same physical
                 # device) still works: unregistering first (toggle off, or logout - see
                 # push_unregister) frees the token for the next user to claim.
+                # Cap the rows one account can accumulate. Tokens rotate, so some churn is
+                # normal, but 200 valid-shaped registrations an hour was otherwise unbounded
+                # growth. Counting before the insert lets a re-register of an existing token
+                # through even at the cap.
+                cur.execute("SELECT COUNT(*) FROM device_tokens WHERE user_id=%s", (uid,))
+                if (cur.fetchone() or [0])[0] >= MAX_DEVICE_TOKENS:
+                    cur.execute(
+                        "SELECT 1 FROM device_tokens WHERE user_id=%s AND token=%s", (uid, token))
+                    if not cur.fetchone():
+                        return jsonify(ok=False, error='too_many_devices'), 409
                 cur.execute("SELECT user_id FROM device_tokens WHERE token=%s", (token,))
                 existing = cur.fetchone()
                 if existing and existing[0] != uid:
                     return jsonify(ok=False, error='token_bound_to_another_user'), 409
+                # The WHERE on the DO UPDATE is what actually enforces the policy the comment
+                # above describes. The SELECT alone was a TOCTOU: under READ COMMITTED two
+                # users registering the same token concurrently both see no row, one inserts,
+                # and the other's DO UPDATE then rewrites user_id - silently re-homing the
+                # victim's reminders. As a WHERE it is a database invariant instead of an
+                # application check, and the race resolves to "no rows updated". The SELECT
+                # stays because it produces the friendly 409 in the common, non-racing case.
                 cur.execute(
                     "INSERT INTO device_tokens (user_id, token, platform) VALUES (%s,%s,%s) "
-                    "ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, platform=EXCLUDED.platform",
+                    "ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, platform=EXCLUDED.platform "
+                    "WHERE device_tokens.user_id = EXCLUDED.user_id",
                     (uid, token, platform or None))
                 cur.execute("UPDATE users SET push_enabled=TRUE WHERE id=%s", (uid,))
     finally:
@@ -2144,7 +2272,9 @@ def push_register():
 @csrf_required
 @_rl("20 per minute", "200 per hour")
 def push_unregister():
-    data = request.get_json(silent=True) or {}
+    data, _jerr = _json_dict()
+    if _jerr:
+        return _jerr
     token = (data.get('token') or '').strip()
     uid = session['user_id']
     conn = get_db()
@@ -2171,7 +2301,12 @@ def run_renewal_scan():
     (PUSH_SCAN_SECRET) rather than a user session - it is a server-to-server trigger."""
     secret = os.environ.get('PUSH_SCAN_SECRET')
     provided = request.headers.get('X-Scan-Secret', '')
-    if not secret or not hmac.compare_digest(secret, provided):
+    # `not secret` first, so an unset env var fails closed rather than matching an empty
+    # header. Compared as bytes because a non-ASCII header byte would otherwise raise
+    # TypeError out of compare_digest and return 500 instead of 403.
+    if not secret or not hmac.compare_digest(
+            secret.encode('utf-8', 'replace'),
+            provided.encode('utf-8', 'replace')):
         return jsonify(ok=False, error='forbidden'), 403
     today = datetime.now(timezone.utc).date()
     users_scanned = reminders_sent = 0
