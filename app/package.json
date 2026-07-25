@@ -4,7 +4,9 @@
   "private": true,
   "description": "Capacitor Android shell for FiApp. Loads the live site via server.url (the AM4 model), so Render deploys reach the app on next launch. Native Google sign-in bridges into the same-origin web session.",
   "scripts": {
-    "sync": "cap sync",
+    "sync": "cap sync && node scripts/apply-android-security.mjs",
+    "add:android": "cap add android && node scripts/apply-android-security.mjs",
+    "harden": "node scripts/apply-android-security.mjs",
     "open:android": "cap open android"
   },
   "dependencies": {
