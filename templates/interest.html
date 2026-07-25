@@ -68,9 +68,17 @@
   document.getElementById('type').addEventListener('change',togglePeriods);
   togglePeriods();
 
+  // Every caller currently passes a literal, so this was not a live hole - but an
+  // unescaped innerHTML helper is one careless caller away from being one, and one of
+  // them already forwards an exception message.
+  function _escHtml(s){
+    return String(s==null?'':s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
   function showError(msg){
     const area=document.getElementById('msg-area');
-    area.innerHTML='<div class="error">'+msg+'</div>';
+    area.innerHTML='<div class="error">'+_escHtml(msg)+'</div>';
     document.getElementById('result-box').style.display='none';
   }
   function clearMsg(){ document.getElementById('msg-area').innerHTML=''; }
