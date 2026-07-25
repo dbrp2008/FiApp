@@ -67,9 +67,15 @@
     // Tapping a reminder routes to the subscriptions page (data.route set server-side).
     // Defense-in-depth: only follow same-origin app paths, never an absolute/external URL,
     // in case the data payload is ever sourced from something less trusted than our own scan.
+    //
+    // The second character must not be another slash: /^\/[a-z/]*$/ alone accepts "//evil",
+    // which is protocol-relative and resolves to https://evil/ - an off-origin navigation,
+    // precisely what this check exists to prevent.
     P.addListener('pushNotificationActionPerformed', function (ev) {
       var route = ev && ev.notification && ev.notification.data && ev.notification.data.route;
-      if (route && /^\/[a-z/]*$/.test(route)) { try { window.location = route; } catch (_) {} }
+      if (route && route.charAt(1) !== '/' && /^\/[a-z/]*$/.test(route)) {
+        try { window.location = route; } catch (_) {}
+      }
     });
   }
 
@@ -102,9 +108,30 @@
     var P = plugin();
     if (P) bindListeners(P);                        // so a cold start from a tap still routes
     toggle.addEventListener('change', function () { toggle.checked ? enable() : disable(); });
-    // Reflect the server's stored state so the toggle isn't wrongly off on load.
+    // Overspend alerts are a separate opt-in: no device registration involved, just a
+    // stored preference the daily scan reads.
+    var over = document.getElementById('push-overspend-toggle');
+    if (over) {
+      over.addEventListener('change', function () {
+        var want = over.checked;
+        fetch('/api/prefs', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf() },
+          body: JSON.stringify({ push_overspend: want }),
+        }).then(function (r) {
+          if (!r.ok) { over.checked = !want; feedback('Could not save that preference.', true); }
+        }).catch(function () {
+          over.checked = !want; feedback('Could not reach the server. Please try again.', true);
+        });
+      });
+    }
+    // Reflect the server's stored state so the toggles aren't wrongly off on load.
     fetch('/api/prefs').then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) { if (d && d.push_enabled) setToggle(true); })
+      .then(function (d) {
+        if (!d) return;
+        if (d.push_enabled) setToggle(true);
+        if (over && d.push_overspend) over.checked = true;
+      })
       .catch(function () {});
   }
 
