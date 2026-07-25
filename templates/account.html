@@ -569,6 +569,14 @@
       </label>
     </div>
     <span id="push-feedback" style="display:none;font-size:.85rem;margin-top:.5rem;"></span>
+    <div class="info-row" style="justify-content:space-between;align-items:center;margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--panel-border);">
+      <span class="info-label">Overspend pace alerts</span>
+      <label class="voice-toggle-label">
+        <input type="checkbox" id="push-overspend-toggle">
+        <span class="voice-toggle-track"></span>
+      </label>
+    </div>
+    <p style="color:var(--muted);font-size:.85rem;margin:.4rem 0 0;">Get one heads-up per category per month if your spending pace is on track to pass its goal.</p>
   </div>
 
   <div class="glass-panel" data-group="data">
@@ -743,12 +751,56 @@ function exportFullBackup(){
   a.download='fiapp-backup-'+date+'.json'; a.click(); URL.revokeObjectURL(a.href);
 }
 
+// Cell keys are machine-built, never typed: "YYYY-MM|rowId|colId" for expenses/income
+// (ck() in expenses.js/income.js) and "rowId|colId" for subscriptions, where ids come from
+// uid() ('_' + base36) or a seeded literal like "col-wk1". This allowlist admits every
+// legitimate shape while excluding < > " ' & and whitespace - the characters that let a
+// crafted key become markup once a month key is sliced out of it and rendered.
+var _BACKUP_CELLKEY_RE=/^[A-Za-z0-9_|-]+$/;
+var _BACKUP_MAX_LABEL=200;
+
 function _isValidTrackerBlob(t){
   if(!t || typeof t!=='object' || Array.isArray(t)) return false;
   if(!(Array.isArray(t.rows)||t.cells||t.rowsByMonth)) return false;
   // Sanity caps — a crafted "backup" must not be able to stuff localStorage to quota.
   if(Array.isArray(t.rows) && t.rows.length>500) return false;
   if(t.cells && typeof t.cells==='object' && Object.keys(t.cells).length>50000) return false;
+  // A backup is an untrusted file - someone can be talked into restoring one. Validate the
+  // SHAPE of every key and label, not just the counts, so a hostile blob cannot smuggle
+  // markup into a month label (which analytics renders) or a row label.
+  if(t.cells && typeof t.cells==='object'){
+    var keys=Object.keys(t.cells);
+    for(var i=0;i<keys.length;i++){
+      if(!_BACKUP_CELLKEY_RE.test(keys[i])) return false;
+      var cv=t.cells[keys[i]];
+      if(cv!=null && typeof cv!=='string' && typeof cv!=='number') return false;
+      if(typeof cv==='string' && cv.length>_BACKUP_MAX_LABEL) return false;
+    }
+  }
+  if(!_backupRowsOk(t.rows)) return false;
+  if(t.rowsByMonth!=null){
+    if(typeof t.rowsByMonth!=='object' || Array.isArray(t.rowsByMonth)) return false;
+    var mks=Object.keys(t.rowsByMonth);
+    for(var j=0;j<mks.length;j++){
+      if(!/^\d{4}-\d{2}$/.test(mks[j])) return false;
+      if(!_backupRowsOk(t.rowsByMonth[mks[j]])) return false;
+    }
+  }
+  return true;
+}
+
+// Rows must be objects with string labels of sane length. Returns true for absent/empty.
+function _backupRowsOk(rows){
+  if(rows==null) return true;
+  if(!Array.isArray(rows)) return false;
+  if(rows.length>500) return false;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    if(r==null) continue;
+    if(typeof r!=='object' || Array.isArray(r)) return false;
+    if(r.label!=null && (typeof r.label!=='string' || r.label.length>_BACKUP_MAX_LABEL)) return false;
+    if(r.id!=null && typeof r.id!=='string') return false;
+  }
   return true;
 }
 
