@@ -89,7 +89,20 @@ function fmtMoney(v) { return _anaPrefix() + Number(v).toFixed(2).replace(/\B(?=
 function fmtMoneyShort(v) { var n = Number(v); if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'k'; return _anaPrefix() + n.toFixed(0); }
 function fmtMoneyCard(v) { var n = Number(v); if (n >= 1e6) return _anaPrefix() + (n / 1e6).toFixed(1) + 'M'; if (n >= 10000) return _anaPrefix() + (n / 1000).toFixed(0) + 'K'; if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'K'; return _anaPrefix() + n.toFixed(2); }
 function fmtPct(v) { return Number(v).toFixed(1) + '%'; }
-function mkLabel(mkStr) { var parts = mkStr.split('-'); return MONTHS_SHORT[parseInt(parts[1]) - 1] + " '" + parts[0].slice(2); }
+// Month keys are machine-generated ("YYYY-MM") - never user-typed. Anything else is a
+// corrupt or hostile blob (a crafted backup file can carry an arbitrary expense cell key,
+// whose pre-"|" segment becomes a month key). Validating the shape here means the year
+// segment below cannot carry markup into the callers that interpolate labels into
+// innerHTML. Digits and one hyphen only: no <, >, ", ' or & can survive.
+var _MK_RE = /^\d{4}-\d{2}$/;
+function isValidMK(mkStr) { return typeof mkStr === 'string' && _MK_RE.test(mkStr); }
+function mkLabel(mkStr) {
+  if (!isValidMK(mkStr)) return '';
+  var parts = mkStr.split('-');
+  var mon = MONTHS_SHORT[parseInt(parts[1], 10) - 1];
+  if (!mon) return '';                       // "2026-13" is shaped right but has no month
+  return mon + " '" + parts[0].slice(2);
+}
 
 function escapeHtml(s) {
   return String(s == null ? '' : s)
@@ -166,7 +179,10 @@ function allSpendingMonths(exp, subs) {
 
   if (exp && exp.cells) {
     Object.keys(exp.cells).forEach(function(k) {
-      var p = k.split('|'); if (p.length >= 3 && parseFloat(exp.cells[k]) > 0) mks.add(p[0]);
+      // isValidMK is the choke point for the whole class: every downstream consumer
+      // (mostRecentTrackedMonth, mkLabel, the month picker, the streak maths) reads from
+      // this set, so rejecting a malformed key here keeps a crafted blob out of all of them.
+      var p = k.split('|'); if (p.length >= 3 && isValidMK(p[0]) && parseFloat(exp.cells[k]) > 0) mks.add(p[0]);
     });
   }
 
