@@ -9,7 +9,10 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger the renewal scan
+      - name: Trigger renewal scan
         run: |
           curl -fsS -X POST "https://fiapp.onrender.com/internal/run-renewal-scan" \
-            -H "X-Scan-Secret: ${{ secrets.PUSH_SCAN_SECRET }}"
+            -H "X-Scan-Secret: $PUSH_SCAN_SECRET" \
+            --retry 5 --retry-delay 30 --retry-all-errors --max-time 120
+        env:
+          PUSH_SCAN_SECRET: ${{ secrets.PUSH_SCAN_SECRET }}
