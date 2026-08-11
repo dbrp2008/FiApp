@@ -174,7 +174,13 @@ function isBypass(url) {
 
 // Only cache responses we actually own and that succeeded.
 function cacheable(res) {
-  return res && res.ok && res.type === 'basic';
+  // !res.redirected matters now that the tracker pages redirect to /login when signed out.
+  // A SW fetch() follows redirects, so a logged-out precache of /expenses ends up holding a
+  // response that is ok and basic - but whose body is the LOGIN page. Caching that files
+  // login HTML under the tracker's URL, and a later offline visit serves it to a signed-in
+  // user. (Chrome also rejects cache.put for a redirected response outright, which would
+  // instead leave no offline page at all.) Either way the entry is wrong: skip it.
+  return res && res.ok && res.type === 'basic' && !res.redirected;
 }
 
 self.addEventListener('fetch', function (event) {
