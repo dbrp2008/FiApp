@@ -40,6 +40,16 @@ RATES_TTL = 3600
 _tax_cache: dict = {}
 TAX_TTL = 3600
 
+# Failed-login lockout. Rate limiting is keyed on IP, so it does nothing against an attacker
+# spread across many sources; this bounds attempts per *account* instead.
+#
+# The threshold is deliberately not tighter, and the window deliberately not longer, because
+# locking by username is itself a denial-of-service vector: anyone who knows a username can
+# trigger it. 10 attempts inside a 15-minute self-healing window makes online guessing
+# useless without handing an attacker a way to lock a real user out for any meaningful time.
+LOCKOUT_THRESHOLD = 10
+LOCKOUT_MINUTES = 15
+
 # Row/column/subscription limits — enforced server-side (via _within_limits) and client-side.
 MAX_SUBS = 100
 MAX_ROWS = 20
@@ -550,6 +560,11 @@ def init_db():
                         rates JSONB NOT NULL,
                         fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
+                    -- Failed-login lockout state (see LOCKOUT_THRESHOLD). failed_attempts is
+                    -- reset on any successful login; locked_until is a timestamp in the past
+                    -- or NULL when the account is usable.
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
                     -- Optimistic-concurrency version counters: bumped on every successful save;
                     -- a save whose base_version no longer matches is rejected with 409 (see W3).
                     ALTER TABLE user_data ADD COLUMN IF NOT EXISTS expenses_version INTEGER NOT NULL DEFAULT 0;
@@ -606,6 +621,22 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
             return jsonify({"error": "Not logged in"}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+def login_required_page(f):
+    """login_required for navigations rather than API calls.
+
+    login_required answers 401 JSON, which is right for fetch() and wrong for a page load -
+    the browser would render the JSON. This mirrors what /account already does: redirect to
+    the login screen. Kept separate rather than branching inside login_required so the API
+    contract cannot accidentally change to a redirect, which would turn a clear 401 into a
+    200 page body for every fetch() caller.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login_page'))
         return f(*args, **kwargs)
     return decorated
 
@@ -819,19 +850,28 @@ def login_page():
     return render_template('login.html',
         pending_google_email=session.get('pending_google_email'), **_ctx())
 
+# The four tracker pages are gated. They held no user data themselves - _ctx() yields
+# current_user=None when signed out and every /api/* call 401s - but serving the shell to
+# anonymous visitors meant the gate was "the API refuses", not "the page refuses". The
+# calculators (/currency, /tax, /interest) and the landing page stay public deliberately:
+# they work without an account, so gating them is a product decision, not a security one.
 @app.route('/expenses')
+@login_required_page
 def expenses():
     return render_template('expenses.html', **_ctx())
 
 @app.route('/subscriptions')
+@login_required_page
 def subscriptions_page():
     return render_template('subscriptions.html', **_ctx())
 
 @app.route('/analytics')
+@login_required_page
 def analytics():
     return render_template('analytics.html', **_ctx())
 
 @app.route('/income')
+@login_required_page
 def income():
     return render_template('income.html', **_ctx())
 
@@ -1052,10 +1092,18 @@ def auth_login():
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, password_hash, theme, personality, analytics_currency, themes_custom FROM users WHERE username=%s", (username,))
+                cur.execute("SELECT id, password_hash, theme, personality, analytics_currency, themes_custom, locked_until FROM users WHERE username=%s", (username,))
                 row = cur.fetchone()
         if not row:
             check_password_hash(_DUMMY_PWHASH, password)  # equalize timing
+            return jsonify({"error": "Invalid username or password"}), 401
+        if row[6] and row[6] > datetime.now(timezone.utc):
+            # Locked. Burn a hash and answer with the byte-identical wrong-password response.
+            # A distinct "account locked" message would confirm the username exists, and
+            # answering instantly would leak the same fact through timing to an attacker who
+            # never reads the body - which is exactly the pair of holes the no-such-user and
+            # Google-only branches above already close.
+            check_password_hash(_DUMMY_PWHASH, password)
             return jsonify({"error": "Invalid username or password"}), 401
         if not row[1]:
             # Google-only account: there's no password to check. Calling
@@ -1070,7 +1118,25 @@ def auth_login():
             check_password_hash(_DUMMY_PWHASH, password)
             return jsonify({"error": "This account signs in with Google - there's no password set. Use \"Continue with Google\" below."}), 401
         if not check_password_hash(row[1], password):
+            # Count it, and lock once the threshold is reached. Done in SQL rather than
+            # read-modify-write so concurrent guesses cannot each read the same old count and
+            # collectively overshoot the threshold without ever tripping it.
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE users
+                           SET failed_attempts = CASE WHEN failed_attempts + 1 >= %s
+                                                      THEN 0 ELSE failed_attempts + 1 END,
+                               locked_until    = CASE WHEN failed_attempts + 1 >= %s
+                                                      THEN NOW() + (%s || ' minutes')::interval
+                                                      ELSE locked_until END
+                         WHERE id = %s
+                    """, (LOCKOUT_THRESHOLD, LOCKOUT_THRESHOLD, str(LOCKOUT_MINUTES), row[0]))
             return jsonify({"error": "Invalid username or password"}), 401
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET failed_attempts=0, locked_until=NULL WHERE id=%s",
+                            (row[0],))
         session.clear()  # drop any pre-auth session state (fixation hardening)
         session.permanent = True
         session['user_id'] = row[0]
