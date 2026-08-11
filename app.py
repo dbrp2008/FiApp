@@ -1088,6 +1088,20 @@ def auth_login():
         return _jerr
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
+    if '\x00' in username:
+        # psycopg2 refuses NUL inside a string literal unconditionally - it is not an
+        # encoding problem, so no connection setting avoids it - and JSON is happy to carry
+        # \u0000. Unhandled, that ValueError surfaces as a 500 from an unauthenticated
+        # endpoint. Register and change_username never hit it because their charset gate
+        # runs first; login has no gate, so it needs this one.
+        #
+        # Rejecting only NUL rather than reusing register's ^[a-zA-Z0-9_.\-]+$ is deliberate:
+        # any account created before that rule existed would otherwise be locked out of its
+        # own login. A username cannot contain NUL, so this refuses nothing legitimate.
+        # Same generic message and the same hash burn as every other failure, so it adds no
+        # enumeration or timing signal.
+        check_password_hash(_DUMMY_PWHASH, password)
+        return jsonify({"error": "Invalid username or password"}), 401
     conn = get_db()
     try:
         with conn:
