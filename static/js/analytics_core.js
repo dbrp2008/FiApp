@@ -1,16 +1,4 @@
-/**
- * analytics_core.js
- * Shared analytics utilities used by analytics.html and index.html (snapshot).
- * Loaded via <script src="/static/js/analytics_core.js"> before any page script
- * that needs these functions.
- *
- * Currency note: _ratesCache is populated lazily by fiappCoreLoadRates().
- * calcSubCostForMonth gracefully degrades to the raw cost if rates aren't loaded.
- */
 
-// ---------------------------------------------------------------------------
-// Currency helpers (shared rates cache)
-// ---------------------------------------------------------------------------
 var _coreRatesCache = {};
 var _coreRatesReady = false;
 
@@ -32,12 +20,10 @@ function _coreToUSD(cost, currency) {
   var rate = _coreRatesCache[currency];
   return rate ? cost / rate : cost;
 }
-// Convert native-currency cost directly to home currency (USD-normalize then apply display rate).
+
 function _coreToHome(cost, currency) { return _coreToUSD(cost, currency) * _anaRate(); }
 function fiappCoreRatesLoaded() { return _coreRatesReady; }
 
-// Analytics-wide display currency. All analytics/snapshot totals are USD-normalized
-// internally (via _coreToUSD above); this only changes how fmtMoney* presents them.
 var _anaCcy = (function() {
   try { return localStorage.getItem('fiapp_analytics_currency') || 'USD'; } catch (e) { return 'USD'; }
 })();
@@ -45,8 +31,7 @@ function getAnalyticsCurrency() { return _anaCcy; }
 function setAnalyticsCurrency(code) {
   _anaCcy = code;
   try { localStorage.setItem('fiapp_analytics_currency', code); } catch (e) {}
-  // Persist to the account too, so the choice follows the user across devices
-  // (base.html's _CSRF global is defined by the time a user can click this).
+
   try {
     if (typeof _CSRF !== 'undefined' && _CSRF) {
       fetch('/api/prefs', {
@@ -60,16 +45,10 @@ function setAnalyticsCurrency(code) {
 function _anaRate() { return _anaCcy === 'USD' ? 1 : (_coreRatesCache[_anaCcy] || 1); }
 function _anaPrefix() { return _anaCcy === 'USD' ? '$' : _anaCcy + ' '; }
 
-// ---------------------------------------------------------------------------
-// Constants & formatters
-// ---------------------------------------------------------------------------
 var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function mk(y, m) { return y + '-' + String(m + 1).padStart(2, '0'); }
-// new Date('YYYY-MM-DD') parses as UTC midnight, which can land on the previous local
-// calendar day west of UTC, drifting subscription charge dates across month boundaries.
-// Parse the components explicitly so the result is local-midnight, matching monthStart/
-// monthEnd below (also built with new Date(year, month, day)).
+
 function _coreParseDate(s) {
   if (!s) return null;
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
@@ -89,18 +68,14 @@ function fmtMoney(v) { return _anaPrefix() + Number(v).toFixed(2).replace(/\B(?=
 function fmtMoneyShort(v) { var n = Number(v); if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'k'; return _anaPrefix() + n.toFixed(0); }
 function fmtMoneyCard(v) { var n = Number(v); if (n >= 1e6) return _anaPrefix() + (n / 1e6).toFixed(1) + 'M'; if (n >= 10000) return _anaPrefix() + (n / 1000).toFixed(0) + 'K'; if (n >= 1000) return _anaPrefix() + (n / 1000).toFixed(1) + 'K'; return _anaPrefix() + n.toFixed(2); }
 function fmtPct(v) { return Number(v).toFixed(1) + '%'; }
-// Month keys are machine-generated ("YYYY-MM") - never user-typed. Anything else is a
-// corrupt or hostile blob (a crafted backup file can carry an arbitrary expense cell key,
-// whose pre-"|" segment becomes a month key). Validating the shape here means the year
-// segment below cannot carry markup into the callers that interpolate labels into
-// innerHTML. Digits and one hyphen only: no <, >, ", ' or & can survive.
+
 var _MK_RE = /^\d{4}-\d{2}$/;
 function isValidMK(mkStr) { return typeof mkStr === 'string' && _MK_RE.test(mkStr); }
 function mkLabel(mkStr) {
   if (!isValidMK(mkStr)) return '';
   var parts = mkStr.split('-');
   var mon = MONTHS_SHORT[parseInt(parts[1], 10) - 1];
-  if (!mon) return '';                       // "2026-13" is shaped right but has no month
+  if (!mon) return '';
   return mon + " '" + parts[0].slice(2);
 }
 
@@ -110,9 +85,6 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// ---------------------------------------------------------------------------
-// Row helpers
-// ---------------------------------------------------------------------------
 function expRows(exp, mk2) {
   var byMonth = exp && exp.rowsByMonth && exp.rowsByMonth[mk2];
   return (byMonth && byMonth.length > 0) ? byMonth : (exp && exp.rows) || [];
@@ -121,23 +93,12 @@ function incRows(inc, mk2) {
   return (inc && inc.rowsByMonth && inc.rowsByMonth[mk2]) ? inc.rowsByMonth[mk2] : (inc && inc.rows) || [];
 }
 
-// Per-category totals for two months plus their deltas, for the "vs last month"
-// card. Child rows (parentId) roll up into their parent so the comparison is at
-// the same granularity the user budgets at; categories with no spend in either
-// month are dropped; sorted by absolute delta so the biggest movers lead.
-// Keyed by label rather than id, so a category renamed or re-created between
-// months still lines up.
 function momCategoryDeltas(exp, subs, curMk, prevMk) {
   function totals(mk2) {
     var rows = expRows(exp, mk2);
     var cells = (exp && exp.cells) || {};
     var out = {};
-    // Skip linked rows (the expense tracker's "Subscriptions" mirror): its per-month cells
-    // are a snapshot that only exists for months the user actually opened, so it reads 0 for
-    // any un-snapshotted month. Real subscription spend is added below from the subscription
-    // tracker via calcSubCostForMonth - the same way combinedCategoryTotals does it - so this
-    // card agrees with the hero "Top category" and the breakdown charts instead of contradicting
-    // them.
+
     rows.filter(function (r) { return r && !r.parentId && !r.linked; }).forEach(function (row) {
       var ids = [row.id].concat(
         rows.filter(function (r) { return r && r.parentId === row.id; })
@@ -171,17 +132,12 @@ function momCategoryDeltas(exp, subs, curMk, prevMk) {
   return rows;
 }
 
-// ---------------------------------------------------------------------------
-// Month collection
-// ---------------------------------------------------------------------------
 function allSpendingMonths(exp, subs) {
   var mks = new Set();
 
   if (exp && exp.cells) {
     Object.keys(exp.cells).forEach(function(k) {
-      // isValidMK is the choke point for the whole class: every downstream consumer
-      // (mostRecentTrackedMonth, mkLabel, the month picker, the streak maths) reads from
-      // this set, so rejecting a malformed key here keeps a crafted blob out of all of them.
+
       var p = k.split('|'); if (p.length >= 3 && isValidMK(p[0]) && parseFloat(exp.cells[k]) > 0) mks.add(p[0]);
     });
   }
@@ -206,12 +162,6 @@ function allSpendingMonths(exp, subs) {
   return Array.from(mks).sort();
 }
 
-// The month a streak/coverage calculation should treat as "now": the tracked month at
-// or before today, or the array's last entry if every tracked month is in the future.
-// A single future-dated outlier (test data, a mis-set clock, a pre-planned entry) can
-// end up as months[months.length-1] with a real gap right before it - anchoring here
-// instead of blindly trusting the array's tail stops that outlier from being mistaken
-// for "now" and hiding a genuine streak behind it.
 function mostRecentTrackedMonth(months) {
   if (!months.length) return null;
   var today = todayMK();
@@ -221,8 +171,6 @@ function mostRecentTrackedMonth(months) {
   return months[months.length - 1];
 }
 
-// Consecutive-month streak ending at mostRecentTrackedMonth(months), not at the raw
-// last array entry - see mostRecentTrackedMonth for why that distinction matters.
 function trackingStreakMonths(months) {
   if (!months.length) return 0;
   var anchor = mostRecentTrackedMonth(months);
@@ -234,9 +182,6 @@ function trackingStreakMonths(months) {
   return streak;
 }
 
-// ---------------------------------------------------------------------------
-// Row → month spending index
-// ---------------------------------------------------------------------------
 function buildRowMonthIndex(exp) {
   var idx = {};
   if (!exp || !exp.cells) return idx;
@@ -251,9 +196,6 @@ function buildRowMonthIndex(exp) {
   return idx;
 }
 
-// ---------------------------------------------------------------------------
-// Subscription cost helpers
-// ---------------------------------------------------------------------------
 function calcSubCostForMonth(row, subs, year, month) {
   var cols = subs.cols || [];
   var get = function(id) { return (subs.cells || {})[row.id + '|' + id] || ''; };
@@ -336,9 +278,6 @@ function subMonthlySnapshot(subs) {
   }).filter(Boolean);
 }
 
-// ---------------------------------------------------------------------------
-// Combined totals
-// ---------------------------------------------------------------------------
 function combinedMonthTotals(exp, subs, allMonths) {
   var totals = {};
   var subCosts = subCostPerMonth(subs, allMonths);
@@ -357,8 +296,6 @@ function combinedMonthTotals(exp, subs, allMonths) {
   return totals;
 }
 
-// combinedCategoryTotals builds its own row index internally so it has no
-// dependency on any page-level global state.
 function combinedCategoryTotals(exp, subs, monthKeys) {
   var totals = {};
   var set = new Set(monthKeys);
@@ -450,9 +387,6 @@ function combinedCategoryMonthlyData(exp, subs, months) {
   return map;
 }
 
-// ---------------------------------------------------------------------------
-// Month filtering
-// ---------------------------------------------------------------------------
 function filterMonths(allMonths, period) {
   if (period === 'all') return allMonths;
   var cap = todayMK();
@@ -460,9 +394,6 @@ function filterMonths(allMonths, period) {
   return actual.slice(-parseInt(period));
 }
 
-// ---------------------------------------------------------------------------
-// Income helpers
-// ---------------------------------------------------------------------------
 function incTrackerMonthTotals(inc) {
   var map = new Map();
   if (!inc || !inc.cells) return map;
@@ -471,8 +402,7 @@ function incTrackerMonthTotals(inc) {
   allMks.forEach(function(mk2) {
     var total = 0;
     var rows = incRows(inc, mk2);
-    // Months with an import.js-created "Imported" column only exist in colsByMonth (per-month
-    // fork), not in the global inc.cols — mirrors the same fallback combinedMonthTotals uses for exp.cols.
+
     var mCols = (inc.colsByMonth && inc.colsByMonth[mk2]) || inc.cols || [];
     var getCurrency = function(rowId) { return (inc.monthRowCurrencies || {})[mk2 + '|' + rowId] || 'USD'; };
     rows.filter(function(r) { return !r.parentId; }).forEach(function(row) {
@@ -499,10 +429,7 @@ function incTrackerMonthTotals(inc) {
 }
 
 function mergedMonthIncomes(incMap) {
-  // The Income Tracker is the sole source of income. The expenses panel's gross-income
-  // field used to be a fallback here, but manual entry was removed (it desynced from this
-  // total and stored raw USD without converting to the home currency), so there's nothing
-  // left to fall back to.
+
   var out = {};
   incMap.forEach(function(val, mk2) { out[mk2] = val; });
   return out;
