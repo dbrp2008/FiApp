@@ -1,18 +1,6 @@
-/* theme-core.js - custom-theme engine, loaded SYNCHRONOUSLY in <head> before the theme
- * boot script of every page (base/login/404/500). Keep it dependency-free and fast: it
- * runs before first paint, so anything slow here delays rendering.
- *
- * Model: built-in themes are only 'light' and 'dark' (CSS :root / html.dark). Everything
- * else is a CUSTOM theme: a named, per-user token dictionary applied as inline CSS custom
- * properties on <html> on top of a base-mode class (.dark or none). The 7 pre-redesign
- * themes (ocean/forest/sunset/midnight/rose/purple/indigo) live on as PRESETS below -
- * exact token snapshots of their old CSS blocks, so a migrated user sees zero change.
- */
 (function(){
   'use strict';
 
-  // ---- Token allowlists ----------------------------------------------------
-  // type: 'color' (hex or rgba), 'length' (Npx), 'shadow' (offset/blur/color layers).
   var LIGHT_TOKENS = {
     '--accent':'color','--accent-strong':'color','--link':'color','--link-text':'color',
     '--bg':'color','--panel-bg':'color','--panel-border':'color','--hover-bg':'color',
@@ -39,10 +27,6 @@
   for (k in LIGHT_TOKENS) ALL_TOKENS[k] = LIGHT_TOKENS[k];
   for (k in DARK_EXTRA_TOKENS) ALL_TOKENS[k] = DARK_EXTRA_TOKENS[k];
 
-  // ---- Presets ---------------------------------------------------------------
-  // Exact snapshots of the retired html.theme-* CSS blocks (values verbatim), filled to
-  // the full allowlist of their mode where the old block inherited a base value. seeds =
-  // the simple-editor starting positions {accent, gradFrom, gradTo, tint}.
   var PRESETS = {
     ocean: { mode:'light', seeds:{accent:'#0891b2',gradFrom:'#0891b2',gradTo:'#22d3ee',tint:'#f0f9ff'}, tokens:{
       '--accent':'#0891b2','--accent-strong':'#0e7490','--link':'#0891b2','--link-text':'#0e7490',
@@ -138,15 +122,13 @@
     }}
   };
 
-  // ---- Value validation (client mirror of the server rules) -----------------
   var HEX_RE = /^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
   var RGBA_RE = /^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|1\.0|0?\.\d{1,4})\s*)?\)$/;
   var LEN_RE = /^\d{1,2}px$/;
   var COLOR_PART = '(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|rgba?\\(\\s*\\d{1,3}\\s*,\\s*\\d{1,3}\\s*,\\s*\\d{1,3}\\s*(,\\s*(0|1|1\\.0|0?\\.\\d{1,4})\\s*)?\\))';
   var SHADOW_LAYER = '-?\\d{1,3}(px)?\\s+-?\\d{1,3}(px)?\\s+\\d{1,3}(px)?(\\s+-?\\d{1,3}(px)?)?\\s+' + COLOR_PART;
   var SHADOW_RE = new RegExp('^' + SHADOW_LAYER + '(\\s*,\\s*' + SHADOW_LAYER + '){0,2}$');
-  // Defense in depth: no colon/slash/semicolon/quote/brace ever - structurally rules out
-  // url(...), expression(...) payloads with URLs, and property breakout.
+
   var CHARSET_RE = /^[#0-9a-zA-Z().,%\s-]{1,120}$/;
 
   function fiappValidTokenValue(type, str){
@@ -157,7 +139,6 @@
     return false;
   }
 
-  // ---- Themes cache (localStorage) -------------------------------------------
   var CACHE_KEY = 'fiapp_themes_custom';
   var fiappThemesCache = {
     read: function(){
@@ -177,18 +158,11 @@
     }
   };
 
-  // ---- Apply -----------------------------------------------------------------
-  // Built-in --grad-from values, used to update <meta theme-color> without a
-  // getComputedStyle() reflow (which is costly in the pre-paint boot path).
   var GRAD_LIGHT = '#7c3aed', GRAD_DARK = '#a855f7';
   function _setMetaColorTo(hex){
     try { var m = document.querySelector('meta[name="theme-color"]'); if (m && hex) m.setAttribute('content', hex); } catch(_) {}
   }
 
-  // Accessibility repair: custom themes saved before the Studio enforced a link contrast
-  // floor can carry a --link-text too close to --bg (fails WCAG AA - the nav "back" link).
-  // Lift it toward the opposite luminance at apply time so links stay legible without the
-  // user having to re-save the theme. Hex pairs only; only ever increases contrast.
   function _lin(c){ c/=255; return c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
   function _hx(h){ h=h.replace('#',''); if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
   function _lum(rgb){ return 0.2126*_lin(rgb[0])+0.7152*_lin(rgb[1])+0.0722*_lin(rgb[2]); }
@@ -199,18 +173,15 @@
     var lt = tokens['--link-text'], bg = tokens['--bg'];
     if (!_HEXPAIR.test(lt||'') || !_HEXPAIR.test(bg||'')) return null;
     var bgRgb = _hx(bg);
-    if (_ct(_hx(lt), bgRgb) >= 4.5) return null;          // already legible
-    var target = _lum(bgRgb) < 0.5 ? 255 : 0;             // dark bg -> lighten, light bg -> darken
+    if (_ct(_hx(lt), bgRgb) >= 4.5) return null;
+    var target = _lum(bgRgb) < 0.5 ? 255 : 0;
     var rgb = _hx(lt);
     for (var i=0; i<12 && _ct(rgb, bgRgb) < 4.5; i++){
       rgb = [rgb[0]+(target-rgb[0])*0.12, rgb[1]+(target-rgb[1])*0.12, rgb[2]+(target-rgb[2])*0.12];
     }
     return _toHex(rgb);
   }
-  // Label colour for a filled (accent/gradient) surface: white or near-black, whichever
-  // contrasts better. Lets a filled button stay legible whether the accent is dark (indigo
-  // -> white text) or light (sunset orange -> dark text). Computed at apply time so every
-  // theme, including ones saved before this existed, is fixed with no re-save. Hex only.
+
   function _onColor(hex){
     if (!_HEXPAIR.test(hex||'')) return null;
     var rgb = _hx(hex);
@@ -232,24 +203,21 @@
       if (theme && theme.tokens) {
         mode = theme.mode === 'dark' ? 'dark' : 'light';
         el.classList.toggle('dark', mode === 'dark');
-        // Build the whole inline custom-property block as one string; assigning it via
-        // cssText below is a single style mutation (one recalc/paint) instead of dozens
-        // of setProperty/removeProperty calls each churning style invalidation.
+
         var _fixLink = _repairLinkText(theme.tokens);
         for (var tk in theme.tokens) {
           if (ALL_TOKENS[tk] && fiappValidTokenValue(ALL_TOKENS[tk], theme.tokens[tk])) {
             css += tk + ':' + ((tk === '--link-text' && _fixLink) ? _fixLink : theme.tokens[tk]) + ';';
           }
         }
-        // Adaptive label colours for filled accent/gradient buttons (computed, not stored).
+
         var _oa = _onColor(theme.tokens['--accent']);
         if (_oa) css += '--on-accent:' + _oa + ';';
         var _og = _onColor(_avgHex(theme.tokens['--grad-from'], theme.tokens['--grad-to']));
         if (_og) css += '--on-gradient:' + _og + ';';
         if (theme.tokens['--grad-from']) meta = theme.tokens['--grad-from'];
       } else {
-        // Cache miss (fresh device): keep the right base luminance so nothing flashes;
-        // the prefs convergence fetch repairs the exact tokens shortly after.
+
         ok = false;
         var fallbackDark = false;
         try { fallbackDark = localStorage.getItem('fiapp_theme_mode') === 'dark'; } catch(_) {}
@@ -260,8 +228,7 @@
     } else {
       el.classList.remove('dark');
     }
-    // One write: sets all custom properties for a custom theme, or clears them for a
-    // built-in. The inline style attribute is theme-only, so replacing it wholesale is safe.
+
     el.style.cssText = css;
     try { localStorage.setItem('fiapp_theme_mode', mode); } catch(_) {}
     if (document.querySelector('meta[name="theme-color"]')) _setMetaColorTo(meta);
@@ -269,38 +236,22 @@
     return { ok: ok, mode: mode };
   }
 
-  // Animated wrapper for user-initiated theme switches. Live CSS colour transitions
-  // force the browser to re-rasterize every backdrop-filter surface on every frame for
-  // the whole fade (visibly janky at fullscreen); a View Transition paints the old and
-  // new theme once each and cross-fades the two snapshots on the compositor at 60fps.
-  // The 'theme-switching' class (styles.css) suppresses per-element colour transitions
-  // so the "new" snapshot is captured fully switched. Falls back to an instant swap
-  // when the API is missing or the user prefers reduced motion.
-  // Software-rendered devices (no GPU compositing) cannot animate a fullscreen fade
-  // smoothly no matter the technique, so the fade self-disables - but only after TWO
-  // consecutive janky fades (a single transient hitch - DevTools open, a GC pause, a busy
-  // tab - must not punish a capable machine), and only for a day before it re-probes. Any
-  // smooth fade clears the strike count.
   var FADE_OFF_KEY = 'fiapp_theme_fade_off_until', FADE_STRIKE_KEY = 'fiapp_theme_fade_strikes',
       FADE_JANK_MS = 450, FADE_OFF_MS = 24 * 3600 * 1000;
   function _fadeDisabled(){
     try {
       var until = +localStorage.getItem(FADE_OFF_KEY) || 0;
       if (!until) return false;
-      // An earlier version of this heuristic locked the fade out for SEVEN days on a single
-      // janky frame. Softening the rule did not invalidate timestamps the old code had
-      // already written, so anyone marked under it stayed locked out long after the fix
-      // shipped - the bug looked like it had "come back". Any expiry further out than one
-      // current lockout window cannot have come from the current rule: discard it.
+
       if (until > Date.now() + FADE_OFF_MS){ localStorage.removeItem(FADE_OFF_KEY); return false; }
       return Date.now() < until;
     } catch(_) { return false; }
   }
   function _noteFadeDuration(ms){
-    // Hidden tabs skip the animation (~0ms) and can't false-trigger; only judge visible fades.
+
     if (document.visibilityState !== 'visible') return;
     try {
-      if (ms <= FADE_JANK_MS){ localStorage.removeItem(FADE_STRIKE_KEY); return; }   // smooth fade: reset strikes
+      if (ms <= FADE_JANK_MS){ localStorage.removeItem(FADE_STRIKE_KEY); return; }
       var strikes = (+localStorage.getItem(FADE_STRIKE_KEY) || 0) + 1;
       if (strikes >= 2){ localStorage.setItem(FADE_OFF_KEY, String(Date.now() + FADE_OFF_MS)); localStorage.removeItem(FADE_STRIKE_KEY); }
       else { localStorage.setItem(FADE_STRIKE_KEY, String(strikes)); }
@@ -311,8 +262,7 @@
     var el = document.documentElement, reduce = false;
     try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(_) {}
     if (!document.startViewTransition || reduce || _fadeDisabled()) {
-      // Instant swap - suppress the .2s colour transitions too, so the change is one
-      // clean repaint instead of 200ms of live-animating (and on weak devices janky) frames.
+
       el.classList.add('theme-switching');
       var r = fiappApplyTheme(value);
       if (afterApply) { try { afterApply(); } catch(_) {} }
@@ -332,7 +282,6 @@
     vt.finished.then(done, done);
   }
 
-  // ---- Boot + legacy migration ------------------------------------------------
   var LEGACY = { ocean:1, forest:1, sunset:1, midnight:1, rose:1, purple:1, indigo:1 };
   var MAX_THEMES = 10;
 
@@ -346,8 +295,7 @@
     try {
       var value = raw || 'light';
       if (LEGACY[value]) {
-        // One-time migration: the legacy built-in becomes a saved custom theme with the
-        // preset's exact tokens - zero visual change. Idempotent via the preset flag.
+
         var cache = fiappThemesCache.read();
         var existing = null;
         for (var i = 0; i < cache.themes.length; i++) {
@@ -375,8 +323,7 @@
             localStorage.setItem('fiapp_theme_mode', existing.mode);
           } catch(_) {}
         } else {
-          // Cap reached and no twin: keep the base luminance, leave the legacy value
-          // stored so a later boot (after the user frees a slot) can retry.
+
           value = PRESETS[raw].mode === 'dark' ? 'dark' : 'light';
         }
       }
@@ -388,7 +335,6 @@
     }
   }
 
-  // ---- Labels -----------------------------------------------------------------
   function fiappThemeLabel(value){
     if (value === 'dark') return '🌙 Dark';
     if (value && value.indexOf('custom:') === 0) {
