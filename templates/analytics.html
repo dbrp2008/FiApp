@@ -7,7 +7,6 @@
 <style>
     .app-canvas { max-width: 1040px; }
 
-    
     .stat-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
@@ -29,7 +28,6 @@
     .stat-label  { font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:.3rem; }
     .stat-value  { font-size:1.45rem; font-weight:800; color:var(--fg); line-height:1.1; overflow-wrap:anywhere; word-break:break-word; }
     .stat-sub    { font-size:.75rem; color:var(--muted); margin-top:.2rem; }
-
 
     .chart-card {
       background: var(--panel-bg);
@@ -54,7 +52,6 @@
     .chart-canvas-wrap { position:relative; height:300px; }
     .chart-canvas-wrap canvas { height:100% !important; max-height:300px; }
 
-    
     .btn-toggle {
       padding: .28rem .65rem;
       border: 1px solid var(--glass-border);
@@ -70,7 +67,6 @@
     /* Accent tint + --fg (not white-on-accent, which fails contrast for light accents like
        sunset's orange). --fg stays legible over a partial accent tint in every theme/mode. */
     .btn-toggle-active { background:color-mix(in srgb, var(--accent) 25%, transparent); color:var(--fg) !important; border-color:var(--accent); }
-
 
     .period-row {
       display: flex;
@@ -94,7 +90,6 @@
       cursor: pointer;
     }
 
-    
     .section-title {
       font-size: .7rem;
       font-weight: 700;
@@ -113,7 +108,6 @@
       background: var(--panel-border);
     }
 
-    
     #stat-panel-spend, #stat-panel-sub {
       background: var(--panel-bg);
       background: var(--glass-bg);
@@ -130,7 +124,6 @@
     #stat-panel-spend label, #stat-panel-sub label { font-size: .83rem; display: flex; align-items: center; gap: .4rem; cursor: pointer; color: var(--fg); }
     #stat-panel-spend input[type=checkbox], #stat-panel-sub input[type=checkbox] { cursor: pointer; accent-color: var(--accent); }
 
-    
     .chart-slideshow .chart-card { display:none; margin-bottom:0; }
     .chart-slideshow .chart-card.slide-active { display:block; }
     .slideshow-nav {
@@ -159,12 +152,10 @@
       text-align: center;
     }
 
-    
     .no-data { text-align:center; padding:2.5rem 1rem; color:var(--muted); font-size:.9rem; }
     .no-data a { color:var(--accent); text-decoration:none; }
     .no-data a:hover { text-decoration:underline; }
 
-    
     .insight-list { list-style:none; padding:0; margin:.65rem 0 0; }
     .insight-list li {
       display: flex;
@@ -179,7 +170,6 @@
     .insight-name { color:var(--fg); font-weight:600; }
     .insight-val  { color:var(--muted); white-space:nowrap; }
 
-    
     /* Month-over-month comparison table. Spending UP is bad (red), DOWN is good
        (green) - the same delta semantics the stat cards use. */
     .mom-table{width:100%;font-size:.82rem;border-collapse:collapse;}
@@ -195,7 +185,6 @@
       color: var(--muted);
       margin: .5rem 0 0;
     }
-
 
     /* The month-pill carries a backdrop-filter, which makes it a stacking context. Since the
        header sits before #root in the DOM, the hero stat cards (also stacking contexts) would
@@ -217,25 +206,16 @@
 {% block body_scripts %}
 <script nonce="{{ csp_nonce }}">
 
-// Shared utilities (escapeHtml, MONTHS_SHORT, mk, todayMK, fmtMoney*, mkLabel,
-// expRows, incRows, allSpendingMonths, buildRowMonthIndex, combinedMonthTotals,
-// combinedCategoryTotals, combinedCategoryMonthlyData, calcSubCostForMonth,
-// subCostPerMonth, subMonthlySnapshot, filterMonths, incTrackerMonthTotals,
-// mergedMonthIncomes, expMonthIncomes) are provided by analytics_core.js.
-
 const EXP_KEY  = 'fiapp_expenses_v4';
 const SUBS_KEY = 'fiapp_subs_v4';
 const INC_KEY  = 'fiapp_income_v1';
 const ANALYTICS_CURRENCIES = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'];
 
-// Batch D Wave 5: align chart typography with the rest of the app's self-hosted
-// Inter font instead of Chart.js's default sans-serif stack.
 if(typeof Chart!=='undefined') Chart.defaults.font.family="'Inter',system-ui,-apple-system,sans-serif";
 
 function themeColors(){
   const el=document.documentElement;
-  // Dark custom themes (incl. the migrated Midnight preset) always carry the .dark class,
-  // so the class check alone is authoritative now.
+
   const isDark=el.classList.contains('dark');
   const style=getComputedStyle(el);
   return {
@@ -246,8 +226,7 @@ function themeColors(){
   };
 }
 function refreshChartsTheme(){
-  // In-place recolor of every live chart — no destroy/recreate, so a theme switch just
-  // swaps colours instead of replaying each chart's entrance animation.
+
   const tc=themeColors();
   Object.values(Chart.instances).forEach(function(chart){
     const scales=chart.options.scales||{};
@@ -262,7 +241,6 @@ function refreshChartsTheme(){
     chart.update('none');
   });
 }
-
 
 function _anaIsWT(){try{var w=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');return !!(w&&w.active);}catch(_){return false;}}
 function loadExp(){
@@ -284,9 +262,6 @@ function loadInc(){
   }catch(e){ console.warn('Analytics: income data error',e.message); return null; }
 }
 
-
-
-
 function periodOptions(allMonths){
   const opts=[{label:'All time',value:'all'}];
   if(allMonths.length>=3)  opts.push({label:'Last 3 months', value:'3'});
@@ -297,29 +272,20 @@ function periodOptions(allMonths){
 const charts={};
 function destroyChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
 
-
 let trendType    = 'bar';
 let catBreakType = 'doughnut';
 let subBreakType = 'doughnut';
-
 
 let _exp, _subs, _inc, _allMonths, _monthTotals, _monthIncomes, _subRows, _subTrendMonths;
 
 let _rowMonthIdx = {};
 
-// Batch D Wave 5: single-month cursor for the hero stat strip (Net/Savings rate/Top
-// category), navigated via the header's month-pill - independent of the Period
-// selector below, which still controls the multi-month trend charts. Persisted so
-// the selected month survives navigating away and back (device-local view state,
-// same treatment as each tracker's own currentYear/currentMonth).
 const ANA_MONTH_KEY = 'fiapp_analytics_month';
 let _anaMK = null;
 function _saveAnaMK(){ try{ localStorage.setItem(ANA_MONTH_KEY,_anaMK); }catch(_){} }
 
-
 let _cm=[], _cTc={fg:'#1f2937',muted:'#6b7280',grid:'rgba(0,0,0,.07)',panel:'#f9fafb'},
     _cToday='', _cHasForecast=false, _cStatMs=[], _cActualMs=[];
-
 
 function setTrendType(t){
   trendType=t;
@@ -337,7 +303,6 @@ function setSubBreakType(t){
   renderSubBreakChart();
 }
 
-
 function mkToggleBtn(groupClass, val, label, isActive, handler){
   const b=document.createElement('button');
   b.className='btn-toggle '+groupClass+(isActive?' btn-toggle-active':'');
@@ -346,21 +311,18 @@ function mkToggleBtn(groupClass, val, label, isActive, handler){
   return b;
 }
 
-
 function renderAll(){
   _exp  = loadExp();
   _subs = loadSubs();
   _inc  = loadInc();
 
-  
   _rowMonthIdx = buildRowMonthIndex(_exp);
 
-  
   _allMonths    = allSpendingMonths(_exp, _subs);
   _monthTotals  = combinedMonthTotals(_exp, _subs, _allMonths);
   _monthIncomes = mergedMonthIncomes(incTrackerMonthTotals(_inc));
   _subRows      = subMonthlySnapshot(_subs);
-  
+
   _subTrendMonths = _allMonths;
 
   const root=document.getElementById('root');
@@ -381,11 +343,6 @@ function renderAll(){
 
   root.innerHTML='';
 
-  // Batch D Wave 5: the header's primary control is a month-pill (matching the
-  // trackers), navigating the hero stat strip (Net/Savings rate/Top category) one
-  // month at a time. The Period selector (All time/3/6/12 months) is a separate,
-  // secondary control further down that only scopes the multi-month trend charts -
-  // the two are independent so switching the hero month never resets chart range.
   if(_allMonths.length){
     if(!_anaMK){ try{ _anaMK=localStorage.getItem(ANA_MONTH_KEY); }catch(_){} }
     if(!_anaMK||!_allMonths.includes(_anaMK)) _anaMK=_allMonths[_allMonths.length-1];
@@ -395,12 +352,7 @@ function renderAll(){
       pill.setAttribute('data-wt','analytics-period');
       const prevBtn=document.createElement('button');
       prevBtn.id='ana-prev-btn'; prevBtn.setAttribute('aria-label','Previous month'); prevBtn.textContent='‹';
-      // A plain native <select class="month-jump">, exactly like the trackers' month nav.
-      // glass-picker.js delegates on that class and upgrades it to the glass scroll-wheel on
-      // desktop (fine pointer + hover), falling through to the native OS picker on touch -
-      // the same split this file used to hand-roll itself, minus the viewport-overflow bug
-      // that came with hand-rolling it (the bespoke menu centred on the pill, which sits at
-      // the header's right edge, so it routinely spilled off the right side of the page).
+
       const monthCtrl=document.createElement('select');
       monthCtrl.id='ana-month-sel'; monthCtrl.className='month-jump';
       monthCtrl.setAttribute('aria-label','Select month');
@@ -420,11 +372,8 @@ function renderAll(){
     renderHeroStats();
   }
 
-
-  // Phase 6: Financial Patterns panel (above stat grid)
   renderFinancialPatterns(root);
 
-  // Phase 4d: Win cards + Phase 7: Passive memory (both near top, before charts)
   renderWins(root);
   renderMemory(root);
 
@@ -432,7 +381,6 @@ function renderAll(){
   statGrid.id='stat-grid'; statGrid.className='stat-grid';
   root.appendChild(statGrid);
 
-  
   function addChartCard(id, title, target){
     target = target || root;
     const card=document.createElement('div');
@@ -450,16 +398,13 @@ function renderAll(){
     return card;
   }
 
-  // Same chrome as addChartCard, but the body is a plain container rather than a
-  // canvas - for cards whose content is a table (the month-over-month comparison).
   function addTableCard(id, title, target){
     target = target || root;
     const card=document.createElement('div');
     card.className='chart-card'; card.id='card-'+id;
     const hdr=document.createElement('div'); hdr.className='chart-card-header';
     const h2=document.createElement('h2'); h2.textContent=title;
-    // Collapse toggle: this card is a large table some users won't want taking up space.
-    // State persists in CARD_COLLAPSED_KEY so it stays the way they left it across reloads.
+
     const toggle=document.createElement('button');
     toggle.type='button'; toggle.className='btn-ghost btn-sm';
     toggle.setAttribute('aria-controls','body-'+id);
@@ -485,7 +430,6 @@ function renderAll(){
     root.appendChild(d);
   }
 
-  
   if(_allMonths.length){
     addSectionTitle('Spending');
     const periodRow=document.createElement('div');
@@ -509,12 +453,10 @@ function renderAll(){
     addChartCard('breakdown', 'Category Breakdown',             spendSlide);
     if(_allMonths.length>=2) addChartCard('cattrends', 'Category Trends Over Time', spendSlide);
     if(Object.keys(_monthIncomes).length) addChartCard('savings', 'Income vs Expenses', spendSlide);
-    // Standalone (not in the slideshow): a direct answer to "what changed since
-    // last month", which is the question the charts make you infer.
+
     if(_allMonths.length>=2) addTableCard('mom', 'vs last month');
   }
 
-  
   if(hasSubData){
     addSectionTitle('Subscriptions');
     const subStatGrid=document.createElement('div');
@@ -531,16 +473,14 @@ function renderAll(){
 
   reRenderCharts();
 
-  
   (function(){
     function makeSlideshow(slideEl, cardIds, titles){
       if(!slideEl) return;
-      
+
       const pairs = cardIds.map((id,i)=>({id,title:titles[i]}))
                            .filter(p=>document.getElementById('card-'+p.id));
       if(pairs.length < 2){ if(pairs.length===1) document.getElementById('card-'+pairs[0].id).classList.add('slide-active'); return; }
 
-      
       const nav=document.createElement('div'); nav.className='slideshow-nav';
       const prev=document.createElement('button'); prev.className='slideshow-nav-btn'; prev.textContent='◀'; prev.setAttribute('aria-label','Previous chart');
       const lbl=document.createElement('span'); lbl.className='slideshow-lbl'; lbl.id=slideEl.id+'-lbl';
@@ -557,10 +497,9 @@ function renderAll(){
           const active=i===idx;
           el.classList.toggle('slide-active', active);
           if(active){
-            
+
             const ch=Chart.getChart('chart-'+p.id);
-            // Deferred resize: the canvas can be detached (card re-rendered) before the
-            // timeout fires; Chart.js's resize reads canvas.ownerDocument (null) and throws.
+
             if(ch) setTimeout(()=>{ if(ch.canvas && ch.canvas.isConnected) ch.resize(); },0);
           }
         });
@@ -585,7 +524,6 @@ function renderAll(){
 
 }
 
-
 function _refreshPeriodCache(){
   const period=(document.getElementById('period-global')||{}).value||'all';
   _cm         = filterMonths(_allMonths, period);
@@ -596,12 +534,10 @@ function _refreshPeriodCache(){
   _cHasForecast = _cm.some(m=>m>_cToday);
 }
 
-
 const HIDDEN_STATS_KEY='fiapp_analytics_hidden_stats';
 function hiddenStats(){ return JSON.parse(localStorage.getItem(HIDDEN_STATS_KEY)||'[]'); }
 function setHiddenStats(arr){ localStorage.setItem(HIDDEN_STATS_KEY,JSON.stringify(arr)); }
-// Per-card collapse state (currently just the month-over-month table card). Kept separate
-// from HIDDEN_STATS_KEY, which is specifically the stat-box Customize list in the grids.
+
 const CARD_COLLAPSED_KEY='fiapp_analytics_cards_collapsed';
 function collapsedCards(){ try{ return JSON.parse(localStorage.getItem(CARD_COLLAPSED_KEY)||'[]'); }catch(_){ return []; } }
 function isCardCollapsed(id){ return collapsedCards().includes(id); }
@@ -642,11 +578,6 @@ function buildStatPanel(panelId){
   });
 }
 
-
-// Batch D Wave 5: hero stat strip (Net this month + delta, Savings rate + bar,
-// Top category), scoped to a single month navigated via the header's month-pill -
-// the mockup's headline view. All the detailed multi-month stat cards / charts
-// below are untouched and still driven by the separate Period selector.
 function shiftAnaMonth(d){
   const idx=_allMonths.indexOf(_anaMK);
   const newIdx=idx+d;
@@ -720,9 +651,6 @@ function renderHeroStats(){
 
   root.insertBefore(strip, root.firstChild);
 
-  // The month-over-month card mirrors whatever month is selected here, so refresh it on
-  // every month change (no-op on the first call, before the card DOM exists - reRenderCharts
-  // renders it once it does).
   renderMoMCard(_anaMK);
 }
 
@@ -778,7 +706,7 @@ function renderStatCards(){
     const costliest=_subRows.reduce((a,b)=>a.monthly>b.monthly?a:b,_subRows[0]);
     if(costliest) statGrid.appendChild(sc('costliest-sub','Costliest Sub',costliest.name,fmtMoney(costliest.monthly)+'/mo'));
   }
-  
+
   (function(){
     var grid=document.getElementById('stat-grid');
     if(!grid||document.getElementById('stat-panel-spend')){
@@ -798,7 +726,6 @@ function renderStatCards(){
     grid.parentNode.insertBefore(panel,grid);
   })();
 }
-
 
 function renderSubStatCards(){
   const subStatGrid=document.getElementById('sub-stat-grid');
@@ -842,7 +769,6 @@ function renderSubStatCards(){
   })();
 }
 
-
 function _setChartAria(canvas, label){
   canvas.setAttribute('role','img');
   canvas.setAttribute('aria-label', label);
@@ -872,10 +798,9 @@ function renderTrendChart(){
   const labels     =_cm.map(mkLabel);
   const lastActualTrendIdx=_cm.reduce((last,m,i)=>m<=_cToday?i:last,-1);
   const actualVals =_cm.map(m=>m<=_cToday?parseFloat((_monthTotals[m]||0).toFixed(2)):null);
-  
+
   const forecastVals=_cm.map((m,i)=>m>_cToday?parseFloat((_monthTotals[m]||0).toFixed(2)):(trendType==='line'&&i===lastActualTrendIdx)?parseFloat((_monthTotals[m]||0).toFixed(2)):null);
 
-  
   const nonNull=actualVals.filter(v=>v!==null);
   const maData=nonNull.length>=3 ? actualVals.map((v,i,arr)=>{
     if(v===null) return null;
@@ -918,7 +843,6 @@ function renderTrendChart(){
   _setChartAria(trendCanvas,'Spending trend, '+labels[0]+'–'+labels[labels.length-1]+(_peakIdx>=0?'. Peak: '+fmtMoney(_peakVal)+' in '+labels[_peakIdx]:'')+'.');
 }
 
-
 function renderBreakdownChart(){
   const breakCanvas=document.getElementById('chart-breakdown');
   if(!breakCanvas) return;
@@ -931,7 +855,7 @@ function renderBreakdownChart(){
     ctrl.querySelectorAll('.tt-cat').forEach(b=>b.classList.toggle('btn-toggle-active',b.dataset.v===catBreakType));
   }
   destroyChart('breakdown');
-  
+
   const actualMs=_cm.filter(m=>m<=_cToday);
   const forecastMs=_cm.filter(m=>m>_cToday);
   const catTotals=combinedCategoryTotals(_exp,_subs,actualMs);
@@ -968,14 +892,13 @@ function renderBreakdownChart(){
       return `<li><span class="insight-name">${escapeHtml(name)}</span>`+
         `<span class="insight-val">${fmtMoney(d.value)} <span style="color:var(--muted)">(${pct}%)</span>${fcTag}</span></li>`;
     }).join('');
-    
+
     Object.entries(catFcTotals).filter(([n])=>!catTotals[n]).forEach(([name,d])=>{
       list.innerHTML+=`<li><span class="insight-name">${escapeHtml(name)}</span>`+
         `<span class="insight-val"><span style="color:var(--muted)">-</span> <span style="color:var(--muted);font-size:.8em">+${fmtMoney(d.value)} forecast</span></span></li>`;
     });
   }
 }
-
 
 function renderCatTrendsChart(){
   const catTrendsCanvas=document.getElementById('chart-cattrends');
@@ -1006,7 +929,6 @@ function renderCatTrendsChart(){
   }
 }
 
-
 function renderSavingsChart(){
   const savingsCanvas=document.getElementById('chart-savings');
   if(!savingsCanvas) return;
@@ -1035,7 +957,6 @@ function renderSavingsChart(){
     _setChartAria(savingsCanvas,'Income vs expenses over '+incMonths.length+' month'+(incMonths.length!==1?'s':'')+': total income '+fmtMoney(_totInc)+', total expenses '+fmtMoney(_totExp)+'.');
   }
 }
-
 
 function renderSubBreakChart(){
   const subBreakCanvas=document.getElementById('chart-subbreak');
@@ -1084,7 +1005,6 @@ function renderSubBreakChart(){
     fmtMoney(total)+'/mo · '+fmtMoney(total*12)+'/yr';
 }
 
-
 function renderSubTrendChart(){
   const subTrendCanvas=document.getElementById('chart-subtrend');
   if(!subTrendCanvas) return;
@@ -1122,9 +1042,6 @@ function renderSubTrendChart(){
   _setChartAria(subTrendCanvas,'Subscription cost trend, '+labels[0]+'–'+labels[labels.length-1]+'. Latest: '+fmtMoney(costs[costs.length-1])+'/mo.');
 }
 
-
-
-// ── Phase 6: Financial Patterns panel ──────────────────────────────────────
 function renderFinancialPatterns(root){
   if(_allMonths.length < 2) return;
   const panel=document.createElement('details');
@@ -1141,10 +1058,6 @@ function renderFinancialPatterns(root){
   const grid=document.createElement('div');
   grid.className='stat-grid'; grid.style.marginTop='.75rem';
 
-  // Escaped at the sink rather than at each call site: no caller passes intentional markup,
-  // and two of them interpolate a month label derived from expense cell KEYS - which a
-  // crafted backup file controls. analytics_core.js validates those keys now, so this is the
-  // second layer, and it also covers any future caller that forgets.
   function addIndicator(icon, text){
     const card=document.createElement('div'); card.className='stat-card';
     card.innerHTML='<div style="font-size:1.1rem;margin-bottom:.35rem">'+escapeHtml(icon)+'</div>'
@@ -1152,17 +1065,11 @@ function renderFinancialPatterns(root){
     grid.appendChild(card);
   }
 
-  // A future-dated outlier month (test data, a mis-set clock, a pre-planned entry)
-  // sorts to the end of _allMonths, so anything that assumed the last entry means
-  // "now" would sit past a real gap and read as broken - anchor at today instead
-  // (see mostRecentTrackedMonth/trackingStreakMonths in analytics_core.js).
   const _recentMK=mostRecentTrackedMonth(_allMonths);
 
-  // 1. Tracking streak
   const streak=trackingStreakMonths(_allMonths);
   addIndicator('🔥', streak>=2?streak+'-month streak of data':'Track 2+ months in a row to build a streak');
 
-  // 2. Goals met last full month
   const lastFull=_recentMK;
   let goalsSet=0, goalsMet=0;
   if(_exp&&_exp.goals){
@@ -1179,7 +1086,6 @@ function renderFinancialPatterns(root){
   }
   if(goalsSet>0) addIndicator('🎯', goalsMet+' of '+goalsSet+' categories under goal in '+mkLabel(lastFull));
 
-  // 3. Monthly coverage
   if(_allMonths.length>=2){
     const first=_allMonths[0]; const last=_recentMK;
     const [fy,fm]=first.split('-').map(Number); const [ly,lm]=last.split('-').map(Number);
@@ -1188,7 +1094,6 @@ function renderFinancialPatterns(root){
     addIndicator('📅', trackedInRange+' of '+totalPossible+' months tracked');
   }
 
-  // 4. Subscription spend trend (last 3 months)
   const _recentIdx=_allMonths.indexOf(_recentMK);
   if(_subs&&_recentIdx>=2){
     const last3=_allMonths.slice(_recentIdx-2,_recentIdx+1);
@@ -1200,7 +1105,6 @@ function renderFinancialPatterns(root){
     }
   }
 
-  // 5. Savings rate last full month
   const lastInc=_monthIncomes[lastFull]||0;
   const lastSpend=_monthTotals[lastFull]||0;
   if(lastInc>0){
@@ -1212,17 +1116,14 @@ function renderFinancialPatterns(root){
   root.appendChild(panel);
 }
 
-// ── Phase 4d: Win cards ────────────────────────────────────────────────────
 function renderWins(root){
   const today=new Date();
   const py=today.getMonth()===0?today.getFullYear()-1:today.getFullYear();
   const pm=today.getMonth()===0?11:today.getMonth()-1;
   const prevMk=String(py)+'-'+String(pm+1).padStart(2,'0');
-  // No _allMonths guard — goals/income can exist even without expense cells
 
   const wins=[];
 
-  // Win 1: categories under goal last month
   const goals=(_exp&&_exp.goals)||{};
   const cells=(_exp&&_exp.cells)||{};
   let underCount=0;
@@ -1239,7 +1140,6 @@ function renderWins(root){
   });
   if(underCount>=1) wins.push('🎯 Under budget in '+underCount+' categor'+(underCount===1?'y':'ies')+' last month.');
 
-  // Win 2: subscription cost dropped vs month before
   if(_subs&&_subs.rows){
     const ppy=pm===0?py-1:py, ppm=pm===0?11:pm-1;
     const ppMk=String(ppy)+'-'+String(ppm+1).padStart(2,'0');
@@ -1249,11 +1149,10 @@ function renderWins(root){
       wins.push('📉 Subscriptions dropped $'+(subPP-subPrev).toFixed(0)+' vs the month before.');
   }
 
-  // Win 3: savings row total + free money rate
   const prevGross=_monthIncomes[prevMk]||0;
   const prevSpent=_monthTotals[prevMk]||0;
   if(prevGross>0){
-    // Separate savings rows (/sav/i label) from regular spending
+
     let savingsTotal=0;
     expRows(_exp,prevMk).forEach(function(row){
       if(!row.parentId&&/sav/i.test(row.label||'')){
@@ -1283,7 +1182,6 @@ function renderWins(root){
   root.appendChild(details);
 }
 
-// ── Phase 7: Passive Memory panel ──────────────────────────────────────────
 function renderMemory(root){
   if(_allMonths.length < 2) return;
   const section=document.createElement('div');
@@ -1293,7 +1191,6 @@ function renderMemory(root){
   const ul=document.createElement('ul'); ul.className='insight-list';
   const observations=[];
 
-  // 1. Most consistent category
   const rowIdx=buildRowMonthIndex(_exp);
   let mostConsistentLabel='', mostConsistentCount=0;
   Object.entries(rowIdx).forEach(([label,months])=>{
@@ -1302,7 +1199,6 @@ function renderMemory(root){
   if(mostConsistentLabel&&mostConsistentCount>=2)
     observations.push(mostConsistentLabel+' has appeared in '+mostConsistentCount+' of your tracked months.');
 
-  // 2. Spending context for most recent month
   const recentMK=_allMonths[_allMonths.length-1];
   const recentTotal=_monthTotals[recentMK]||0;
   if(_allMonths.length>=3&&recentTotal>0){
@@ -1317,7 +1213,6 @@ function renderMemory(root){
     }
   }
 
-  // 3. Income trajectory
   const incMonths=_allMonths.filter(m=>(_monthIncomes[m]||0)>0);
   if(incMonths.length>=3){
     const incVals=incMonths.map(m=>_monthIncomes[m]||0);
@@ -1327,7 +1222,6 @@ function renderMemory(root){
     if(Math.abs(avgDelta)>5) observations.push('Income has '+( avgDelta>0?'grown':'dropped')+' ~$'+Math.abs(avgDelta).toFixed(0)+'/month on average.');
   }
 
-  // 4. Best savings month
   let bestMK='', bestRate=-Infinity;
   _allMonths.forEach(mk2=>{
     const inc2=_monthIncomes[mk2]||0; const spend2=_monthTotals[mk2]||0;
@@ -1335,7 +1229,6 @@ function renderMemory(root){
   });
   if(bestMK&&bestRate>0) observations.push('Your best savings month was '+mkLabel(bestMK)+' (saved '+Math.round(bestRate*100)+'%).');
 
-  // 5. Subscription anniversary (any sub running ≥12 months)
   if(_subs&&_subs.rows&&_subs.cols){
     const today=new Date();
     const dateCol=(_subs.cols||[]).find(c=>c.ctype==='date');
@@ -1364,8 +1257,6 @@ function renderMemory(root){
   root.appendChild(section);
 }
 
-// Month-over-month category comparison. Spending UP is red and DOWN is green,
-// matching the delta semantics used everywhere else in the app.
 function renderMoMCard(curMk){
   const el=document.getElementById('body-mom');
   if(!el) return;
@@ -1402,23 +1293,14 @@ function reRenderCharts(){
   renderMoMCard(_anaMK);
 }
 
-
 (async()=>{
   const _wtActive=(function(){try{const w=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');return !!(w&&w.active);}catch(e){return false;}})();
   if(_wtActive && typeof window._wtSeedAnalytics==='function') window._wtSeedAnalytics();
 
-  // Local-first: paint from localStorage immediately; rates and server data
-  // arrive in the background and re-render. A dead or stalled connection can
-  // never leave this page stuck on a loading message.
   renderAll();
-  // renderAll() computes _monthTotals/_monthIncomes/_subRows via _coreToHome, which is a
-  // no-op until rates load (an unconverted foreign-currency amount is left as its raw
-  // number - e.g. 444,444 KRW counted as 444,444 EUR). So once rates arrive we must re-run
-  // renderAll() to recompute those aggregates, NOT just reRenderCharts() (which only redraws
-  // charts against the already-computed, still-unconverted totals). fmtMoney formatting
-  // alone was never the issue; the monthly totals themselves need reconverting.
+
   fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) renderAll(); });
-  // If rates failed (API down, rate-limited, etc.), retry once after 3s.
+
   setTimeout(()=>{ if(!fiappCoreRatesLoaded()) fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) renderAll(); }); },3000);
 
   try{
@@ -1429,14 +1311,10 @@ function reRenderCharts(){
         fetch('/api/load/subs'),
         fetch('/api/load/income')
       ]);
-      // Keep each tracker's own last-viewed month (per-device view state) so visiting
-      // Analytics doesn't reset which month a tracker reopens on. Keys with unsynced
-      // offline edits (__dirty) are skipped entirely: local data wins until it flushes.
+
       const _keepMonth=(key,d)=>{try{const _ln=JSON.parse(localStorage.getItem(key)||'null');if(_ln&&_ln.currentYear!=null){d.currentYear=_ln.currentYear;d.currentMonth=_ln.currentMonth;}}catch(_){}return d;};
       let _changed=false;
-      // Semantic comparison: JSONB round-trips reorder object keys, so raw-string
-      // equality misfires. This page does not load tracker-sync.js, so a local
-      // recursive equal is inlined instead of reusing _deepEqual.
+
       const _jsonEq=(x,y)=>{
         if(x===y) return true;
         if(!x||!y||typeof x!=='object'||typeof y!=='object') return false;
@@ -1463,20 +1341,15 @@ function reRenderCharts(){
   }catch(e){}
 })();
 
-
 window.addEventListener('storage', e=>{
   if(e.key===EXP_KEY||e.key===SUBS_KEY||e.key===INC_KEY) renderAll();
 });
 
 window.addEventListener('resize', ()=>{
-  // Only resize charts whose canvas is still in the document. A chart left in the registry
-  // after its card/canvas was removed from the DOM has a detached canvas, and Chart.js's
-  // resize reads canvas.ownerDocument (null) -> TypeError. Skip those instead of throwing.
+
   Object.values(charts).forEach(c=>{ if(c && c.canvas && c.canvas.isConnected) c.resize(); });
 });
 
-// Recolor charts in place when theme class changes on <html> (stat cards use CSS
-// variables already, so only the canvases need a JS-driven refresh).
 new MutationObserver(function(ms){
   ms.forEach(function(m){ if(m.attributeName==='class') refreshChartsTheme(); });
 }).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
