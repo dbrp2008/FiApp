@@ -35,12 +35,46 @@
       'fiapp_walkthrough_v1','fiapp_wt_backup_v1','fiapp_template_dismissed',
       'fiapp_personality','fiapp_analytics_currency',
       'fiapp_currency_confirmed','fiapp_currency_confirm_pending',
-      'fiapp_theme','fiapp_theme_mode','fiapp_themes_custom','fiapp_themes_dirty'];
+      'fiapp_theme','fiapp_theme_mode','fiapp_themes_custom','fiapp_themes_dirty',
+      // Dismissed hints and per-user markers. None of these hold figures - they are booleans
+      // saying "this user has seen X" - but they are still that user's state, so a second
+      // account on the same device was inheriting their onboarding progress.
+      'fiapp_goal_hint_dismissed','fiapp_currency_hint_dismissed','fiapp_home_insights',
+      'fiapp_income_wt_session','fiapp_wt_analytics_v1'];
+
+    // Keys whose real name carries a suffix (a month key, a row id), so they cannot be listed
+    // literally. Swept by prefix instead.
+    //
+    // Deliberately NOT swept: fiapp_import_*_<user>, fiapp_wt_u_<user> and
+    // fiapp_exchange_rates_<code>. The first two already carry the account name, so they are
+    // isolated by construction and wiping them would throw away the *current* user's data
+    // alongside the previous one's. The third is public rate data belonging to no account.
+    window.FIAPP_USER_DATA_PREFIXES=['fiapp_snap_full_','fiapp_rec_dismissed_'];
+
+    // One purge, three callers (this detector, the fiapp_last_user detector further down, and
+    // logout). Every previous round of this bug came from those three drifting apart, so the
+    // list is no longer something a caller can partially apply.
+    window.fiappPurgeUserData=function(){
+      try {
+        window.FIAPP_USER_DATA_KEYS.forEach(function(k){localStorage.removeItem(k);});
+        // Collect first, delete after: removing while iterating localStorage by index
+        // reindexes it and silently skips every other match.
+        var doomed=[];
+        for(var i=0;i<localStorage.length;i++){
+          var k=localStorage.key(i);
+          if(!k) continue;
+          for(var p=0;p<window.FIAPP_USER_DATA_PREFIXES.length;p++){
+            if(k.indexOf(window.FIAPP_USER_DATA_PREFIXES[p])===0){ doomed.push(k); break; }
+          }
+        }
+        doomed.forEach(function(k){localStorage.removeItem(k);});
+      } catch(e) {}
+    };
     try {
       var _srv={{ current_user|default(none)|tojson }};
       var _stored=localStorage.getItem('fiapp_auth_user');
       if(_stored && _stored!==_srv){
-        window.FIAPP_USER_DATA_KEYS.forEach(function(k){localStorage.removeItem(k);});
+        window.fiappPurgeUserData();
         localStorage.removeItem('fiapp_auth_user');
       }
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
@@ -239,6 +273,13 @@
     }
     if(missing||dirty||neverLoaded){
       fiappFetchTimeout('/api/prefs',8000,{headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(srv){
+        // Restore the home-currency confirmation from the account. It rides along on this
+        // request rather than making its own: the conditions that clear the local flag (an
+        // account switch, or a logout) are exactly the ones that empty the theme cache, so
+        // this fetch is already happening whenever the flag needs restoring.
+        try{
+          if(srv&&srv.currency_confirmed) localStorage.setItem('fiapp_currency_confirmed','1');
+        }catch(_){}
         var srvThemes=(srv&&srv.themes_custom&&srv.themes_custom.themes)||[];
         var cache=fiappThemesCache.read();
         var changed=false;
@@ -339,7 +380,10 @@
   window.setTheme=setTheme;
   var toggleThemeMenu=toggleAcctMenu;
 
-  var FIAPP_USER_KEYS=(window.FIAPP_USER_DATA_KEYS||[]).concat(['fiapp_auth_user','fiapp_last_user']);
+  // Logout goes through the same purge as the account-switch detectors, then additionally
+  // clears BOTH detectors: with the data gone a stale detector only causes a redundant purge,
+  // whereas leaving one set could suppress a later one.
+  var FIAPP_LOGOUT_DETECTORS=['fiapp_auth_user','fiapp_last_user'];
   function logOutStep(btn){
     if(btn.dataset.confirm!=='1'){
       btn.dataset.confirm='1';
@@ -354,7 +398,8 @@
       },3000);
       return;
     }
-    FIAPP_USER_KEYS.forEach(function(k){localStorage.removeItem(k);});
+    if(window.fiappPurgeUserData) window.fiappPurgeUserData();
+    FIAPP_LOGOUT_DETECTORS.forEach(function(k){localStorage.removeItem(k);});
 
     fiappClearSWCache().then(function(){
       return fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':_CSRF}});
@@ -544,7 +589,7 @@
       var _lastUser=localStorage.getItem(_LAST_USER_KEY);
       if(_lastUser!==_wtUser){
 
-        (window.FIAPP_USER_DATA_KEYS||[]).forEach(function(k){localStorage.removeItem(k);});
+        if(window.fiappPurgeUserData) window.fiappPurgeUserData();
         localStorage.setItem(_LAST_USER_KEY,_wtUser);
       }
     })();
