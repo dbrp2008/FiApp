@@ -1,28 +1,12 @@
-/* Glass scroll-wheel picker — desktop-only progressive enhancement for native <select>.
- *
- * Phones/tablets are left completely untouched: the gate below only enables the wheel for
- * devices with a precise pointer + hover (i.e. a mouse), so the native iOS/Android picker
- * still appears on touch screens.
- *
- * The real <select> stays in the DOM as the source of truth. On desktop we intercept the
- * click-to-open, show a glass scroll-wheel, and on selection write select.value + dispatch a
- * native 'change'. Every existing change-handler (income.js / expenses.js / subscriptions.js /
- * currency.html) therefore keeps working with zero changes to those files. A single delegated
- * listener also means per-row currency selects that are re-rendered are covered automatically.
- */
 (function(){
   'use strict';
 
-  // Desktop only. Touch devices fall through to their native OS picker.
   if(!(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches)) return;
 
-  // Month nav + currency selects, the subscriptions "add service" picker, and the
-  // per-row Billing/Trial/Status selects (data-ctype distinguishes which despite all
-  // three sharing the .c-sel class).
   var SELECTOR = 'select.month-jump, select.cell-curr-sel, select#curr-sel, select#currency_i, select#currency_o, select#sub-sel, select#home-currency-sel, select.c-sel[data-ctype="billing"], select.c-sel[data-ctype="trial"], select.c-sel[data-ctype="status"]';
   var _reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  var open = null; // {select, overlay, wheel, list, items, idx, onKey, reposition, raf}
+  var open = null;
 
   function close(returnFocus){
     if(!open) return;
@@ -80,9 +64,6 @@
     var band = document.createElement('div'); band.className = 'gp-band'; wheel.appendChild(band);
     var list = document.createElement('div'); list.className = 'gp-list';
 
-    // Options grouped under an <optgroup> get a grayed-out, unselectable label row inserted
-    // before them. The label is appended to the scroll list but never pushed into `items`, so
-    // keyboard nav, wheel-scroll snapping, and click handling all skip straight over it.
     var items = [];
     var lastGroup = null;
     Array.prototype.forEach.call(select.options, function(opt){
@@ -99,8 +80,7 @@
       it.type = 'button'; it.className = 'gp-item'; it.textContent = opt.textContent;
       it.setAttribute('role', 'option'); it.dataset.value = opt.value;
       if(opt.disabled) it.disabled = true;
-      // Carry over any colour the source <option> was given (e.g. status colour-coding)
-      // so the wheel mirrors it instead of falling back to the plain --fg colour.
+
       if(opt.style.color) it.style.color = opt.style.color;
       it.addEventListener('click', function(){ commit(select, opt.value); close(true); });
       list.appendChild(it); items.push(it);
@@ -123,7 +103,6 @@
       else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); commit(select, open.items[open.idx].dataset.value); close(true); }
     }
 
-    // Index of the item whose centre is nearest the band at the current scroll position.
     function nearestIdx(){
       var centre = list.scrollTop + list.clientHeight / 2, best = 0, bestD = Infinity;
       for(var i = 0; i < items.length; i++){
@@ -136,7 +115,6 @@
 
     open = {select: select, overlay: overlay, wheel: wheel, list: list, items: items, idx: selIdx, onKey: onKey, reposition: reposition, raf: null, snapT: null};
 
-    // Highlight whichever item is nearest the centre band as the user free-scrolls.
     list.addEventListener('scroll', function(){
       if(!open || open.raf) return;
       open.raf = requestAnimationFrame(function(){
@@ -146,10 +124,6 @@
       });
     });
 
-    // Mouse-wheel / trackpad: scroll the list ourselves so it works uniformly wherever the
-    // cursor sits over the wheel. (Native scroll only moves the exact sub-element under the
-    // pointer, and mandatory snap kept re-anchoring to the cursor's item, so scrolling stalled
-    // until you nudged the pointer to another row.) Snap onto the nearest item once it settles.
     wheel.addEventListener('wheel', function(e){
       e.preventDefault();
       var unit = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? list.clientHeight : 1);
@@ -161,7 +135,7 @@
 
     reposition();
     markActive(selIdx);
-    // Jump (no animation) so the current value starts centred under the band.
+
     var cur = items[selIdx];
     if(cur) list.scrollTop = cur.offsetTop - (list.clientHeight / 2) + (cur.offsetHeight / 2);
 
@@ -170,10 +144,6 @@
     window.addEventListener('scroll', reposition, true);
   }
 
-  // Intercept mouse opening of a matching select; preventDefault stops the native popup.
-  // window._wtSelAllowed, when set, is the walkthrough's guard asking us to back off for a
-  // select it isn't currently letting the user touch - skip opening and let its own click
-  // handler take the event instead, so a disallowed select's wheel never appears at all.
   document.addEventListener('mousedown', function(e){
     var sel = e.target.closest && e.target.closest(SELECTOR);
     if(!sel || sel.disabled) return;
@@ -184,7 +154,6 @@
     openFor(sel);
   }, true);
 
-  // Keyboard opening when a matching select is focused.
   document.addEventListener('keydown', function(e){
     if(open) return;
     var sel = e.target.closest && e.target.closest(SELECTOR);
