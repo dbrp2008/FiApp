@@ -30,7 +30,6 @@
        forecast-bar/close-bar (which need attention; this is just orientation). */
     .month-context-note{display:none;font-size:.78rem;color:var(--muted);margin:-.25rem 0 .65rem;}
 
-    
     .summary-bar{background:var(--total-soft);border:1px solid var(--success-border);border-radius:8px;padding:.9rem 1.1rem;margin-bottom:.75rem;}
     .summary-bar h3{margin:0 0 .6rem;font-size:.9rem;color:var(--total-fg);}
     .summary-bar.forecast-panel{background:#fffbeb;border-color:#fde68a;}
@@ -43,23 +42,22 @@
     .summary-val{font-size:1.05rem;font-weight:800;color:var(--total-fg);}
     .summary-link{font-size:.82rem;font-weight:600;color:var(--link);text-decoration:none;margin-top:2px;}
     .summary-link:hover{text-decoration:underline;}
-    
+
     .curr-other-cell{display:inline-flex;align-items:center;gap:3px;font-size:.82rem;}
     .curr-other-cell input{width:52px;padding:2px 5px;border:1px solid var(--input-border);border-radius:3px;font-size:.82rem;background:var(--input-bg);color:var(--fg);}
     .curr-other-cell button{padding:.1rem .4rem;border:none;border-radius:3px;cursor:pointer;font-size:.78rem;background:var(--accent);color:var(--on-accent,#fff);}
     .curr-other-cell button.x{background:var(--secondary-bg);color:var(--secondary-fg);}
     .curr-other-err{position:fixed;background:var(--error-bg);color:var(--error-fg);font-size:.72rem;padding:.2rem .4rem;border-radius:4px;white-space:nowrap;z-index:9999;}
-    
+
     .cost-wrap{display:flex;align-items:center;gap:3px;}
     .c-num{flex:1;min-width:0;}
     .cell-curr-sel{flex-shrink:0;font-size:.82rem;padding:2px 3px;border:1px solid var(--input-border);border-radius:3px;background:var(--input-bg);color:var(--fg);max-width:62px;}
-    
+
     /* Full-width horizontal-scroll box; the table centres itself via margin-inline (below)
        when it fits and scrolls left↔right when wider than the screen. Do NOT use
        width:fit-content — it makes a wide table shift left instead of scrolling. */
     .sheet-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;margin:.5rem 0 0;}
 
-    
     .chart-section{display:none;margin-bottom:1rem;padding:.75rem 1rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;}
     .chart-mode-btns{display:flex;gap:.4rem;margin-bottom:.5rem;}
     .chart-mode-btn{padding:.28rem .65rem;font-size:.8rem;border:1px solid var(--input-border);border-radius:5px;cursor:pointer;background:var(--th-bg);color:var(--fg);}
@@ -70,7 +68,6 @@
     .top3 ol{margin:0;padding-left:1.2rem;font-size:.85rem;}
     .top3 li{margin-bottom:.2rem;color:var(--fg);}
 
-    
     .forecast-badge{padding:.15rem .45rem;border-radius:4px;font-size:.7rem;font-weight:700;letter-spacing:.04em;background:#fef3c7;color:#92400e;border:1px solid #fde68a;margin-left:.5rem;vertical-align:middle;}
     html.dark .forecast-badge{background:#451a03;color:#fde68a;border-color:#78350f;}
     .forecast-bar{display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.65rem 1rem;margin-bottom:.75rem;align-items:center;gap:.6rem;flex-wrap:wrap;}
@@ -85,9 +82,8 @@
     .forecast-toast{position:fixed;bottom:calc(1.5rem + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:.5rem 1.1rem;border-radius:6px;font-size:.83rem;font-weight:600;z-index:99999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
     .forecast-toast.show{opacity:1;}
 
-    
     .sheet-wrap{overflow-x:auto;margin-top:.5rem;-webkit-overflow-scrolling:touch;}
-    
+
     .drag-handle{cursor:grab;color:var(--muted);font-size:1rem;padding:0 4px;opacity:.45;user-select:none;flex-shrink:0;}
     .drag-handle:active{cursor:grabbing;}
     tr.tr-dragging{opacity:.3;}
@@ -102,7 +98,7 @@
     .col-del:hover{color:#ef4444;background:rgba(239,68,68,.1);}
     .col-resize{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2;}
     .col-resize:hover,.col-resize.dragging{background:#86efac;}
-    
+
     .col-drag-handle{cursor:grab;color:var(--muted);font-size:.75rem;margin-right:.3rem;user-select:none;opacity:.55;}
     .col-drag-handle:hover{opacity:1;}
     th.th-drop-before{border-left:3px solid #065f46!important;}
@@ -110,7 +106,6 @@
     .row-resize{position:absolute;left:0;right:0;bottom:0;height:5px;cursor:row-resize;z-index:2;}
     .row-resize:hover,.row-resize.dragging{background:#86efac;}
 
-    
     .rh-cell{position:relative;overflow:visible;}
     .rh-inner{display:flex;align-items:center;gap:5px;padding:3px 6px;min-height:32px;}
     .color-swatch{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.2);}
@@ -124,7 +119,6 @@
     .collapse-btn{background:none;border:none;cursor:pointer;font-size:.8rem;color:var(--muted);padding:0 2px;flex-shrink:0;line-height:1;}
     .collapse-btn:hover{color:var(--fg);}
 
-    
     .sub-dropdown{position:relative;flex-shrink:0;}
     .sub-add-btn{background:none;border:1px solid var(--input-border);border-radius:4px;cursor:pointer;font-size:.72rem;padding:1px 5px;color:var(--muted);white-space:nowrap;}
     .sub-add-btn:hover{background:var(--hover-bg);color:var(--fg);}
@@ -143,22 +137,18 @@
     .sub-other-form .cancel{background:var(--secondary-bg);color:var(--secondary-fg);}
     .sub-other-err{color:#ef4444;font-size:.74rem;}
 
-    
     .child-row .rh-inner{padding-left:22px;}
     .child-row .row-label{font-weight:500;font-size:.83rem;color:var(--fg);}
 
-    
     .num-input{display:block;width:100%;height:100%;min-height:32px;border:none;outline:none;padding:4px 7px;box-sizing:border-box;background:transparent;font-family:inherit;font-size:.85rem;text-align:right;color:var(--fg);}
     .num-input:focus{background:var(--input-focus);}
     .num-input::-webkit-inner-spin-button,.num-input::-webkit-outer-spin-button{opacity:0;}
     .num-input:hover::-webkit-inner-spin-button{opacity:1;}
     .parent-sum{display:block;padding:4px 7px;text-align:right;color:var(--muted);font-size:.83rem;min-height:32px;line-height:24px;font-style:italic;}
 
-    
     .th-total{background:var(--total-bg);color:var(--total-fg);}
     .total-val{padding:4px 7px;font-weight:700;text-align:right;color:var(--total-fg);font-size:.85rem;line-height:1.2;}
 
-    
     table.sheet tfoot td{background:var(--panel-bg);font-weight:700;border-top:2px solid var(--muted);color:var(--fg);}
     .gtotal-val{display:block;padding:4px 7px;font-weight:800;text-align:right;font-size:.85rem;min-height:32px;line-height:24px;}
     .week-total-cell{background:var(--total-soft);}
@@ -175,15 +165,12 @@
     .btn-add-row{background:none;border:1px dashed var(--muted);border-radius:4px;cursor:pointer;font-size:.82rem;padding:4px 12px;color:var(--muted);margin-top:4px;}
     .btn-add-row:hover{background:var(--hover-bg);}
 
-    
     .text-color-swatch{width:13px;height:13px;flex-shrink:0;border-radius:3px;border:1px solid rgba(128,128,128,.4);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1;}
     .text-color-swatch:hover{border-color:#065f46;}
 
-    
     .rh-inner .tip-host::after,
     .rh-inner .tip-host::before { display:none !important; }
 
-    
     #swatch-tip{
       position:fixed;z-index:99999;pointer-events:none;
       background:var(--tooltip-bg);color:var(--tooltip-fg);
@@ -193,13 +180,11 @@
     }
     #swatch-tip.show{opacity:1;}
 
-    
     .export-menu{position:fixed;z-index:9999;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;box-shadow:var(--shadow);min-width:160px;}
     .export-menu button{display:block;width:100%;text-align:left;padding:.45rem .8rem;font-size:.85rem;border:none;background:none;cursor:pointer;color:var(--fg);}
     .export-menu button:hover{background:var(--hover-bg);}
     .export-menu button+button{border-top:1px solid var(--panel-border);}
 
-    
     .share-overlay{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;background:var(--overlay);z-index:9998;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;-webkit-overflow-scrolling:touch;}
     .share-modal{background:var(--panel-bg);border-radius:10px;padding:1rem 1.2rem;padding-bottom:max(1rem,env(safe-area-inset-bottom));max-width:600px;width:100%;max-height:85vh;max-height:85dvh;display:flex;flex-direction:column;gap:.6rem;box-shadow:var(--shadow);overflow-y:auto;}
     .share-modal h3{margin:0;font-size:1rem;color:var(--fg);}
@@ -208,11 +193,9 @@
     .share-flash{font-size:.78rem;color:var(--total-fg);font-weight:600;align-self:center;}
     .share-hint{font-size:.74rem;color:var(--muted);font-style:italic;}
 
-    
     .export-flash{font-size:.78rem;color:var(--total-fg);font-weight:600;background:var(--total-bg);border:1px solid var(--success-border);padding:.25rem .55rem;border-radius:5px;position:absolute;top:calc(100% + 4px);left:0;white-space:nowrap;z-index:10;opacity:0;transition:opacity .25s;pointer-events:none;}
     .export-flash.show{opacity:1;}
 
-    
     .paste-status{font-size:.83rem;padding:.4rem .55rem;border-radius:5px;background:var(--secondary-bg);color:var(--fg);}
     .paste-status.ok{background:var(--success-bg);border:1px solid var(--success-border);color:var(--success-fg);}
     .paste-status.bad{background:var(--error-bg);border:1px solid var(--error-border);color:var(--error-fg);}
@@ -350,12 +333,11 @@
   </div>
   <p class="month-context-note" id="month-context-note"></p>
 
-  <!-- Monthly Close Bar -->
   <div id="close-bar" style="display:none;align-items:center;justify-content:space-between;gap:.75rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.55rem .9rem;margin-bottom:.6rem;flex-wrap:wrap;">
     <span id="close-bar-text" style="font-size:.85rem;color:var(--fg);"></span>
     <button id="close-bar-btn" class="btn btn-sm" style="flex-shrink:0">Review &amp; close ✓</button>
   </div>
-  <!-- Monthly Close Modal -->
+
   <div id="close-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="close-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
     <div style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:14px;padding:1.5rem;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.25);">
       <h2 id="close-modal-title" style="font-size:1rem;font-weight:700;margin:0 0 .75rem">Close this month?</h2>
@@ -373,7 +355,6 @@
     <button class="btn btn-sm" id="forecast-avg-btn">Use 3-month avg</button>
   </div>
 
-  
   <div class="glass-panel" id="summary-bar" style="padding:1rem 1.1rem;">
     <h2 style="margin:0 0 .7rem;font-size:.9rem;color:var(--fg);">Income Summary - <span id="summary-month"></span></h2>
     <div class="stat-strip" style="margin-bottom:0;">
@@ -433,9 +414,6 @@
     <div class="top3" id="top3"></div>
   </div>
 
-  <!-- W2: empty-state teaching for the per-row currency selector — explains
-       it the first time there's a row to show it on; dismissible, never
-       reappears once dismissed or once the user has changed a row's currency. -->
   <div id="currency-hint" style="display:none;margin-bottom:.6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;">
     <span>💱 <strong>Tip:</strong> the dropdown next to each amount sets that row's currency - paid in a different currency some months? Switch it there and FiApp converts everything automatically.</span>
     <button id="currency-hint-dismiss" aria-label="Dismiss tip about per-row currency" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0">✕</button>
