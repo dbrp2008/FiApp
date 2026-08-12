@@ -720,6 +720,15 @@ def _within_limits(data, max_rows=None):
     cols = data.get('cols')
     if cols is not None and (not isinstance(cols, list) or len(cols) > MAX_COLS):
         return "Too many columns (max %d)" % MAX_COLS
+    # Label length on the TOP-LEVEL rows/cols. The per-month arrays below were given this
+    # check and these were missed, so a forged save could store a label of any length up to
+    # the 1 MB body cap - the UI enforces MAX_LABEL_LEN, but the UI is not a control.
+    for row in rows:
+        if isinstance(row, dict) and isinstance(row.get('label'), str) and len(row['label']) > MAX_LABEL_LEN:
+            return "A row label is too long"
+    for col in (cols or []):
+        if isinstance(col, dict) and isinstance(col.get('label'), str) and len(col['label']) > MAX_LABEL_LEN:
+            return "A column label is too long"
     rows_by_month = data.get('rowsByMonth') or {}
     cols_by_month = data.get('colsByMonth') or {}
     # isinstance first: len()/.values() on a non-dict raises, which turned a malformed
