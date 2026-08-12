@@ -133,7 +133,6 @@
     .tax-no-data-note a { color: var(--accent); text-decoration: none; font-weight: 600; }
     .tax-no-data-note a:hover { text-decoration: underline; }
 
-    
     #explainer-body table { border-collapse: collapse; width: 100%; }
     #explainer-body table tr { border-bottom: 1px solid var(--panel-border); }
     #explainer-body table th { color: var(--muted); font-size: .75rem; text-align: left; padding: 3px 6px; }
@@ -160,9 +159,7 @@
     </div>
   </div>
 
-
   <div id="regime-row" style="display:none;" class="tax-src-wrap"></div>
-
 
   <div class="tax-src-wrap">
     <div class="tax-src-head">Income Source</div>
@@ -248,7 +245,6 @@
     </div>
   </div>
 
-
   <div id="tax-explainer-overlay"
        style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;overflow-y:auto;cursor:pointer;">
     <div id="tax-explainer-modal"
@@ -266,15 +262,11 @@
 {% block body_scripts %}
 <script nonce="{{ csp_nonce }}">
 
-
-
 const BRACKETS = {
   single:              [[11600,.10],[47150,.12],[100525,.22],[191950,.24],[243725,.32],[609350,.35],[Infinity,.37]],
   married:             [[23200,.10],[94300,.12],[201050,.22],[383900,.24],[487450,.32],[731200,.35],[Infinity,.37]],
   'head of household': [[16550,.10],[63100,.12],[100500,.22],[191950,.24],[243700,.32],[609350,.35],[Infinity,.37]],
 };
-
-
 
 const IN_BRACKETS = [
   [400000,0],[800000,.05],[1200000,.10],
@@ -285,34 +277,29 @@ const IN_87A_LIMIT = 1200000;
 const IN_87A_MAX   = 60000;
 const IN_CESS_RATE = 0.04;
 
-
-
 const HK_BRACKETS = [
   [50000,.02],[100000,.06],[150000,.10],[200000,.14],[Infinity,.17]
 ];
 const HK_STD_RATE      = 0.15;
 const HK_STD_RATE_HIGH = 0.16;
 const HK_STD_TIER      = 5000000;
-const HK_BASIC_ALLOW   = 145000;   // 2026/27 (current) — used for non-immigrant display
-const HK_MPA           = 290000;   // 2026/27
-const HK_SPA           = 145000;   // 2026/27 Single Parent Allowance
-const HK_CHILD_ALLOW   = 140000;   // 2026/27 per child; doubles for birth year
+const HK_BASIC_ALLOW   = 145000;
+const HK_MPA           = 290000;
+const HK_SPA           = 145000;
+const HK_CHILD_ALLOW   = 140000;
 const HK_TAX_RELIEF    = 3000;
 
-// Allowance lookup by year of assessment (year fiscal year starts, e.g. 2026 = 2026/27)
 function _hkAllows(yoa){
   if(yoa >= 2026) return {basic:145000, mpa:290000, spa:145000, child:140000};
   if(yoa >= 2023) return {basic:132000, mpa:264000, spa:132000, child:130000};
   return              {basic:132000, mpa:264000, spa:132000, child:120000};
 }
-// Tax relief cap by year of assessment
+
 function _hkRelief(yoa){
   if(yoa === null || yoa >= 2023) return 3000;
-  if(yoa >= 2022) return 6000;   // 2022/23
-  return 10000;                  // 2021/22 and earlier
+  if(yoa >= 2022) return 6000;
+  return 10000;
 }
-
-
 
 let _country     = 'US';
 let _inResidency = 'ROR';
@@ -361,8 +348,6 @@ function _toggleHKImmigrant(){
   _saveTaxUI();
 }
 
-
-
 function calcFederalTax(income, status){
   const brackets = BRACKETS[status];
   if(!brackets) throw new Error('Unknown filing status.');
@@ -375,7 +360,6 @@ function calcFederalTax(income, status){
   return tax;
 }
 
-
 function calcIndiaSurchargeRate(totalIncome){
   if(totalIncome <= 5000000)  return 0;
   if(totalIncome <= 10000000) return 0.10;
@@ -383,7 +367,6 @@ function calcIndiaSurchargeRate(totalIncome){
   if(totalIncome <= 50000000) return 0.25;
   return 0.25;
 }
-
 
 function calcIndiaTax(grossINR, residency){
   const stdDed = residency==='ROR' ? IN_STD_DED : 0;
@@ -397,10 +380,9 @@ function calcIndiaTax(grossINR, residency){
   return tax;
 }
 
-
 function calcHKTax(incomeHKD, married, rentalHKD=0, applyRelief=true, singleParent=false, children=0, childrenBorn=0, yoa=null){
   const _a = yoa !== null ? _hkAllows(yoa) : {basic:HK_BASIC_ALLOW, mpa:HK_MPA, spa:HK_SPA, child:HK_CHILD_ALLOW};
-  // MPA replaces Basic; SPA stacks on top of Basic
+
   const baseAllow  = married ? _a.mpa : (_a.basic + (singleParent ? _a.spa : 0));
   const allowance  = baseAllow + (children + childrenBorn) * _a.child;
   const assessable = Math.max(0, incomeHKD - allowance);
@@ -410,7 +392,7 @@ function calcHKTax(incomeHKD, married, rentalHKD=0, applyRelief=true, singlePare
     prog += (Math.min(assessable,lim)-prev)*rate; prev=lim;
     if(lim===Infinity) break;
   }
-  // Two-tier standard rate (15%/16%) only from 2024/25; flat 15% for earlier years
+
   const twoTier = yoa === null || yoa >= 2024;
   const std = (twoTier && incomeHKD > HK_STD_TIER)
     ? HK_STD_TIER * HK_STD_RATE + (incomeHKD - HK_STD_TIER) * HK_STD_RATE_HIGH
@@ -424,22 +406,15 @@ function calcHKTax(incomeHKD, married, rentalHKD=0, applyRelief=true, singlePare
 }
 
 function _hkImmigrantInfo(arrYear, arrMonth){
-  // Year 1: actual tax on income from arrival → March 31 (end of arrival fiscal year)
-  // Apr–Dec Y → fiscal year Y/Y+1, Year 1 ends Mar Y+1
-  // Jan–Mar Y → fiscal year Y-1/Y, Year 1 ends Mar Y
+
   const y1Months         = arrMonth >= 4 ? 16 - arrMonth : 4 - arrMonth;
   const y1EndYear        = arrMonth >= 4 ? arrYear + 1 : arrYear;
-  const arrivalFiscalYear = arrMonth >= 4 ? arrYear : arrYear - 1; // year the fiscal year starts
-  // Year 2: provisional tax on full annual income for the following fiscal year (Apr–Mar)
-  // Payment: Jan and Apr of the year after Year 2 ends
+  const arrivalFiscalYear = arrMonth >= 4 ? arrYear : arrYear - 1;
+
   const payYear = y1EndYear + 1;
   return { y1Months, y1EndYear, payYear, arrivalFiscalYear, arrivalYear: arrYear, arrivalMonth: arrMonth };
 }
 
-
-// Every caller currently passes a literal, so this was not a live hole - but an
-// unescaped innerHTML helper is one careless caller away from being one, and one of
-// them already forwards an exception message.
 function _escHtml(s){
   return String(s==null?'':s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -452,8 +427,6 @@ function showError(msg){
 function clearMsg(){ document.getElementById('msg-area').innerHTML=''; }
 
 let _lastTaxResult = null;
-
-
 
 const _IK  = 'fiapp_income_v1';
 const _MOS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -482,8 +455,6 @@ function _isFullYr(y){
 function _mksForYear(y){ const r=[]; for(let m=0;m<12;m++) if(_inRng(y,m)) r.push(_mk(y,m)); return r; }
 function _getInc(){ try{ return JSON.parse(localStorage.getItem(_IK))||null; }catch{ return null; } }
 
-
-// Per-month row/col helpers — income tracker forks rows/cols per month after first edit
 function _iRows(inc, mk){ return (mk&&inc.rowsByMonth&&inc.rowsByMonth[mk])||inc.rows||[]; }
 function _iCols(inc, mk){ return (mk&&inc.colsByMonth&&inc.colsByMonth[mk])||inc.cols||[]; }
 
@@ -498,7 +469,6 @@ function _salaryLeafs(inc, mk){
   }
   return ps.flatMap(p=>collectLeafs(p.id));
 }
-
 
 function _incRowsByType(inc, mk){
   const rows = _iRows(inc, mk);
@@ -531,7 +501,6 @@ function _getTopParent(rowId, inc, mk){
   return r||null;
 }
 
-
 function _rowTotal(mk, inc, rowList, targetCcy){
   let t=0;
   for(const row of rowList) for(const col of _iCols(inc, mk)){
@@ -549,14 +518,12 @@ function _rowTotal(mk, inc, rowList, targetCcy){
   return t;
 }
 
-
 function _mthTotal(mk, inc){
-  // Sum all leaf rows (not just Salary) — Freelance, Investments, Other Income etc. are all ordinary income for US
+
   const typed = _incRowsByType(inc, mk);
   const allLeafs = [...typed.ordinary, ...typed.capitalGains, ...typed.rental, ...typed.exempt];
   return _rowTotal(mk, inc, allLeafs, 'USD');
 }
-
 
 function _mthTotalForCountry(mk, inc){
   if(_country==='US') return _mthTotal(mk, inc);
@@ -580,7 +547,7 @@ function _mthRentalForCountry(mk, inc){
 }
 
 function _mthHas(mk, inc){
-  // Check all rows, not just Salary, so mode buttons enable whenever any income exists
+
   const typed = _incRowsByType(inc, mk);
   const allLeafs = [...typed.ordinary, ...typed.capitalGains, ...typed.rental, ...typed.exempt];
   return _rowTotal(mk, inc, allLeafs, 'USD') > 0;
@@ -603,8 +570,6 @@ async function _loadRates(){
   }catch(e){ console.warn('tax: rate fetch failed', e.message); }
 }
 
-
-
 const _MODES = [
   {id:'manual', label:'✏ Manual',    n:0,  mult:null},
   {id:'1',      label:'1 month ×12', n:1,  mult:12},
@@ -615,7 +580,6 @@ const _MODES = [
   {id:'12',     label:'Full year',   n:12, mult:1},
 ];
 let _mode='manual', _pY=_cY, _pSel=[];
-
 
 const _TAX_UI_KEY = 'fiapp_tax_ui_v1';
 
@@ -694,8 +658,6 @@ function _showPreview(inc){
   }
 }
 
-
-
 function _setCountry(c){
 
   const _incEl = document.getElementById('income');
@@ -715,7 +677,6 @@ function _setCountry(c){
   const inc = _getInc();
   _buildUI(inc);
   _loadRates().then(()=>_buildUI(_getInc())).catch(()=>{});
-
 
   if(_incEl) _incEl.value = _incomeByCountry[c] || '';
   const _prevRes = _lastResultByCountry[c];
@@ -768,7 +729,7 @@ function _renderCountryUI(){
     hkRow.style.display     = '';
     ccySym.textContent = '(HK$)';
     regimeRow.style.display = 'none'; regimeRow.innerHTML='';
-    // Build arrival pickers
+
     chRow.style.display = '';
     document.getElementById('hk-ch-val').textContent = _hkChildren;
     document.getElementById('hk-cb-val').textContent = _hkChildrenBorn;
@@ -798,8 +759,6 @@ function _setResidency(r){
   const inc = _getInc(); _buildUI(inc);
   _saveTaxUI();
 }
-
-
 
 function _buildUI(inc){
   const panel = document.getElementById('tracker-panel');
@@ -960,7 +919,6 @@ function _buildUI(inc){
 
   panel.appendChild(picker);
 
-
   if(_country==='IN' && _inResidency==='NRI' && inc.rows){
     const topRows = inc.rows.filter(r=>!r.parentId);
     if(topRows.length){
@@ -990,8 +948,6 @@ function _buildUI(inc){
   _showPreview(inc);
 }
 
-
-
 function _updateResultBox(d){
   const el  = document.getElementById('result-detail');
   const fmt = (n,sym) => `<strong>${sym}${Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>`;
@@ -1019,7 +975,7 @@ function _updateResultBox(d){
   } else {
     const sym = 'HK$';
     const ch  = d.children||0, chb = d.childrenBorn||0;
-    // Build allowance lines — SPA stacks on top of Basic; MPA replaces Basic
+
     function _allowLines(basicAmt, spaAmt, mpaAmt, isMarried, isSP, yearLabel){
       const lbl = yearLabel ? yearLabel+' ' : '';
       if(isMarried) return '<p><strong>'+lbl+'Married Person Allowance:</strong> −'+fmt(mpaAmt,sym)+'</p>';
@@ -1065,8 +1021,6 @@ function _updateResultBox(d){
     document.getElementById('tax-explain-btn').style.display = '';
   }
 }
-
-
 
 function _openExplainer(d){
   const titleEl = document.getElementById('explainer-title');
@@ -1140,8 +1094,6 @@ function _openExplainer(d){
   document.getElementById('tax-explainer-overlay').style.display = '';
 }
 
-
-
 document.getElementById('tax-form').addEventListener('submit', async function(e){
   e.preventDefault(); clearMsg();
   const incomeRaw = document.getElementById('income').value.trim()
@@ -1204,19 +1156,10 @@ document.getElementById('tax-form').addEventListener('submit', async function(e)
       const _y1Ratio  = _info.y1Months / 12;
       const _y1a      = _hkAllows(_info.arrivalFiscalYear);
       const _y2a      = _hkAllows(_info.arrivalFiscalYear + 1);
-      // Year 1 allowances are NOT prorated (HK personal allowances are a full-year
-      // statutory entitlement regardless of how many months of the year were actually
-      // worked), but income IS prorated to the actual amount earned in the period.
-      // Apply the full allowance directly against the actual prorated income - do NOT
-      // compute tax on the full annual income and then scale the resulting TAX by the
-      // month ratio. That previous approach (scale-the-tax) understates the allowance's
-      // real effect: a fixed allowance is proportionally much larger against a smaller
-      // actual income than against the full annual figure, so scaling the final tax
-      // number down (instead of scaling the income before applying allowances/brackets)
-      // systematically overstates Year 1's actual liability.
+
       const _y1ProratedIncome = income * _y1Ratio;
       const _y1AnnRes = calcHKTax(_y1ProratedIncome, married, rentalHKD, false, _hkSingleParent, _hkChildren, _hkChildrenBorn, _info.arrivalFiscalYear);
-      const _y1TaxBR  = _y1AnnRes.tax;   // already correct for the actual period - no scaling
+      const _y1TaxBR  = _y1AnnRes.tax;
       const _y1Relief = _hkRelief(_info.arrivalFiscalYear);
       const _y1Tax    = Math.max(0, _y1TaxBR - _y1Relief);
       const _y2Result = calcHKTax(income, married, rentalHKD, false, _hkSingleParent, _hkChildren, _hkChildrenBorn, _info.arrivalFiscalYear + 1);
@@ -1229,9 +1172,7 @@ document.getElementById('tax-form').addEventListener('submit', async function(e)
         y1BaseAllow:  married ? _y1a.mpa : (_y1a.basic + (_hkSingleParent ? _y1a.spa : 0)),
         y1ChildAllow: _y1a.child,
         y1Method: _y1AnnRes.method,
-        // Field names kept as *Scaled for minimal diff, but _y1AnnRes is now already
-        // computed on the prorated income directly - these are the real progressive/
-        // standard figures for the period, not scaled further.
+
         y1ProgScaled: _y1AnnRes.prog,
         y1StdScaled: _y1AnnRes.std,
         y1ReliefAmt: _y1Relief,
@@ -1277,10 +1218,8 @@ document.getElementById('tax-form').addEventListener('submit', async function(e)
   };
   _lastResultByCountry[_country] = _lastTaxResult;
   _updateApplyBtns();
-  _saveTaxUI();  // persist the freshly computed result so a later visit restores THIS one, not a stale earlier calc
+  _saveTaxUI();
 });
-
-
 
 function _fmtMkLabel(mk2){
   const [y,m] = mk2.split('-');
@@ -1347,11 +1286,8 @@ document.getElementById('apply-pick-go').addEventListener('click',function(){
   _saveTaxAndNavigate(months);
 });
 
-
-
 window.addEventListener('DOMContentLoaded', async ()=>{
   const incomeInput = document.getElementById('income');
-
 
   const _saved = _loadTaxUI();
   document.querySelectorAll('.tax-mode-btn[id^="btn-"]').forEach(b=>b.classList.remove('active'));
@@ -1368,7 +1304,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     _saveTaxUI();
   });
 
-
   const params = new URLSearchParams(window.location.search);
   const urlVal = params.get('annual')||params.get('gross');
   if(urlVal){ incomeInput.value=urlVal; }
@@ -1379,7 +1314,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   }
   if(_saved.statusVal) document.getElementById('status').value=_saved.statusVal;
   document.getElementById('status').addEventListener('change', _saveTaxUI);
-
 
   if(!urlVal && !localStorage.getItem('fiapp_prefill_income')){
     const _initRes = _lastResultByCountry[_country];
@@ -1409,7 +1343,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     if(e.key==='Escape') document.getElementById('tax-explainer-overlay').style.display='none';
   });
 
-  // CSP: bound here instead of inline onclick attributes
   document.querySelectorAll('[data-country]').forEach(b=>{
     b.addEventListener('click',()=>_setCountry(b.dataset.country));
   });
@@ -1422,7 +1355,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   document.querySelectorAll('[data-hk-cb]').forEach(b=>{
     b.addEventListener('click',()=>_hkChildrenBornAdj(parseInt(b.dataset.hkCb,10)));
   });
-  // Residency buttons are re-created inside #regime-row's innerHTML — delegate
+
   document.getElementById('regime-row').addEventListener('click',e=>{
     const b=e.target.closest('[data-residency]');
     if(b) _setResidency(b.dataset.residency);
@@ -1431,7 +1364,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   _expOverlay.addEventListener('click',function(e){ if(e.target===this) this.style.display='none'; });
   document.getElementById('tax-explainer-close').addEventListener('click',()=>{ _expOverlay.style.display='none'; });
 
-  // Fetch income from server if not yet in localStorage (e.g. after logout/login without visiting income.html)
   if(!_getInc()){
     try{
       const _ir=await fetch('/api/load/income');
