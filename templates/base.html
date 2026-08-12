@@ -87,6 +87,12 @@
       window.__fiappSrvDark={{ theme_dark|default(false)|tojson }};
       var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';
       if(window.fiappThemeBoot){ t=fiappThemeBoot(t); }
+      // Persist whatever this resolved to. fiappThemeBoot only writes back when it migrates a
+      // legacy preset name, so a normal value was applied to the page but never stored - and
+      // since fiapp_theme is cleared on login (it is per-user state), every later reader saw
+      // an empty key and fell back to its own default. That is why the page could paint the
+      // user's purple theme while the theme button read "Light".
+      try { if(t) localStorage.setItem('fiapp_theme',t); } catch(_) {}
       else if(t==='dark'||localStorage.getItem('fiapp_theme_mode')==='dark') document.documentElement.classList.add('dark');
       var p=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
       if(p==='quiet') document.documentElement.classList.add('personality-quiet');
@@ -215,7 +221,7 @@
         <a class="btn-ghost btn-sm" href="/login">Log in</a>
       {% endif %}
     </div>
-    <script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'light';var b=document.getElementById('theme-btn');if(b&&window.fiappThemeLabel)b.textContent=fiappThemeLabel(t);document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
+    <script nonce="{{ csp_nonce }}">(function(){var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';var b=document.getElementById('theme-btn');if(b&&window.fiappThemeLabel)b.textContent=fiappThemeLabel(t);document.querySelectorAll('.theme-opt').forEach(function(o){if(o.dataset.theme===t)o.classList.add('active');});})();</script>
   </div>
   <script nonce="{{ csp_nonce }}">
   var _CSRF='{{ csrf_token|default("") }}';
