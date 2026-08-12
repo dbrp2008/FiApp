@@ -78,6 +78,18 @@
         localStorage.removeItem('fiapp_auth_user');
       }
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
+      // The second account-switch detector, on its own marker. It has to sit up here with
+      // the first one, above the theme boot, and for the same reason: the purge clears
+      // fiapp_theme and the boot writes fiapp_theme. This one used to live at the bottom of
+      // <body> next to the walkthrough code, so on the first load after a login it wiped the
+      // value the boot had just resolved - the page painted the right theme, then the
+      // /api/prefs callback re-read the now-empty key, fell back to 'light' and reset the
+      // page, while the dropdown still marked the real theme as active. A reload looked
+      // fine because by then the marker was set and this no longer fired.
+      if(_srv && localStorage.getItem('fiapp_last_user')!==_srv){
+        window.fiappPurgeUserData();
+        localStorage.setItem('fiapp_last_user',_srv);
+      }
     } catch(e) {}
   })();
   </script>
@@ -316,10 +328,21 @@
           // the first page view instead of hitting /api/prefs on every load.
           fiappThemesCache.write({v:1,themes:srvThemes});
         }
-        if(window.fiappApplyTheme) fiappApplyTheme(localStorage.getItem('fiapp_theme')||'light');
+        // Fall back to the server's theme, never a hardcoded 'light'. This callback lands
+        // after paint, so a 'light' fallback here does not just mislabel a button - it
+        // re-applies light over whatever the boot already painted. Reading the key once
+        // also stops the apply and the label from disagreeing if it changes mid-callback.
+        var _now=localStorage.getItem('fiapp_theme')||_srvT;
+        if(window.fiappApplyTheme) fiappApplyTheme(_now);
         renderThemeDropdown();
+        // renderThemeDropdown only rebuilds the custom entries, so the built-in Light/Dark
+        // options keep whatever the pre-paint script marked. Resync them here or the
+        // dropdown can go on highlighting a theme the page is no longer using.
+        document.querySelectorAll('.theme-dropdown .theme-opt[data-theme]').forEach(function(o){
+          o.classList.toggle('active',o.dataset.theme===_now);
+        });
         var b=document.getElementById('theme-btn');
-        if(b&&window.fiappThemeLabel) b.textContent=fiappThemeLabel(localStorage.getItem('fiapp_theme')||'light');
+        if(b&&window.fiappThemeLabel) b.textContent=fiappThemeLabel(_now);
       }).catch(function(){});
     } else if(_lsT&&_lsT!==_srvT&&!isCustom){
 
@@ -589,17 +612,6 @@
     var _wtUser={{ current_user|default(none)|tojson }};
     var _WT_USER_KEY=_wtUser?'fiapp_wt_u_'+_wtUser:null;
     var _page=window.location.pathname;
-
-    (function(){
-      if(!_loggedIn||!_wtUser) return;
-      var _LAST_USER_KEY='fiapp_last_user';
-      var _lastUser=localStorage.getItem(_LAST_USER_KEY);
-      if(_lastUser!==_wtUser){
-
-        if(window.fiappPurgeUserData) window.fiappPurgeUserData();
-        localStorage.setItem(_LAST_USER_KEY,_wtUser);
-      }
-    })();
 
     function _ld(){try{return JSON.parse(localStorage.getItem(WT_KEY)||'null');}catch{return null;}}
     function _svUser(s){if(!_WT_USER_KEY)return;try{localStorage.setItem(_WT_USER_KEY,JSON.stringify({mainCompleted:s.mainCompleted||false,seen:s.seen||[],wantsCurrencyTour:s.wantsCurrencyTour}));}catch{}}
