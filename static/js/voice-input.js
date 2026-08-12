@@ -3,54 +3,53 @@ window.VoiceInput = (function () {
 
   var _tracker = 'expenses';
 
-  // ── Synonym dictionary ─────────────────────────────────────────────────
   var SYNONYMS = {
-    // Groceries
+
     'food':'Groceries','grocery':'Groceries','groceries':'Groceries',
     'supermarket':'Groceries','market':'Groceries',
     'bought groceries':'Groceries','grocery run':'Groceries',
-    // Dining Out
+
     'restaurant':'Dining Out','dining':'Dining Out','cafe':'Dining Out',
     'coffee shop':'Dining Out','lunch':'Dining Out','dinner':'Dining Out',
     'takeout':'Dining Out','takeaway':'Dining Out','delivery':'Dining Out',
     'eat at':'Dining Out','ate at':'Dining Out','eating out':'Dining Out',
     'lunch at':'Dining Out','dinner at':'Dining Out','breakfast at':'Dining Out',
     'went to restaurant':'Dining Out',
-    // Transport
+
     'transport':'Transport','uber':'Transport','taxi':'Transport',
     'bus':'Transport','train':'Transport','mrt':'Transport','subway':'Transport',
     'grab ride':'Transport','took bus':'Transport','took train':'Transport',
     'took uber':'Transport','took taxi':'Transport','took mrt':'Transport',
     'took mtr':'Transport','took subway':'Transport','commute':'Transport', 'mtr':'Transport',
     'took metro':'Transport','took light rail':'Transport','took tram':'Transport',
-    // Travel
+
     'trip to':'Travel','flew to':'Travel','fly to':'Travel','flight to':'Travel',
     'go to':'Travel','going to':'Travel','travel to':'Travel','travelled to':'Travel',
     'drive to':'Travel','drove to':'Travel','road trip':'Travel',
     'hotel':'Travel','airbnb':'Travel','vacation':'Travel','holiday':'Travel',
-    // Housing
+
     'rent':'Housing','mortgage':'Housing',
-    // Utilities
+
     'electricity':'Utilities','internet':'Utilities','wifi':'Utilities',
     'phone bill':'Utilities','water bill':'Utilities',
-    // Healthcare
+
     'doctor':'Healthcare','hospital':'Healthcare','pharmacy':'Healthcare',
     'gym':'Healthcare','medicine':'Healthcare',
-    // Shopping
+
     'clothes':'Shopping','clothing':'Shopping','shopping':'Shopping',
-    // Entertainment
+
     'movie':'Entertainment','netflix':'Entertainment','spotify':'Entertainment',
     'streaming':'Entertainment','games':'Entertainment',
-    // Income — Salary
+
     'salary':'Salary','wage':'Salary','paycheck':'Salary','pay':'Salary',
     'earn':'Salary','earns':'Salary','earning':'Salary','earnings':'Salary',
     'bonus':'Salary','commission':'Salary','tips':'Salary','tip':'Salary',
     'got paid':'Salary','got my pay':'Salary','received salary':'Salary',
-    // Income — Freelance
+
     'freelance':'Freelance','consulting':'Freelance','side hustle':'Freelance',
     'client payment':'Freelance','project payment':'Freelance','gig':'Freelance',
     'contract work':'Freelance','invoiced':'Freelance',
-    // Income — Investments
+
     'dividend':'Investments','interest':'Investments','stocks':'Investments',
     'stock':'Investments','shares':'Investments','crypto':'Investments',
     'bitcoin':'Investments','trading':'Investments','capital gain':'Investments',
@@ -58,7 +57,6 @@ window.VoiceInput = (function () {
     'investment return':'Investments','portfolio':'Investments',
   };
 
-  // ── Currency dictionary ────────────────────────────────────────────────
   var CURRENCIES = {
     'dollar':  { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD','TWD','BND','FJD','TTD','BBD','XCD','BZD','JMD','NAD','SBD','GYD','BMD','KYD'] },
     'dollars': { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD','TWD','BND','FJD','TTD','BBD','XCD','BZD','JMD','NAD','SBD','GYD','BMD','KYD'] },
@@ -74,17 +72,13 @@ window.VoiceInput = (function () {
     'dirham':'AED','dirhams':'AED','aed':'AED',
     'dong':'VND','dongs':'VND','vnd':'VND',
     'zloty':'PLN','zlotys':'PLN','pln':'PLN',
-    // Ambiguous — value is array of candidates
+
     'rupee':['INR','PKR','NPR','LKR'],
     'rupees':['INR','PKR','NPR','LKR'],
     'rs':['INR','PKR','NPR','LKR'],
     'franc':['CHF','XOF','XAF'],
     'francs':['CHF','XOF','XAF'],
-    // Deliberately NOT adding bare 'frank'/'franks' here — "Frank" is a common first
-    // name (e.g. "Frank paid me $10") and this map has no name-vs-currency disambiguation.
-    // The "swiss frank(s)" regex below covers the actual ASR mishearing (franc→frank)
-    // with a much lower false-positive rate; a bare "franks" still defaults to home
-    // currency as normal, with CHF available in the picker if the user wants it.
+
     'peso':['MXN','PHP','COP','ARS'],
     'pesos':['MXN','PHP','COP','ARS'],
     'riyal':['SAR','QAR'],
@@ -133,17 +127,16 @@ window.VoiceInput = (function () {
         return { code: val, candidates: null };
       }
     }
-    // $ sign without a currency word → recognizer converted "dollars" to "$"
+
     if (/\$/.test(lower)) return { code: 'USD', candidates: ['USD','AUD','CAD','SGD','HKD','NZD','TWD','BND','FJD','TTD','BBD','XCD','BZD','JMD','NAD','SBD','GYD','BMD','KYD'] };
     return null;
   }
 
-  // ── Adaptive learning ──────────────────────────────────────────────────
   var LEARN_KEY = 'fiapp_voice_learned';
   var STOPWORDS = new Set(['i','on','to','a','the','and','at','for','some',
     'spent','paid','bought','earned','received','income','salary','expense',
     'cost','spend','purchase','made','got','my','in','of','from',
-    // currency words — too generic to be useful category signals
+
     'dollar','dollars','cent','cents','euro','euros','pound','pounds',
     'yen','yuan','rupee','rupees','rs','franc','francs','peso','pesos',
     'won','baht','ringgit','ringgits','ruble','rubles','dirham','dirhams','lira','liras']);
@@ -179,14 +172,10 @@ window.VoiceInput = (function () {
     return unigrams.concat(bigrams);
   }
 
-  // ── NLU helpers ────────────────────────────────────────────────────────
   function _bridge() {
     return _tracker === 'income' ? window._incVoiceBridge : window._expVoiceBridge;
   }
 
-  // Income rows carry their own currency tag; expenses cells don't (they're always
-  // in the account's home currency). Resolve whichever concept the current tracker
-  // actually supports, so callers don't need to know which bridge they're holding.
   function _bridgeCurrency(br, rowId) {
     if (rowId && typeof br.rowCurrency === 'function') return br.rowCurrency(rowId);
     if (typeof br.homeCurrency === 'function') return br.homeCurrency();
@@ -202,7 +191,7 @@ window.VoiceInput = (function () {
   function _detectAction(lower) {
     var hasAmount = /\$?\s*\d/.test(lower);
     if (/\b(delete|remove)\b/.test(lower) && !hasAmount) {
-      // "remove all money/values/entries" = clear cells, not delete the row itself
+
       if (/\ball\b/.test(lower)) return 'clear-row';
       return 'delete-row';
     }
@@ -213,14 +202,14 @@ window.VoiceInput = (function () {
   }
 
   function _extractSubLabel(lower, rows) {
-    // 1. Most explicit: "called NAME" / "named NAME"
+
     var m = lower.match(/\b(?:called|named)\s+(.+?)(?:\s+(?:to|under|for|in)\b|$)/);
     if (m && m[1].trim().length >= 2) return _titleCase(m[1].trim());
-    // 2. Positional: "sub[category] NAME to/under/for PARENT"
+
     m = lower.match(/\bsub(?:\s*category)?\s+(.+?)(?:\s+(?:to|under|for)\b)/);
     if (m) {
       var label = m[1].replace(/^category\s*/i, '').trim();
-      // Strip any known category names from the extracted label
+
       if (rows) rows.forEach(function(r) {
         label = label.replace(new RegExp('\\b' + r.label.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), '').trim();
       });
@@ -237,7 +226,7 @@ window.VoiceInput = (function () {
   function _extractRelative(lower) {
     if (/\b(all|everything|whole|entire)\b/.test(lower))                         return 'all';
     if (/\b(half|50\s*%|50\s*percent)\b/.test(lower))                           return 'half';
-    // "a quarter of X" = relative; "paid a quarter" = coin ($0.25) — only treat as relative when "of" follows
+
     if (/\b(quarter|a\s+quarter)\s+of\b|\b25\s*%|25\s*percent\b/.test(lower))  return 'quarter';
     if (/\b(third|a\s+third|one\s+third|33\s*%)\b/.test(lower))                 return 'third';
     return null;
@@ -257,8 +246,6 @@ window.VoiceInput = (function () {
     return map[w.toLowerCase()] !== undefined ? map[w.toLowerCase()] : (parseInt(w) || 1);
   }
 
-  // ── Number phrase parsing ("twenty five thousand", "one hundred and fifty", "a
-  // million", "10 billion 999 million") ──────────────────────────────────────
   var ONES_WORDS = {zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
     ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,
     seventeen:17,eighteen:18,nineteen:19};
@@ -266,8 +253,6 @@ window.VoiceInput = (function () {
   var BIG_SCALE_WORDS = {thousand:1e3,million:1e6,billion:1e9};
   var DIGIT_TOKEN = /^\$?\d+(?:[.,]\d+)?$/;
 
-  // ASR sometimes pluralizes these ("millions" instead of "million") — strip a
-  // trailing 's' before checking against the word maps above.
   function _singularize(tok) {
     return (tok && tok.length > 3 && tok.slice(-1) === 's') ? tok.slice(0, -1) : tok;
   }
@@ -277,13 +262,6 @@ window.VoiceInput = (function () {
       || s === 'hundred' || DIGIT_TOKEN.test(tok || '');
   }
 
-  // Parses the number phrase starting at tokens[start] — spelled-out ("twenty five
-  // thousand" -> {value:25000,...}), digit-based ("50 million"), or a chain mixing
-  // scale tiers with their own digit/word coefficients ("10 billion 999 million" ->
-  // 10999000000). Returns null if tokens[start] doesn't begin one.
-  // 'hundred' multiplies the running total-so-far in place (so "twelve hundred" = 1200,
-  // "one hundred fifty" = 150); thousand/million/billion instead flush current*scale into
-  // the accumulated total and reset, so multiple scale tiers can chain in one phrase.
   function _parseNumberPhrase(tokens, start) {
     var i = start, matched = false, total = 0, current = 0;
     var next = _singularize(tokens[i + 1] || '');
@@ -306,10 +284,6 @@ window.VoiceInput = (function () {
     return matched ? { value: total + current, wordCount: i - start } : null;
   }
 
-  // Finds the first number phrase anywhere in the string — spelled-out, digit-based,
-  // or a mixed chain — and returns its value, or null if none is found. A lone digit
-  // with no following scale word still resolves here too (same result the plain-digit
-  // fallback in _extractAmount would give), so this covers the common case as well.
   function _extractSpelledNumber(s) {
     var tokens = s.replace(/-/g, ' ').split(/\s+/);
     for (var i = 0; i < tokens.length; i++) {
@@ -320,19 +294,16 @@ window.VoiceInput = (function () {
   }
 
   function _extractAmount(lower) {
-    // 1. Merge split decimals: "1.0 1" → "1.01" (speech recognition artefact)
+
     var s = lower.replace(/(\d+[.,]\d+)\s+(\d+)/g, function(_, a, b) { return a + b; });
 
-    // 2. "$X and Y cents"  OR  "X dollars and Y cents"
     var dcM = s.match(/\$\s*(\d+(?:[.,]\d+)?)\s+(?:and\s+)?(\d+)\s+cents?\b/)
            || s.match(/(\d+(?:[.,]\d+)?)\s+dollars?\s+(?:and\s+)?(\d+)\s+cents?\b/);
     if (dcM) return parseFloat(dcM[1].replace(',', '.')) + parseInt(dcM[2]) / 100;
 
-    // 3. "X cents" → 0.0X
     var cM = s.match(/(\d+(?:[.,]\d+)?)\s+cents?\b/);
     if (cM) return parseFloat(cM[1].replace(',', '.')) / 100;
 
-    // 4. Coins: quarters ($0.25), dimes ($0.10), nickels ($0.05)
     var qM = s.match(/\b(\d+|a|an|one|two|three|four|five|six|seven|eight)\s+quarters?\b/);
     if (qM) return _wordToNum(qM[1]) * 0.25;
 
@@ -342,12 +313,9 @@ window.VoiceInput = (function () {
     var nM = s.match(/\b(\d+|a|an|one|two|three)\s+nickels?\b/);
     if (nM) return _wordToNum(nM[1]) * 0.05;
 
-    // 5. Number phrase: digits, spelled-out words, or a chain of both across scale
-    // tiers — "50 million", "one hundred and fifty", "10 billion 999 million", etc.
     var wordsAmount = _extractSpelledNumber(s);
     if (wordsAmount !== null) return wordsAmount;
 
-    // 6. Regular number (with pre-merged decimal) — final fallback
     var m = s.match(/\$?\s*(\d+(?:[.,]\d+)?)/);
     return m ? parseFloat(m[1].replace(',', '.')) : null;
   }
@@ -364,16 +332,13 @@ window.VoiceInput = (function () {
     return { index: Math.min(3, Math.floor((new Date().getDate() - 1) / 7)), explicit: false };
   }
 
-  // Cheap singular/plural tolerance for category matching — no stemming library,
-  // just the two common English pluralization patterns, tried as extra substrings.
-  // "investments" (label) vs "investment" (spoken), or vice versa, should still match.
   function _numberVariants(word) {
     var variants = [word];
     if (word.length > 3 && word.slice(-1) === 's') {
-      variants.push(word.slice(0, -1));           // investments -> investment
-      if (word.slice(-2) === 'es') variants.push(word.slice(0, -2)); // boxes -> box
+      variants.push(word.slice(0, -1));
+      if (word.slice(-2) === 'es') variants.push(word.slice(0, -2));
     } else {
-      variants.push(word + 's');                  // investment -> investments
+      variants.push(word + 's');
     }
     return variants;
   }
@@ -384,7 +349,6 @@ window.VoiceInput = (function () {
   function _matchCategory(lower, rows) {
     var best = { rowId: null, rowLabel: null, confidence: 0 };
 
-    // 1. Exact label match — always beats learned dict (prevents stale learning overriding real category names)
     rows.forEach(function(row) {
       var label = row.label.toLowerCase();
       if (_containsWithPlural(lower, label)) {
@@ -393,7 +357,6 @@ window.VoiceInput = (function () {
     });
     if (best.confidence >= 1.0) return best;
 
-    // 2. Adaptive learned dictionary
     var learned = _loadLearned();
     var learnedDirty = false;
     var words = lower.split(/\s+/);
@@ -404,7 +367,7 @@ window.VoiceInput = (function () {
       if (STOPWORDS.has(w)) return;
       var entry = learned[w];
       if (!entry) return;
-      // Stale guard: row no longer exists — purge and skip
+
       if (!rows.some(function(r) { return r.id === entry.rowId; })) {
         delete learned[w]; learnedDirty = true; return;
       }
@@ -416,7 +379,6 @@ window.VoiceInput = (function () {
     if (learnedDirty) try { localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch(e) {}
     if (best.confidence >= 0.95) return best;
 
-    // 3. Partial: any label word (>2 chars) found in transcript
     rows.forEach(function(row) {
       var labelWords = row.label.toLowerCase().split(/\s+/);
       var hit = labelWords.some(function(lw) { return lw.length > 2 && _containsWithPlural(lower, lw); });
@@ -425,7 +387,6 @@ window.VoiceInput = (function () {
       }
     });
 
-    // 4. Synonym dictionary
     rows.forEach(function(row) {
       var label = row.label.toLowerCase();
       Object.keys(SYNONYMS).forEach(function(syn) {
@@ -443,19 +404,16 @@ window.VoiceInput = (function () {
   function _parseTranscript(transcript) {
     var lower   = transcript.toLowerCase();
     var br      = _bridge();
-    // Linked rows (the Subscriptions mirror) are computed from the Subscriptions
-    // tracker and are not manually editable - voice must not target them either.
+
     var rows    = br.getRows().filter(function(r){ return !r.linked; });
     var cols    = br.getCols();
     var weekResult  = _extractWeekIndex(lower);
     var isForecast  = typeof br.isForecastMonth === 'function' ? br.isForecastMonth() : false;
-    // On forecast months with no explicit week, default to week 1 (date-based default is meaningless)
+
     var weekIdx     = (!weekResult.explicit && isForecast) ? 0 : weekResult.index;
     var col         = cols[weekIdx] || cols[0] || {};
     var match       = _matchCategory(lower, rows);
-    // Detect when the user clearly meant a linked (Subscriptions) row - those are
-    // excluded from matching above, so without this the sheet would just say the
-    // unhelpful "No category matched". Flag it so the sheet can explain instead.
+
     var linkedRows  = br.getRows().filter(function(r){ return r.linked; });
     var saidLinked  = null;
     if (!match.rowId && linkedRows.length) {
@@ -487,7 +445,6 @@ window.VoiceInput = (function () {
     };
   }
 
-  // ── Speech state ───────────────────────────────────────────────────────
   var _recognition   = null;
   var _isListening   = false;
   var _pendingResult = null;
@@ -549,7 +506,6 @@ window.VoiceInput = (function () {
   }
   function stop() { if (_recognition) try { _recognition.stop(); } catch (e) {} }
 
-  // ── Decision logic ─────────────────────────────────────────────────────
   function _alwaysConfirm() {
     return localStorage.getItem('fiapp_voice_always_confirm') === 'true';
   }
@@ -570,16 +526,15 @@ window.VoiceInput = (function () {
       p.confidence >= 0.95
       && !_hasSubcategories(p.rowId)
       && p.amount !== null
-      && !p.relAmount              // relative amounts always confirm so user sees resolved value
-      && !currencyAmbiguous        // e.g. "rupees" (INR/PKR/NPR/LKR) — confirm so user can pick
+      && !p.relAmount
+      && !currencyAmbiguous
       && !_alwaysConfirm()
       && !p.lastWeekInWeek1
-      && !(p.isForecast && !p.weekExplicit)  // forecast month with no stated week: confirm so user can verify which week
+      && !(p.isForecast && !p.weekExplicit)
     );
     if (autoLog) { _applyResult(p); } else { _showConfirmSheet(p); }
   }
 
-  // ── Apply (commit) ─────────────────────────────────────────────────────
   function _applyResult(p) {
     if (!p || !p.rowId) return;
     if (p.action === 'clear-row') {
@@ -597,7 +552,7 @@ window.VoiceInput = (function () {
       br.snapshot();
       br.deleteRow(p.rowId);
       br.render();
-      // Purge learned entries pointing to the now-deleted row
+
       var learned = _loadLearned();
       var dirty = false;
       Object.keys(learned).forEach(function(k) {
@@ -632,7 +587,6 @@ window.VoiceInput = (function () {
     var existingCurrency = newCurrency && _bridgeCurrency(br, effectiveRowId);
     var currencyChanging = newCurrency && existingCurrency && newCurrency !== existingCurrency;
 
-    // Helper that finishes writing after we have the final amount
     function _commit(amountInRowCurrency, appliedCurrency, convertedNote) {
       var newVal = isRemove
         ? Math.max(0, existing - amountInRowCurrency)
@@ -652,7 +606,7 @@ window.VoiceInput = (function () {
     }
 
     if (currencyChanging && typeof window.fiappConvert === 'function') {
-      // Convert the spoken amount into the row's existing currency, then add
+
       _toast('Converting ' + newCurrency + ' → ' + existingCurrency + '…');
       window.fiappConvert(p.amount, newCurrency, existingCurrency).then(function(converted) {
         _commit(converted, null, '(≈ ' + existingCurrency + ' ' + converted.toFixed(2) + ')');
@@ -664,7 +618,6 @@ window.VoiceInput = (function () {
     }
   }
 
-  // ── TTS ────────────────────────────────────────────────────────────────
   function _speak(text) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -673,7 +626,6 @@ window.VoiceInput = (function () {
     window.speechSynthesis.speak(u);
   }
 
-  // ── Toast ──────────────────────────────────────────────────────────────
   function _toast(msg) {
     var el = document.createElement('div');
     el.className = 'voice-toast';
@@ -682,7 +634,6 @@ window.VoiceInput = (function () {
     setTimeout(function () { el.remove(); }, 3500);
   }
 
-  // ── UI state helpers ───────────────────────────────────────────────────
   function _showListening() {
     var fab = document.getElementById('_vi-fab');
     var ov  = document.getElementById('_vi-ov');
@@ -695,7 +646,6 @@ window.VoiceInput = (function () {
     var ov  = document.getElementById('_vi-ov');  if (ov)  ov.classList.remove('active');
   }
 
-  // ── Confirm sheet ──────────────────────────────────────────────────────
   function _showConfirmSheet(p) {
     _pendingResult = p;
     _refreshSheet();
@@ -724,9 +674,6 @@ window.VoiceInput = (function () {
     var p = _pendingResult; if (!p) return;
     var br = _bridge();
 
-    // Always reset the currency picker rows to hidden on each new command so stale
-    // state from a previous command (e.g. SAR from "add 1 riyal to X") never bleeds
-    // into the next command's sheet.
     document.getElementById('_vi-cur-row').style.display = 'none';
     document.getElementById('_vi-cur-other-row').style.display = 'none';
     document.querySelector('.voice-chips').style.display = 'flex';
@@ -735,7 +682,6 @@ window.VoiceInput = (function () {
     document.getElementById('_vi-last-week-note').style.display = p.lastWeekInWeek1 ? '' : 'none';
     document.getElementById('_vi-forecast-note').style.display  = p.isForecast      ? '' : 'none';
 
-    // Resolve relative amount (re-runs on every refresh so week-chip changes update it)
     if (p.relAmount && p.rowId && p.colId) {
       var _cur = parseFloat(br.getCell(p.rowId, p.colId) || '0') || 0;
       var _resolved = _resolveRelative(p.relAmount, _cur);
@@ -744,8 +690,7 @@ window.VoiceInput = (function () {
 
     var nocat = !p.rowId;
     var noCatEl = document.getElementById('_vi-no-cat');
-    // When the user clearly said a linked (Subscriptions) row, explain why it can't be
-    // targeted instead of the generic "no category matched".
+
     noCatEl.textContent = (nocat && p.linkedCatLabel)
       ? '"' + p.linkedCatLabel + '" is filled from the Subscriptions tracker - voice can\'t add there. Pick another category, or add it in Subscriptions.'
       : 'No category matched - tap Category to pick one.';
@@ -807,25 +752,16 @@ window.VoiceInput = (function () {
       wkChip.textContent = p.colLabel || ('Week ' + (p.weekIndex + 1));
     }
 
-    // Currency chip — shown on both trackers now that expenses also has a currency
-    // concept (the account's home currency, via br.homeCurrency), not just income's
-    // per-row tags. Without this a spoken currency other than the default could never
-    // be reviewed or corrected before committing.
     var curChip = document.getElementById('_vi-c-cur');
     var showCur = !isDeleteRow && !isClearRow && !isAddSub;
     curChip.style.display = showCur ? '' : 'none';
     if (showCur) {
-      // If no currency was detected at all, initialise from the row's existing
-      // currency (income) or the account's home currency (expenses).
+
       if (!p.currency) {
         var existingCode = _bridgeCurrency(br, p.rowId) || 'USD';
         p.currency = { code: existingCode, candidates: COMMON_CURRENCIES };
       }
-      // If ambiguous (e.g. "rupees" → candidates ['INR','PKR','NPR','LKR']) and that
-      // matches the row's own currency (income) or the home currency (expenses),
-      // auto-resolve to it so confirm isn't blocked. Crucially, keep candidates intact
-      // so the picker shows only the word-specific variants (INR, PKR, NPR, LKR)
-      // rather than the full COMMON_CURRENCIES list.
+
       if (p.currency.candidates && !p.currency.code) {
         var rowCode = _bridgeCurrency(br, p.rowId);
         if (rowCode && p.currency.candidates.indexOf(rowCode) !== -1) {
@@ -878,7 +814,6 @@ window.VoiceInput = (function () {
     _pendingResult = null;
   }
 
-  // ── Category picker ────────────────────────────────────────────────────
   function _showCatPicker(onSelect) {
     var rows = _bridge().getRows().filter(function(r){ return !r.linked; });
     var list = document.getElementById('_vi-cat-list');
@@ -899,7 +834,6 @@ window.VoiceInput = (function () {
     document.getElementById('_vi-cat-picker').classList.remove('active');
   }
 
-  // ── Wire event handlers ────────────────────────────────────────────────
   function _wireHandlers() {
     document.getElementById('_vi-c-cat').addEventListener('click', function () {
       _showCatPicker(function (row) {
@@ -927,12 +861,11 @@ window.VoiceInput = (function () {
       _refreshSheet();
     }
 
-    // Currency chip — opens dropdown select
     document.getElementById('_vi-c-cur').addEventListener('click', function () {
       var p = _pendingResult;
       if (!p || !p.currency) return;
       var list = p.currency.candidates || COMMON_CURRENCIES;
-      // If using the full common list, surface the current code and USD at the top
+
       if (!p.currency.candidates) {
         var cur = p.currency.code || 'USD';
         var top = [cur];
@@ -989,7 +922,6 @@ window.VoiceInput = (function () {
       if (e.key === 'Enter') { e.preventDefault(); _commitCurrencyOther(); }
     });
 
-    // Sub-name chip
     document.getElementById('_vi-c-sub').addEventListener('click', function () {
       var inp = document.getElementById('_vi-sub-name-input');
       inp.value = _pendingResult.subLabel || '';
@@ -1060,14 +992,13 @@ window.VoiceInput = (function () {
     });
   }
 
-  // ── Build all DOM elements (called once in init) ───────────────────────
   function _buildUI() {
-    // FAB
+
     var fab = document.createElement('button');
     fab.id = '_vi-fab'; fab.className = 'voice-fab';
     fab.setAttribute('aria-label', 'Voice input');
     fab.innerHTML = '🎤';
-    // ── Drag-to-reposition ────────────────────────────────────────
+
     var _fabHoldTimer = null, _fabDragActive = false, _fabDragReady = false;
     var _fabOffX = 0, _fabOffY = 0, _fabStartX = 0, _fabStartY = 0;
     var _fabDidDrag = false, _fabPtrId = null;
@@ -1108,7 +1039,7 @@ window.VoiceInput = (function () {
     });
 
     fab.addEventListener('pointermove', function(e) {
-      // Cancel hold detection if the user moves too far (they're scrolling past)
+
       if (_fabHoldTimer) {
         if (Math.abs(e.clientX - _fabStartX) > _FAB_CANCEL_PX || Math.abs(e.clientY - _fabStartY) > _FAB_CANCEL_PX) {
           clearTimeout(_fabHoldTimer); _fabHoldTimer = null;
@@ -1116,7 +1047,7 @@ window.VoiceInput = (function () {
         return;
       }
       if (!_fabDragReady && !_fabDragActive) return;
-      // First move after hold fires — lock in the drag offset and enter dragging state
+
       if (_fabDragReady) {
         var r = fab.getBoundingClientRect();
         _fabOffX = e.clientX - r.left; _fabOffY = e.clientY - r.top;
@@ -1137,8 +1068,8 @@ window.VoiceInput = (function () {
       try { fab.releasePointerCapture(e.pointerId); } catch(err) {}
       var wasDragging = _fabDragActive;
       _fabDragActive = false; _fabDragReady = false;
-      if (wasDragging) { _fabSavePos(); return; } // dropped — save & don't open mic
-      if (!_fabDidDrag) start();                   // normal tap — open mic
+      if (wasDragging) { _fabSavePos(); return; }
+      if (!_fabDidDrag) start();
     });
 
     fab.addEventListener('pointercancel', function() {
@@ -1146,7 +1077,6 @@ window.VoiceInput = (function () {
       fab.classList.remove('drag-ready', 'dragging');
       _fabDragActive = false; _fabDragReady = false;
     });
-    // ── end drag ──────────────────────────────────────────────────
 
     document.body.appendChild(fab);
     _fabRestorePos();
@@ -1154,7 +1084,6 @@ window.VoiceInput = (function () {
     _syncFabWt();
     window.addEventListener('storage',_syncFabWt);
 
-    // Listening overlay
     var ov = document.createElement('div');
     ov.id = '_vi-ov'; ov.className = 'voice-listening-overlay';
     ov.innerHTML = '<div class="voice-pulse-ring"></div>' +
@@ -1162,7 +1091,6 @@ window.VoiceInput = (function () {
     ov.addEventListener('click', stop);
     document.body.appendChild(ov);
 
-    // Confirm sheet
     var sheet = document.createElement('div');
     sheet.id = '_vi-sheet'; sheet.className = 'voice-confirm-sheet';
     sheet.innerHTML =
@@ -1211,7 +1139,6 @@ window.VoiceInput = (function () {
       '</div>';
     document.body.appendChild(sheet);
 
-    // Category picker
     var picker = document.createElement('div');
     picker.id = '_vi-cat-picker'; picker.className = 'voice-cat-picker';
     picker.innerHTML =
@@ -1225,7 +1152,6 @@ window.VoiceInput = (function () {
     _wireHandlers();
   }
 
-  // ── Public ─────────────────────────────────────────────────────────────
   function init(trackerType) {
     _tracker = trackerType || 'expenses';
     if (!_getSpeechAPI()) return;
