@@ -21,18 +21,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <script src="/static/js/theme-core.js?v={{ ASSET_V }}"></script>
   <script nonce="{{ csp_nonce }}">
-    (function(){
-
-      window.__fiappSrvDark={{ theme_dark|default(false)|tojson }};
-      var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';
-      if(window.fiappThemeBoot){ t=fiappThemeBoot(t); }
-      else if(t==='dark'||localStorage.getItem('fiapp_theme_mode')==='dark') document.documentElement.classList.add('dark');
-      var p=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
-      if(p==='quiet') document.documentElement.classList.add('personality-quiet');
-      else if(p==='playful') document.documentElement.classList.add('personality-playful');
-    })();
-  </script>
-  <script nonce="{{ csp_nonce }}">
   (function(){
 
     window.FIAPP_USER_DATA_KEYS=[
@@ -46,7 +34,8 @@
       'fiapp_tax_result','fiapp_tax_ui_v1','fiapp_prefill_income',
       'fiapp_walkthrough_v1','fiapp_wt_backup_v1','fiapp_template_dismissed',
       'fiapp_personality','fiapp_analytics_currency',
-      'fiapp_currency_confirmed','fiapp_currency_confirm_pending'];
+      'fiapp_currency_confirmed','fiapp_currency_confirm_pending',
+      'fiapp_theme','fiapp_theme_mode','fiapp_themes_custom','fiapp_themes_dirty'];
     try {
       var _srv={{ current_user|default(none)|tojson }};
       var _stored=localStorage.getItem('fiapp_auth_user');
@@ -57,6 +46,18 @@
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
     } catch(e) {}
   })();
+  </script>
+  <script nonce="{{ csp_nonce }}">
+    (function(){
+
+      window.__fiappSrvDark={{ theme_dark|default(false)|tojson }};
+      var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';
+      if(window.fiappThemeBoot){ t=fiappThemeBoot(t); }
+      else if(t==='dark'||localStorage.getItem('fiapp_theme_mode')==='dark') document.documentElement.classList.add('dark');
+      var p=localStorage.getItem('fiapp_personality')||'{{ personality|default("balanced") }}';
+      if(p==='quiet') document.documentElement.classList.add('personality-quiet');
+      else if(p==='playful') document.documentElement.classList.add('personality-playful');
+    })();
   </script>
   <script nonce="{{ csp_nonce }}">
   (function(){
@@ -223,11 +224,20 @@
     var isCustom=_lsT&&_lsT.indexOf('custom:')===0;
     var missing=isCustom&&window.fiappThemesCache&&!fiappThemesCache.get(_lsT.slice(7));
     var dirty=localStorage.getItem('fiapp_themes_dirty')==='1';
+    // The theme cache is now cleared on an account switch, so a signed-in user can legitimately
+    // arrive with no cache at all. Without this trigger they would see an empty theme list and
+    // have no way to populate it: theme-studio.js only ever PATCHes, so the fetch below is the
+    // single server-to-local path, and it used to run only when a *custom* theme was selected.
+    // Anyone holding a built-in theme would sit on an empty dropdown forever.
+    // getItem()===null distinguishes "never loaded" from "loaded and genuinely empty" - read()
+    // returns the same {themes:[]} for both - so a user with no themes fetches once, not on
+    // every page load.
+    var neverLoaded=localStorage.getItem('fiapp_themes_custom')===null;
     if(!_lsT){
       localStorage.setItem('fiapp_theme',_srvT);
       if(_srvT.indexOf('custom:')===0){ missing=!fiappThemesCache.get(_srvT.slice(7)); _lsT=_srvT; isCustom=true; }
     }
-    if(missing||dirty){
+    if(missing||dirty||neverLoaded){
       fiappFetchTimeout('/api/prefs',8000,{headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(srv){
         var srvThemes=(srv&&srv.themes_custom&&srv.themes_custom.themes)||[];
         var cache=fiappThemesCache.read();
@@ -252,7 +262,10 @@
           fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},
             body:JSON.stringify({theme:localStorage.getItem('fiapp_theme'),themes_custom:fiappThemesCache.read()})})
             .then(function(r){ if(r.ok) localStorage.removeItem('fiapp_themes_dirty'); }).catch(function(){});
-        } else if(missing&&srvThemes.length){
+        } else {
+          // Write unconditionally, including an empty list. The envelope's presence is what
+          // marks the cache as loaded, so an account with no themes stops refetching after
+          // the first page view instead of hitting /api/prefs on every load.
           fiappThemesCache.write({v:1,themes:srvThemes});
         }
         if(window.fiappApplyTheme) fiappApplyTheme(localStorage.getItem('fiapp_theme')||'light');
