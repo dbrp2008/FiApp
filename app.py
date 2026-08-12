@@ -557,6 +557,14 @@ def init_db():
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'light';
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT 'balanced';
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS analytics_currency TEXT DEFAULT 'USD';
+                    -- Whether the user has confirmed their home currency. Lived only in
+                    -- localStorage before, and localStorage is cleared on logout and on an
+                    -- account switch (it is per-user state), so a returning user was asked to
+                    -- pick a home currency again on every single login. Nothing restored it,
+                    -- because nothing recorded it. It cannot simply be excluded from that
+                    -- purge either: then a second account on the same device would inherit
+                    -- the first one's confirmation and never be asked at all.
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS currency_confirmed BOOLEAN NOT NULL DEFAULT FALSE;
                     -- Theme Studio: the user's saved custom themes (a {v,themes:[...]} envelope).
                     -- theme may now be 'light' | 'dark' | 'custom:<id>' referencing this list.
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS themes_custom JSONB DEFAULT '[]'::jsonb;
@@ -2029,14 +2037,14 @@ def get_prefs():
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT theme, personality, analytics_currency, themes_custom, push_enabled, push_overspend FROM users WHERE id=%s",
+            cur.execute("SELECT theme, personality, analytics_currency, themes_custom, push_enabled, push_overspend, currency_confirmed FROM users WHERE id=%s",
                         (session['user_id'],))
             row = cur.fetchone()
     finally:
         release_db(conn)
     if not row:
         return jsonify({"error": "not found"}), 404
-    theme, personality, analytics_currency, themes_custom, push_enabled, push_overspend = row
+    theme, personality, analytics_currency, themes_custom, push_enabled, push_overspend, currency_confirmed = row
     if not isinstance(themes_custom, dict):
         themes_custom = {'v': 1, 'themes': themes_custom if isinstance(themes_custom, list) else []}
     return jsonify({
@@ -2044,6 +2052,7 @@ def get_prefs():
         "themes_custom": themes_custom, "theme_dark": _theme_is_dark(theme, themes_custom),
         "push_enabled": bool(push_enabled),
         "push_overspend": bool(push_overspend),
+        "currency_confirmed": bool(currency_confirmed),
     })
 
 
@@ -2106,6 +2115,12 @@ def save_prefs():
 
     if 'push_overspend' in data:
         set_clauses.append("push_overspend=%s"); params.append(bool(data.get('push_overspend')))
+
+    if 'currency_confirmed' in data:
+        # Write-once in practice: the account page sets it when the user confirms their home
+        # currency. Coerced with bool() like the push flags, so a forged non-boolean cannot
+        # reach the column.
+        set_clauses.append("currency_confirmed=%s"); params.append(bool(data.get('currency_confirmed')))
 
     if not set_clauses:
         return jsonify({"error": "No valid fields to update"}), 400
