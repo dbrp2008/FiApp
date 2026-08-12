@@ -1,23 +1,9 @@
-// W1b: Tier-B file import (OFX/QIF/CSV) for the Expense Tracker.
-// Adds an "Import" entry to the Share menu. Parses bank-export files into a
-// normalized transaction list, lets the user assign a category to each group
-// of similar transactions (remembered for next time via a small persisted
-// keyword->category map), then sums the spending per (month, category) into a
-// dedicated "Imported" column — auditable, and never overwrites manual entries.
-// Everything is written into the existing `state` and routed through the
-// existing save()/render(), so it picks up undo/redo, sync, and the W3
-// versioned-save/merge flow for free.
 (function(){
   'use strict';
 
   const MAX_SEEN = 4000;
   const IMPORT_COL_LABEL = 'Imported';
 
-  // ── Persisted helpers (plain localStorage; not part of the synced blob — these
-  //    are import-assistant memory, not financial data) ──────────────────────
-  // Keyed per-account (window.__currentUser, set by the tracker's startup IIFE
-  // before the wizard can be opened) — otherwise two accounts sharing the same
-  // browser would see each other's "already imported" memory as false positives.
   function _seenKey(){ return 'fiapp_import_seen_v1_'+(window.__currentUser||'anon'); }
   function _mapKey(){ return 'fiapp_import_catmap_v1_'+(window.__currentUser||'anon'); }
   function loadSeen(){ try{ return new Set(JSON.parse(localStorage.getItem(_seenKey())||'[]')); }catch(_){ return new Set(); } }
@@ -29,8 +15,6 @@
   function loadCatMap(){ try{ const m=JSON.parse(localStorage.getItem(_mapKey())||'{}'); return (m&&typeof m==='object')?m:{}; }catch(_){ return {}; } }
   function saveCatMap(map){ try{ localStorage.setItem(_mapKey(), JSON.stringify(map)); }catch(_){} }
 
-  // Income-specific catmap — kept separate so "PAYROLL" → "Salary" memory never
-  // collides with an expense category of the same keyword.
   const INCOME_STORAGE_KEY='fiapp_income_v1';
   const INCOME_DEFAULT_ROWS=['Salary','Freelance','Investments','Other Income'];
   const INCOME_CAT_COLORS={'Salary':'#bbf7d0','Freelance':'#bfdbfe','Investments':'#fed7aa','Other Income':'#e9d5ff'};
@@ -50,7 +34,6 @@
     return b;
   }
 
-  // ── Format detection ─────────────────────────────────────────────────────
   function detectFormat(filename,text){
     const lower=(filename||'').toLowerCase();
     if(/\.(ofx|qfx)$/.test(lower)||/<OFX>/i.test(text)) return 'ofx';
@@ -58,10 +41,6 @@
     return 'csv';
   }
 
-  // ── OFX parser ───────────────────────────────────────────────────────────
-  // OFX is SGML-ish — tags are commonly left unclosed — so we extract each
-  // <STMTTRN> block by regex and pull fields out of it rather than using an
-  // XML parser (which would choke on the malformed markup real exports use).
   function parseOFX(text){
     const out=[];
     const blocks=text.match(/<STMTTRN>[\s\S]*?(?=<STMTTRN>|<\/BANKTRANLIST>|<\/STMTTRN>|$)/gi)||[];
@@ -73,14 +52,13 @@
       if(!dt||!amtStr) return;
       const amt=parseFloat(amtStr.replace(/,/g,''));
       if(isNaN(amt)) return;
-      const ymd=dt.match(/^(\d{4})(\d{2})(\d{2})/); // DTPOSTED like 20240315 or 20240315120000[-5:EST]
+      const ymd=dt.match(/^(\d{4})(\d{2})(\d{2})/);
       if(!ymd) return;
       out.push({ date:ymd[1]+'-'+ymd[2]+'-'+ymd[3], amount:Math.abs(amt), sign:amt<0?'debit':'credit', description:name||'(no description)' });
     });
     return out;
   }
 
-  // ── QIF parser ───────────────────────────────────────────────────────────
   function parseQIF(text){
     const out=[];
     const recs=text.split(/\r?\n\^\r?\n?/);
@@ -101,8 +79,7 @@
     });
     return out;
   }
-  // QIF dates are typically MM/DD/YYYY (or MM/DD'YY); guard against the rare
-  // file that's clearly DD/MM by checking whether the first part can be a month.
+
   function parseLooseDate(s){
     const m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.'](\d{2,4})/);
     if(!m) return null;
@@ -114,7 +91,6 @@
     return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
   }
 
-  // ── CSV parser (handles quoted fields with embedded commas/newlines) ────
   function parseCSVText(text){
     const rows=[];
     let row=[],field='',inQuotes=false;
@@ -127,7 +103,7 @@
         if(c==='"') inQuotes=true;
         else if(c===','){ row.push(field); field=''; }
         else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
-        else if(c==='\r'){ /* skip — \n follows in CRLF */ }
+        else if(c==='\r'){  }
         else field+=c;
       }
     }
@@ -136,9 +112,7 @@
   }
 
   function applySignConvention(amount,convention){
-    // 'neg-spend' (default): negative amounts represent spending — what most
-    // bank/card exports do. 'pos-spend': positive amounts represent spending
-    // (common for exports that already show spend as a positive "debit" figure).
+
     if(convention==='pos-spend') return { amount:Math.abs(amount), sign:amount>=0?'debit':'credit' };
     return { amount:Math.abs(amount), sign:amount<=0?'debit':'credit' };
   }
@@ -150,18 +124,12 @@
     let y,mo,d;
     if(fmt==='YMD'){ y=+m[1]; mo=+m[2]; d=+m[3]; }
     else if(fmt==='DMY'){ d=+m[1]; mo=+m[2]; y=+m[3]; }
-    else { mo=+m[1]; d=+m[2]; y=+m[3]; } // MDY
+    else { mo=+m[1]; d=+m[2]; y=+m[3]; }
     if(y<100) y+=(y<70?2000:1900);
     if(mo<1||mo>12||d<1||d>31) return null;
     return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
   }
 
-  // ── Category guessing ────────────────────────────────────────────────────
-  // Linked rows (e.g. "Subscriptions") render every cell as a live computed
-  // total from the Subscriptions tracker (virtualSubChildren()) — they never
-  // read from state.cells. Writing imported amounts into one is a silent
-  // black hole: the value is stored but can never be displayed or totaled.
-  // So these rows must never be offered as import targets.
   function _isLinkedRow(r){ return !!(r&&(r.linked==='subscriptions'||r.snapshotLinkedRow)); }
   function buildCategoryOptions(){
     const set=new Set(CAT_KEYS);
@@ -172,9 +140,7 @@
   function guessCategory(keyword,sample,catMap){
     const rows=getRows(currentMK());
     if(catMap[keyword]){
-      // Ignore stale remembered mappings that point at a linked row (e.g. an
-      // older import once recorded "Subscriptions" before that became
-      // unavailable as a target) — re-guess instead of proposing it again.
+
       const mappedRow=rows.find(function(r){ return !r.parentId&&r.label===catMap[keyword]; });
       if(!mappedRow||!_isLinkedRow(mappedRow)) return catMap[keyword];
     }
@@ -186,17 +152,7 @@
     }
     return '';
   }
-  // Looks for an existing tracked subscription whose service name appears in the
-  // transaction description. Used to warn the user that an imported group may
-  // duplicate something already billed via the Subscriptions tracker.
-  //
-  // Note: linked-subscription rows shown inside the expense tracker (e.g.
-  // "Netflix" under "Subscriptions") are *virtual* — computed at render time by
-  // virtualSubChildren() directly from the Subscriptions tracker's own data, and
-  // never exist as real entries in getRows()/state.rows. So the source of truth
-  // for "what subscriptions does this user track" is the Subscriptions tracker's
-  // own blob, read the same way virtualSubChildren() does (via loadSubsState()
-  // and its text-type "service name" column) — not the expense tracker's rows.
+
   function guessIncomeCategory(keyword,sample,catMap){
     if(catMap[keyword]) return catMap[keyword];
     const hay=(sample||'').toLowerCase();
@@ -236,9 +192,7 @@
     }
     return null;
   }
-  // When the chosen mapping settings produce zero matching transactions, inspect
-  // the sample rows that ARE there and suggest the specific setting that's likely
-  // wrong — rather than a generic "double-check your choices" dead end.
+
   function diagnoseMismatch(rows,skip,dateCol,amtCol,fmt,sign,creditCol){
     const tips=[];
     const sample=rows.slice(skip,skip+30).filter(function(r){ return r&&r.some(function(c){ return String(c||'').trim(); }); });
@@ -272,7 +226,6 @@
     return tips;
   }
 
-  // ── Wizard state machine ─────────────────────────────────────────────────
   let _wiz=null;
 
   function openImportWizard(){
@@ -302,7 +255,6 @@
     else if(_wiz.step==='done') renderDoneStep(m);
   }
 
-  // Step 1 — choose a file; OFX/QIF go straight to parsing, CSV needs mapping.
   function renderPickStep(m){
     const desc=document.createElement('p'); desc.className='share-hint';
     desc.textContent='Import spending from a bank export (.ofx, .qfx, .qif) or a spreadsheet (.csv). Imports are summed per category into a dedicated "Imported" column - your manual entries are never changed.';
@@ -320,10 +272,6 @@
       try{ text=await f.text(); }
       catch(e){ status.textContent='⚠ Could not read that file.'; status.className='paste-status bad'; return; }
 
-      // Reject binary files (e.g. .xlsx, .png) early: decoding non-text bytes as
-      // UTF-8 produces U+FFFD replacement characters, which a genuine .csv/.ofx/
-      // .qfx/.qif export will never contain. Catching it here avoids showing the
-      // user a garbled column preview for a format we can't parse anyway.
       if(/�/.test(text)){
         status.textContent='⚠ That file doesn’t look like a text export - FiApp can only import .csv, .ofx, .qfx or .qif files. If this is a spreadsheet, export/save it as CSV first.';
         status.className='paste-status bad';
@@ -335,10 +283,7 @@
       if(fmt==='csv'){
         const rows=parseCSVText(text);
         if(rows.length<2){ status.textContent='⚠ That CSV has no data rows.'; status.className='paste-status bad'; return; }
-        // Reject text that parses but isn't tabular transaction data (code,
-        // templates, prose, ...). A real export has a consistent column count
-        // across its rows — at least 2 columns, shared by most non-blank lines.
-        // Free-form text mostly parses into single-column, wildly varying rows.
+
         const lenCounts={}; let nonBlank=0;
         rows.forEach(function(r){
           if(!r||r.every(function(c){ return !String(c||'').trim(); })) return;
@@ -369,7 +314,6 @@
     setTimeout(function(){ inp.focus(); },20);
   }
 
-  // Step 2 (CSV only) — preview rows, map columns, pick date format + sign convention.
   function renderMapStep(m){
     const rows=_wiz.csvRows;
     const previewRows=rows.slice(0,Math.min(6,rows.length));
@@ -429,10 +373,6 @@
       const o=document.createElement('option'); o.value=p[0]; o.textContent=p[1]; signSel.appendChild(o);
     });
 
-    // Optional second amount column for files that split spending/income into
-    // separate "Money Out"/"Money In" (or Debit/Credit) columns instead of one
-    // signed column. When set, the sign-convention picker is hidden — it doesn't
-    // apply once the columns themselves tell us which side a transaction is on.
     const creditSel=colSelect();
     const noCreditOpt=document.createElement('option'); noCreditOpt.value=''; noCreditOpt.textContent='- not used (single signed amount column) -';
     creditSel.insertBefore(noCreditOpt,creditSel.firstChild);
@@ -480,9 +420,7 @@
         if(!iso){ badRows++; continue; }
         const description=String(r[descCol]!==undefined?r[descCol]:'').trim()||'(no description)';
         if(creditCol>=0){
-          // Two-column mode: a "Money Out"/debit column and a separate
-          // "Money In"/credit column. Whichever one has a parseable nonzero
-          // value tells us which side of the ledger the row belongs to.
+
           const outAmt=parseFloat(String(r[amtCol]||'').replace(/[^0-9.\-]/g,''));
           const inAmt=parseFloat(String(r[creditCol]||'').replace(/[^0-9.\-]/g,''));
           if(!isNaN(outAmt)&&outAmt!==0){
@@ -517,12 +455,8 @@
     m.appendChild(desc); m.appendChild(tableWrap); m.appendChild(grid); m.appendChild(status); m.appendChild(actions);
   }
 
-  // Shared tail of parsing: dedupe against previously-imported fingerprints,
-  // group the new ones by merchant keyword, and pre-fill a category guess.
-  // incomeTxns (sign:'credit') are grouped separately and routed to the income tracker.
   function finishParsing(txns,incomeTxns,badRows){
-    // Stashed so the "forget what's been imported" recovery path (below) can
-    // re-run the dedup pass against a cleared memory without re-parsing the file.
+
     _wiz.lastTxns=txns; _wiz.lastIncomeTxns=incomeTxns||[]; _wiz.lastBadRows=badRows;
     const seen=loadSeen();
     const fresh=[];
@@ -549,9 +483,6 @@
       g.subsConflict=findLinkedSubscriptionMatch(g.sample);
     });
 
-    // Income grouping — same keyword/fingerprint logic, separate category memory.
-    // Income txns share the same `seen` set: a payroll deposit has a distinct
-    // fingerprint from any expense, so there's no risk of double-routing.
     const freshIncome=[];
     (incomeTxns||[]).forEach(function(t){
       const fp=fingerprint(t);
@@ -574,7 +505,6 @@
     _wiz.step='review'; renderWizStep();
   }
 
-  // Step 3 — review groups, assign/confirm a category for each.
   function renderReviewStep(m){
     const summary=document.createElement('p'); summary.className='share-hint';
     let s='Found '+_wiz.allCount+' spending transaction'+(_wiz.allCount===1?'':'s');
@@ -619,8 +549,6 @@
       row.appendChild(info); row.appendChild(sel);
       card.appendChild(row);
 
-      // Warn when this group looks like a subscription already tracked
-      // elsewhere — importing it here would double-count it.
       if(g.subsConflict){
         const warnRow=document.createElement('label');
         warnRow.style.cssText='display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--muted);background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:5px;padding:.35rem .5rem;';
@@ -638,14 +566,11 @@
       list.appendChild(card);
     });
 
-    // Income section — only shown when the file had credit/income rows
     if(_wiz.incomeGroups&&_wiz.incomeGroups.length){
       const incHdr=document.createElement('div');
       incHdr.style.cssText='font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:.6rem .2rem .2rem;';
       incHdr.textContent='Income - routes to income tracker';
 
-      // Currency selector: income rows in the tracker may be set to a specific currency.
-      // Tell us what currency the amounts in this file are in so we write to the right row.
       const currRow=document.createElement('div');
       currRow.style.cssText='display:flex;align-items:center;gap:.5rem;font-size:.82rem;padding:.1rem .2rem .4rem;flex-wrap:wrap;';
       const currLbl=document.createElement('span'); currLbl.textContent='Currency of these transactions:';
@@ -697,18 +622,16 @@
   }
   function selStyleSmall(sel){ sel.style.cssText='padding:.3rem;border:1px solid var(--input-border);border-radius:5px;background:var(--input-bg);color:var(--fg);font-size:.82rem;'; return sel; }
 
-  // Step 4 — aggregate per (month, category), write into state, persist memory.
   function doApply(){
     const map=_wiz.catMap;
     _wiz.groups.forEach(function(g){ if(!g.skip) map[g.keyword]=g.category; });
     saveCatMap(map);
 
-    // Save income category memory
     const incomeMap=_wiz.incomeCatMap;
     (_wiz.incomeGroups||[]).forEach(function(g){ if(g.category) incomeMap[g.keyword]=g.category; });
     saveIncomeCatMap(incomeMap);
 
-    const buckets={}; // monthKey -> category -> { sum, fps:[] }
+    const buckets={};
     _wiz.groups.forEach(function(g){
       if(g.skip) return;
       g.txns.forEach(function(t){
@@ -759,7 +682,6 @@
     saveSeen(seen);
     save(); render(); syncIncomeInputs();
 
-    // Build income buckets and apply to income tracker
     const incomeBuckets={};
     (_wiz.incomeGroups||[]).forEach(function(g){
       g.txns.forEach(function(t){
@@ -775,21 +697,18 @@
     _wiz.applied={ count:imported+ir.imported, rowsCreated:rowsCreated+ir.rowsCreated, colsCreated:colsCreated+ir.colsCreated, monthsCapped:monthsCapped+ir.monthsCapped, lockedMonths:lockedMonths, months:months.length, incomeMonths:ir.months };
     _wiz.step='done';
     renderWizStep();
-    // B (Playful): celebrate a finished import. No-op for Default/Quiet (gated inside fiappCelebrate).
+
     if(window.fiappCelebrate){
       var _n=(_wiz.applied&&_wiz.applied.count)||0;
       fiappCelebrate({confetti:true, mascot:'Import done'+(_n?', '+_n+' added':'')+'.'});
     }
   }
 
-  // Write income transaction buckets directly into the income tracker's localStorage blob,
-  // then sync to server. Called from doApply(); income.js is not loaded on this page.
   function _applyIncomeRows(buckets,seen,importCurrency){
     importCurrency=importCurrency||'USD';
     const monthKeys=Object.keys(buckets).sort();
     let imported=0,rowsCreated=0,colsCreated=0,monthsCapped=0;
 
-    // Read income blob; synthesize a minimal valid blob if it has never been saved.
     let blob;
     try{ blob=JSON.parse(localStorage.getItem(INCOME_STORAGE_KEY)||'null'); }catch(_){}
     if(!blob||typeof blob!=='object'){
@@ -808,20 +727,18 @@
     if(!blob.colsByMonth)        blob.colsByMonth={};
     if(!blob.monthRowCurrencies) blob.monthRowCurrencies={};
 
-    // Helper: currency assigned to a row in this month (falls back to tracker display currency)
     function rowCurrency(tmk,rowId){
       return blob.monthRowCurrencies[tmk+'|'+rowId]||(blob.displayCurrency||'USD');
     }
 
     const now=Date.now();
     monthKeys.forEach(function(tmk){
-      // Fork month structure if not yet done (mirrors income.js's getRows/forkCurrentMonth pattern)
+
       if(!blob.rowsByMonth[tmk]) blob.rowsByMonth[tmk]=(blob.rows||[]).map(function(r){ return Object.assign({},r); });
       if(!blob.colsByMonth[tmk]) blob.colsByMonth[tmk]=(blob.cols||[]).map(function(c){ return Object.assign({},c); });
       const monthRows=blob.rowsByMonth[tmk];
       const monthCols=blob.colsByMonth[tmk];
 
-      // Find or create "Imported" column (same label as expenses for consistency)
       let impCol=monthCols.find(function(c){ return c.label===IMPORT_COL_LABEL; });
       if(!impCol){
         if(monthCols.length<MAX_COLS){ impCol={id:uid(),label:IMPORT_COL_LABEL,width:160}; monthCols.push(impCol); colsCreated++; }
@@ -829,7 +746,7 @@
       } else if(impCol.width<160){ impCol.width=160; }
 
       Object.keys(buckets[tmk]).forEach(function(cat){
-        // Find or create the top-level category row
+
         let isNew=false;
         let catRow=monthRows.find(function(r){ return !r.parentId&&r.label===cat; });
         if(!catRow){
@@ -838,16 +755,10 @@
           monthRows.push(catRow); rowsCreated++; isNew=true;
         }
 
-        // Determine the row to write the cell into, honouring two constraints:
-        //   1. income.js renders parent rows (with sub-children) as computed sums for every
-        //      column — writing to the parent cell directly is invisible. Must use a child.
-        //   2. The target row's currency must match importCurrency so the tracker converts
-        //      correctly. If no matching row exists, create a sub-row labelled with the
-        //      currency code so the user can see where the imported value landed.
         const kids=monthRows.filter(function(r){ return r.parentId===catRow.id; });
         let targetRow;
         if(kids.length){
-          // Parent has children — find a child whose currency matches, or create one
+
           targetRow=kids.find(function(r){ return rowCurrency(tmk,r.id)===importCurrency; });
           if(!targetRow){
             targetRow={id:uid(),label:importCurrency,color:catRow.color,textColor:catRow.textColor||'#1f2937',height:32,parentId:catRow.id};
@@ -855,8 +766,7 @@
             blob.monthRowCurrencies[tmk+'|'+targetRow.id]=importCurrency;
           }
         } else {
-          // No children — use the parent directly if currency matches (or if it was just
-          // created, claim its currency); otherwise create a sub-row with the right currency.
+
           if(isNew||rowCurrency(tmk,catRow.id)===importCurrency){
             blob.monthRowCurrencies[tmk+'|'+catRow.id]=importCurrency;
             targetRow=catRow;
@@ -870,20 +780,16 @@
         const key=tmk+'|'+targetRow.id+'|'+impCol.id;
         const existing=parseFloat(blob.cells[key]||0)||0;
         blob.cells[key]=String(parseFloat((existing+buckets[tmk][cat].sum).toFixed(2)));
-        blob.cellTimes[key]=now; // stamp explicitly — income.js's _stampCellTimes isn't available here
+        blob.cellTimes[key]=now;
         buckets[tmk][cat].fps.forEach(function(fp){ if(!seen.has(fp)){ seen.add(fp); imported++; } });
       });
     });
 
     try{ localStorage.setItem(INCOME_STORAGE_KEY,JSON.stringify(blob)); }catch(_){}
-    _saveIncomeBlob(blob,0,3); // async, non-blocking
+    _saveIncomeBlob(blob,0,3);
     return {imported:imported,rowsCreated:rowsCreated,colsCreated:colsCreated,monthsCapped:monthsCapped,months:monthKeys.length};
   }
 
-  // Mini sync for income tracker: POST the blob to /api/save/income, retrying on
-  // 409 using the globally-available _mergeTrackerBlobs from tracker-sync.js.
-  // Starting with base_version:0 is intentional — on first use it succeeds immediately;
-  // for existing accounts it triggers one 409+merge cycle which the fixed merge handles correctly.
   function _saveIncomeBlob(blob,baseVersion,retriesLeft){
     if(!window.__currentUser) return;
     fetch('/api/save/income',{
@@ -900,7 +806,7 @@
         try{ localStorage.setItem(INCOME_STORAGE_KEY,JSON.stringify(merged)); }catch(_){}
         _saveIncomeBlob(merged,sv,retriesLeft-1);
       });
-      // other errors: data is in localStorage; income tracker will sync on next visit
+
     }).catch(function(){});
   }
 
