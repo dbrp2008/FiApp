@@ -6,11 +6,10 @@ const MONTHS_FULL = ['January','February','March','April','May','June','July','A
 const MONTHS_SHORT= ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CELL_CURRENCIES  = ['AED','AUD','BRL','CAD','CHF','CNY','EUR','GBP','HKD','INR','JPY','KRW','MXN','MYR','SAR','SGD','THB','USD'];
 
-
 const ratesCache = {};
 let ratesReady   = false;
 let currentRate  = 1;
-let _ratesStaleDate = null; // set when rates came from the offline fallback (rates-utils stale:true)
+let _ratesStaleDate = null;
 function _staleNote(){
   return _ratesStaleDate ? ' · offline rates from '+new Date(_ratesStaleDate).toLocaleDateString() : '';
 }
@@ -50,9 +49,6 @@ function getAllUsedCurrencies(){
   return [...set];
 }
 
-// currentRate drives ONLY the converted-total card in the summary (see updateSummaryBar).
-// The grid itself is entirely in USD, so a rate change never invalidates it - updating the
-// summary is sufficient.
 function showConvFields(cur,rate){
   currentRate=rate;
   document.getElementById('conv-lbl').textContent='Total ('+cur+')';
@@ -110,7 +106,7 @@ function applyOtherCurrency(){
       }
       const rate=ratesCache[raw];
       if(!rate){document.getElementById('curr-note').textContent='Unknown currency: '+raw;return;}
-      
+
       const sel=document.getElementById('curr-sel');
       if(![...sel.options].find(o=>o.value===raw)){
         const opt=document.createElement('option'); opt.value=raw; opt.textContent=raw; opt.dataset.custom='1';
@@ -162,7 +158,6 @@ const CAT_COLORS = {
 };
 function uid(){ return '_'+Math.random().toString(36).slice(2,9); }
 
-
 function freshState(){
   const now=new Date(),y=now.getFullYear(),m=now.getMonth();
   return {
@@ -186,16 +181,13 @@ function freshState(){
 function loadState(){
   try{
     if(isWalkthroughActive()){
-      // If the user already saved income this walkthrough session, show it so that
-      // navigating Back doesn't wipe their entry. Session flag set by save(), cleared by _restore().
+
       if(localStorage.getItem('fiapp_income_wt_session')==='1'){
         const r=localStorage.getItem(STORAGE_KEY);
         if(r){try{
           const s=JSON.parse(r);
           if(s&&Array.isArray(s.rows)){
-            // Same defensive backfill as the normal path below - a walkthrough
-            // sandbox blob missing a field (e.g. state.collapsed) would otherwise
-            // crash render() instead of falling back to a default.
+
             if(!s.cells) s.cells={};
             if(!s.cellTimes) s.cellTimes={};
             if(!s.collapsed) s.collapsed={};
@@ -224,20 +216,16 @@ function loadState(){
       if(!s.rowsByMonth)    s.rowsByMonth={};
       if(!s.colsByMonth)    s.colsByMonth={};
       if(!Array.isArray(s.recurringRules)) s.recurringRules=[];
-      // The old default Source-column width (185) truncates the default category names;
-      // widen columns that were never manually resized so e.g. 'Other Income' shows in full.
+
       if(s.headerColWidth===185) s.headerColWidth=235;
-      // The last-viewed month is per-device view state and persists across visits
-      // (matching the Expense tracker), so we keep s.currentYear/currentMonth as saved.
+
       return s;
     }
   }catch(e){ console.warn('FiApp: loadState failed, using fresh state -',e.message); }
   return freshState();
 }
 let state=loadState();
-// B (Playful first-entry): months that already had data when this session started, so a
-// later edit to an already-populated month is never mistaken for "first entry of a new
-// month". Populated from the server-synced state once startup finishes (see below).
+
 let _monthsWithDataAtLoad=null;
 
 const MAX_ROWS=20;
@@ -253,7 +241,7 @@ function forkCurrentMonth(){
   if(!state.rowsByMonth[mk2]) state.rowsByMonth[mk2]=(state.rows||[]).map(r=>({...r}));
   if(!state.colsByMonth[mk2]) state.colsByMonth[mk2]=(state.cols||[]).map(c=>({...c}));
 }
-// ── Recurring rules: state accessors + writers (pure logic lives in recurring-core.js) ──
+
 function _recRules(){ if(!Array.isArray(state.recurringRules)) state.recurringRules=[]; return state.recurringRules; }
 function _recRuleFor(rowId){ return _recRules().find(r=>r.rowId===rowId)||null; }
 function _monthTotalForRow(rowId, mk2){
@@ -268,11 +256,7 @@ function _existingMonths(){
   set[currentMK()]=1;
   return Object.keys(set);
 }
-// A top-level row lives in state.rows and so "exists" in every month via
-// effectiveRowsForMonth's fallback, even ones never forked yet. A sub-source row only
-// exists in the specific months whose fork explicitly includes it (addSubRow writes into
-// state.rowsByMonth, never state.rows) - so this check is a no-op restriction for ordinary
-// rows and a real one for sub-sources, without needing to special-case child rows.
+
 function _rowExistsInMonth(rowId, mk2){ return getRows(mk2).some(r=>r.id===rowId); }
 function _recOptsFor(rowId){
   return { existingMonths:_existingMonths().filter(mk2=>_rowExistsInMonth(rowId, mk2)), isLocked:_isClosedMonth,
@@ -295,8 +279,7 @@ function _recWriteMonth(rule, mk2){
     else { const w=(rule.weekly&&rule.weekly[i]!=null)?rule.weekly[i]:(i===0?val:0); state.cells[key]=String(w); }
     if(state.cellTimes) state.cellTimes[key]=Date.now();
   });
-  // Apply the rule's chosen currency to the month it just wrote (inlined rather than
-  // calling setRowCurrency, which saves immediately - the caller saves once, in bulk).
+
   if(rule.currency){
     if(!state.monthRowCurrencies) state.monthRowCurrencies={};
     state.monthRowCurrencies[mk2+'|'+rule.rowId]=rule.currency;
@@ -308,9 +291,7 @@ function _recFillNewMonth(mk2){
   _recRules().forEach(rule=>{
     if(rule.draft) return;
     if(!FiRecurring.monthInScope(rule, mk2)) return;
-    // A sub-source only exists in months whose fork explicitly added it - a brand-new
-    // month forks from the top-level state.rows, which never contains sub-sources, so
-    // silently skip rather than write an orphaned cell for a row that won't render here.
+
     if(!_rowExistsInMonth(rule.rowId, mk2)) return;
     if(_monthTotalForRow(rule.rowId, mk2)!==0) return;
     _recWriteMonth(rule, mk2); wrote=true;
@@ -348,9 +329,6 @@ function _recModal(){
   return {overlay:overlay, panel:panel, close:close};
 }
 
-// Inline "type a custom code" affordance for the recurring modal's currency select,
-// mirroring showCellCurrencyOther's validate-via-ensureRate pattern but reverting to an
-// explicit caller-supplied value (the modal has no single row/month to read back from).
 function _recCurrencyOther(wrap, sel, revertVal){
   sel.style.display='none';
   const form=document.createElement('span'); form.className='curr-other-cell';
@@ -391,10 +369,7 @@ function _recCurrencyOther(wrap, sel, revertVal){
 }
 
 function openRecurringConfig(rowId){
-  // Guarded at the choke point, not per call site: the 🔁 row button, the mobile gear menu
-  // and the rules manager all land here. Without this the modal opens during the walkthrough
-  // and TRAPS the user - it is appended to <body>, outside the current step's target, so the
-  // walkthrough's capture-phase click guard swallows every click inside it, Cancel included.
+
   if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   const row=getRows().find(r=>r.id===rowId)||(state.rows||[]).find(r=>r.id===rowId);
   if(!row) return;
@@ -415,9 +390,6 @@ function openRecurringConfig(rowId){
   amt.style.cssText='display:block;width:100%;margin-top:.35rem;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
   amtLbl.appendChild(amt); m.panel.appendChild(amtLbl);
 
-  // Per-month overrides pin specific months to a custom amount that otherwise shadows the
-  // base amount above with no on-screen sign (this is the desync bug). Surface any pins here
-  // with a one-click reset so a rule can never silently apply a value the modal isn't showing.
   if(existing && existing.overrides){
     const _pins=Object.keys(existing.overrides).filter(mk2=>Math.abs((existing.overrides[mk2]||0)-(existing.amount||0))>1e-9).sort();
     if(_pins.length){
@@ -440,10 +412,7 @@ function openRecurringConfig(rowId){
   curLbl.appendChild(document.createTextNode('Currency'));
   const curWrap=document.createElement('div'); curWrap.style.cssText='margin-top:.35rem;';
   const curSel=document.createElement('select');
-  // .cell-curr-sel is the class glass-picker.js already intercepts on desktop (turns the
-  // native popup into the app's glass scroll-wheel) - reuse it instead of a bespoke select,
-  // exactly like the per-row currency pickers elsewhere in this tracker. The inline width
-  // below overrides that class's narrower max-width rule (inline specificity always wins).
+
   curSel.className='cell-curr-sel';
   curSel.style.cssText='display:block;width:100%;max-width:none;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
   const _recCurCodes=getAllUsedCurrencies();
@@ -467,17 +436,12 @@ function openRecurringConfig(rowId){
   const rangeWrap=document.createElement('div'); rangeWrap.style.cssText='display:none;gap:.4rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
   const rStart=document.createElement('input'); rStart.type='month'; rStart.value=draft.scope.start||currentMK();
   const rEnd=document.createElement('input'); rEnd.type='month'; rEnd.value=draft.scope.end||currentMK();
-  // Bound the range picker to the same +-1 year window the app already enforces for
-  // month navigation (minY/minM..maxY/maxM, see isAtMin/isAtMax above) - not an invented
-  // horizon.
+
   const _recRangeMin=mk(minY,minM), _recRangeMax=mk(maxY,maxM);
   [rStart,rEnd].forEach(x=>{ x.min=_recRangeMin; x.max=_recRangeMax; x.style.cssText='padding:.4rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;'; });
   const rArrow=document.createElement('span'); rArrow.textContent='to'; rArrow.style.cssText='color:var(--muted);font-size:.85rem;';
   rangeWrap.appendChild(rStart); rangeWrap.appendChild(rArrow); rangeWrap.appendChild(rEnd);
 
-  // A continuous date range can't express "only months that have this sub-source" when its
-  // existence has gaps, so subcategory rows get a checklist of exactly the valid months
-  // instead of Custom range - the picker itself can no longer offer an invalid month.
   const specWrap=document.createElement('div'); specWrap.className='rec-spec-grid'; specWrap.style.display='none';
   const _specMonths=row.parentId?_existingMonths().filter(mk2=>_rowExistsInMonth(rowId,mk2)).sort():[];
   if(!Array.isArray(draft.scope.months)) draft.scope.months=[];
@@ -558,9 +522,6 @@ function openRecurringConfig(rowId){
   });
   actions.appendChild(saveBtn); actions.appendChild(cancelBtn); m.panel.appendChild(actions);
 
-  // Delink/Remove live here (not just the mobile gear menu) so they're reachable regardless
-  // of viewport - the gear button is mobile-only (styles.css .row-gear-btn), but this modal
-  // opens from both the mobile gear and the desktop 🔁 button.
   if(existing){
     const _isExcepted=(existing.exceptions||[]).indexOf(currentMK())>=0;
     const sec=document.createElement('div'); sec.style.cssText='display:flex;gap:.9rem;justify-content:center;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--input-border);';
@@ -576,11 +537,6 @@ function openRecurringConfig(rowId){
   amt.focus();
 }
 
-// Apply a rule to all its fillable months, mark the row, and commit. If clashes exist the
-// rule is stored as a draft and the draft banner drives resolution. Writes can span every
-// month in scope (e.g. "All future months"), so this snapshots the rule + every cell it's
-// about to touch first and hands a single Undo back through the toast - one click reverts
-// the whole multi-month write, instead of fixing each month by hand.
 function commitRecurring(draft){
   const opts=_recOptsFor(draft.rowId);
   const clashes=FiRecurring.detectClashes(draft, opts);
@@ -696,9 +652,6 @@ function delinkMonth(rowId, mk2){
   showToast('Delinked '+_recMkLabel(mk2)+' from recurring', false, 5000, ()=>relinkMonth(rowId, mk2, true));
 }
 
-// Undo a delink, or manually re-include a month a rule's range/anchor still covers but that
-// was previously excepted out. Re-applies the rule's value the same way commitRecurring does
-// (skip if locked/mismatched -> draft for review, exactly like any other clash).
 function relinkMonth(rowId, mk2, silent){
   const rule=_recRuleFor(rowId); if(!rule) return;
   if(rule.exceptions){ const i=rule.exceptions.indexOf(mk2); if(i>=0) rule.exceptions.splice(i,1); }
@@ -727,10 +680,6 @@ function removeRecurring(rowId){
   save(); render(); _recDraftBannerRefresh();
 }
 
-// Rules manager: every recurring rule in one list. Without it a rule is only
-// visible by opening the row that owns it, which made scope/override/delink state
-// effectively invisible. Row labels are looked up across every month's fork, since
-// a rule can outlive the row in the currently-viewed month.
 function _recRowLabel(rowId){
   const all=[...(state.rows||[])];
   Object.values(state.rowsByMonth||{}).forEach(a=>{(a||[]).forEach(r=>{ if(r) all.push(r); });});
@@ -738,8 +687,7 @@ function _recRowLabel(rowId){
   return r?(r.label||'(unnamed row)'):'(deleted row)';
 }
 function openRecurringManager(){
-  // Same trap as openRecurringConfig: this overlay is body-appended, so the walkthrough's
-  // click guard would block its Edit/Remove/Close buttons.
+
   if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   const prev=document.getElementById('rec-mgr-overlay'); if(prev) prev.remove();
   const overlay=document.createElement('div'); overlay.id='rec-mgr-overlay';
@@ -807,9 +755,6 @@ function _resolveClash(rowId, mk2, choice){
   save(); render(); _recDraftBannerRefresh();
 }
 
-// Clear every per-month override and rewrite the rule's in-scope, unlocked months from the
-// base amount, so the amount shown in the config modal governs all of them again. Backs the
-// modal's "reset those months" control.
 function _recResetOverrides(rowId){
   const rule=_recRuleFor(rowId); if(!rule) return;
   rule.overrides={}; rule.draft=false;
@@ -848,9 +793,7 @@ function _recDraftBannerRefresh(){
   });
   document.body.appendChild(b); _recDraftBannerEl=b;
 }
-// Preview exactly what "Apply here" will overwrite before it does, so applying a conflict is
-// never blind - the value written is the rule's, which may be a per-month override, not the
-// base amount shown in the config modal.
+
 function _confirmApplyClash(it){
   const m=_recModal();
   const h=document.createElement('h3'); h.style.cssText='margin:0 0 .6rem;font-size:1rem;color:var(--fg);';
@@ -932,8 +875,6 @@ function openCopyToDropdown(e){
   const sourceMk=currentMK();
   const months=new Set();
 
-  // Valid range: intersection of (source ±12) and (today ±12)
-  // i.e. only months that are both near the source AND accessible via normal navigation
   const [_sy,_sm]=sourceMk.split('-');
   const srcDate=new Date(+_sy,+_sm-1,1);
   const today=new Date(); const todayDate=new Date(today.getFullYear(),today.getMonth(),1);
@@ -1011,7 +952,6 @@ function showMonthCopyPicker(){
   overlay.appendChild(modal);document.body.appendChild(overlay);
 }
 
-
 var _sync=createSyncManager(STORAGE_KEY,'/api/save/income','/api/load/income',{
   getState:function(){return state;},
   onReload:function(){state=loadState();render();},
@@ -1023,12 +963,7 @@ var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
 var setSyncStatus=_sync.setSyncStatus;
 var saveLocal=_sync.saveLocal;
-// Stamps state.cellTimes[key]=now for any cell whose value changed since the last
-// save, by diffing against the snapshot still sitting in localStorage (saveLocal()
-// is about to overwrite it). One diff on every save() uniformly catches every way
-// `cells` can change — typing, paste, bulk delete, import, undo/redo — without
-// scattering Date.now() stamps across mutation sites. A key that just vanished
-// (delete) gets stamped too: that's what marks it as a tombstone for the merge.
+
 function _stampCellTimes(){
   if(!state.cellTimes) state.cellTimes={};
   let prevCells={};
@@ -1043,7 +978,7 @@ function _stampCellTimes(){
 function save(){
   _stampCellTimes();
   saveLocal();
-  // Mark that income was saved this walkthrough session so loadState() can restore it on Back.
+
   if(isWalkthroughActive())localStorage.setItem('fiapp_income_wt_session','1');
   try{ localStorage.setItem(PUSH_KEY, JSON.stringify({mk:currentMK(),total:grandTotal(),ts:Date.now()})); }catch{}
   syncToServer();
@@ -1065,7 +1000,12 @@ function showToast(msg, isError=false, duration=4000, undoCb=null){
   el.setAttribute('aria-live','polite');
   el.setAttribute('aria-atomic','true');
   el.className=isError?'error':'success';
-  el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
+
+  const _bar=document.querySelector('.tab-bar');
+  const _bottom=(_bar&&getComputedStyle(_bar).display!=='none')
+    ? (_bar.getBoundingClientRect().height+8)+'px'
+    : 'calc(1rem + env(safe-area-inset-bottom,0px))';
+  el.style.cssText='position:fixed;bottom:'+_bottom+';left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
   const txt=document.createElement('span'); txt.textContent=msg; el.appendChild(txt);
   if(undoCb){
     const btn=document.createElement('button');
@@ -1076,7 +1016,6 @@ function showToast(msg, isError=false, duration=4000, undoCb=null){
   }
   document.body.appendChild(el); setTimeout(()=>el.remove(),duration);
 }
-
 
 let undoByMonth={}, redoByMonth={};
 function loadHistory(){
@@ -1165,7 +1104,6 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))){e.preventDefault();redo();}
 });
 
-
 const today=new Date();
 function mk(y,m){ return String(y)+'-'+String(m+1).padStart(2,'0'); }
 function currentMK(){ return mk(state.currentYear,state.currentMonth); }
@@ -1220,11 +1158,7 @@ function updateMonthNav(){
   updateCloseBar();
   updateMonthContextNote();
 }
-// W2: explain the per-month "fork" inline — rows, columns, and per-row
-// currencies are each month's own copy (see forkCurrentMonth()), which
-// surprises people editing a past/future month expecting it to affect "now".
-// Plain orientation text, kept deliberately distinct from the close-bar's
-// "closed/locked" vocabulary (that's about edit permission, not data scoping).
+
 function updateMonthContextNote(){
   const note=document.getElementById('month-context-note');
   if(!note) return;
@@ -1235,16 +1169,13 @@ function updateMonthContextNote(){
   note.style.display='block';
 }
 
-// ── Monthly Close Flow ────────────────────────────────────────────────────
 function _hasDataForMonth(mk2){
   return Object.keys(state.cells||{}).some(k=>k.startsWith(mk2+'|')&&parseFloat(state.cells[k])>0);
 }
-// B (Playful): first time a fresh month gains income data this session, fire a one-off
-// celebration. Personality-gated (near-instant no-op for Default/Quiet) and idempotent per
-// month/session via sessionStorage. Caller wraps in try/catch so it can never break save().
+
 function _maybeCelebrateFirstEntry(mk2){
   if(!window.fiappCelebrate || (window.fiappPersonality&&fiappPersonality()!=='playful')) return;
-  if(_monthsWithDataAtLoad&&_monthsWithDataAtLoad.has(mk2)) return; // already had data before this session
+  if(_monthsWithDataAtLoad&&_monthsWithDataAtLoad.has(mk2)) return;
   var key='fiapp_firstentry_inc_'+mk2;
   try{ if(sessionStorage.getItem(key)) return; }catch(_){ return; }
   if(!_hasDataForMonth(mk2)) return;
@@ -1329,7 +1260,7 @@ function confirmClose(){
   _closeModalOverlay();
   updateCloseBar();
   populateMonthJump();
-  // Re-render so the month's read-only state applies immediately, not only after nav.
+
   render();
   if(window.fiappCelebrate){
     const total=_incomeTotalForMonth(mk2);
@@ -1343,9 +1274,7 @@ function confirmClose(){
 function cancelClose(){
   _closeModalOverlay();
 }
-// W8c: focus trap + Esc-close + focus restore for the close-month dialog —
-// extends the pattern the small popups already use (Esc removes, focus the
-// first control) to a full dialog with multiple controls and a real backdrop.
+
 let _closeModalOpener=null;
 function _modalFocusables(overlay){
   return Array.from(overlay.querySelectorAll('button:not([disabled]),[tabindex]:not([tabindex="-1"])'));
@@ -1438,17 +1367,14 @@ function showForecastToast(msg){
   window._fcToastT=setTimeout(()=>t.classList.remove('show'),3500);
 }
 
-
 function ck(rId,cId){ return currentMK()+'|'+rId+'|'+cId; }
 function getRawCell(rId,cId){ return state.cells[ck(rId,cId)]||''; }
 function getCell(rId,cId){ return safeNum(state.cells[ck(rId,cId)]); }
 function setCell(rId,cId,v){ state.cells[ck(rId,cId)]=v; save(); }
 
-
 function children(rId, mk2){ return getRows(mk2).filter(r=>r.parentId===rId); }
 function hasChildren(rId, mk2){ return getRows(mk2).some(r=>r.parentId===rId); }
 function isCollapsed(rId){ return state.collapsed[rId]===true; }
-
 
 function rowTotalUSD(rId){
 
@@ -1456,12 +1382,7 @@ function rowTotalUSD(rId){
   if(kids.length) return kids.reduce((s,c)=>s+rowTotalUSD(c.id),0);
   return getCols().reduce((s,col)=>s+amountToUSD(getCell(rId,col.id), currentMK(), rId),0);
 }
-// The income grid is USD throughout: cells are entered in each row's own currency and
-// normalised via amountToUSD, and colTotal/grandTotal are plain USD. rowTotal used to be
-// the lone exception, multiplying by currentRate - so the Total column read in the display
-// currency while the TOTAL beneath it read USD, both wearing a "$". Converted money belongs
-// in the dedicated "Total (<currency>)" summary card, which is the one place that applies
-// the rate and labels it.
+
 function rowTotal(rId){
   return rowTotalUSD(rId);
 }
@@ -1510,10 +1431,6 @@ function updateGrandTotal(){
 }
 function updateAll(rId){ updateRowTotal(rId); updateGrandTotal(); if(chartVisible) renderChart(); }
 
-
-// W2: empty-state teaching for the per-row currency selector — explains it
-// the first time there's a row to show it on. Hidden permanently once
-// dismissed, or once the user has actually used it (set a non-default currency).
 function updateCurrencyHint(){
   const el=document.getElementById('currency-hint');
   if(!el) return;
@@ -1528,7 +1445,7 @@ function updateCurrencyHint(){
     el.style.display='none';
   };
 }
-// Batch D Wave 4: stat-strip delta vs last month, alongside the pre-existing totals.
+
 function _prevMK(mk2){
   var parts=mk2.split('-'); var py=parseInt(parts[0],10), pm=parseInt(parts[1],10)-1;
   pm--; if(pm<0){py--;pm=11;}
@@ -1563,7 +1480,7 @@ function updateSummaryBar(){
     const annualConvEl=document.getElementById('conv-annual');
     if(annualConvEl) annualConvEl.textContent=totalUSD>0?cur+' '+(totalUSD*12*currentRate).toFixed(2):'-';
   }
-  
+
   const salaryUSD=salaryTotal();
   const taxLink=document.getElementById('tax-calc-link');
   if(taxLink&&salaryUSD>0){
@@ -1574,11 +1491,9 @@ function updateSummaryBar(){
   }
 }
 
-
 function toggleCollapse(rowId){ snapshot(); state.collapsed[rowId]=!isCollapsed(rowId); save(); render(); }
 function expandAll(){ snapshot(); getRows().filter(r=>!r.parentId&&hasChildren(r.id)).forEach(r=>state.collapsed[r.id]=false); save(); render(); }
 function collapseAll(){ snapshot(); getRows().filter(r=>!r.parentId&&hasChildren(r.id)).forEach(r=>state.collapsed[r.id]=true); save(); render(); }
-
 
 let openMenu=null;
 function closeMenu(){ if(openMenu){openMenu.remove();openMenu=null;} }
@@ -1641,7 +1556,7 @@ function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
   menu.style.cssText=`position:fixed;top:${r.bottom+4}px;left:${left}px;z-index:9999;`;
   document.body.appendChild(menu);
   _gearMenuEl=menu;
-  // Flip upward if menu clips the bottom of the viewport
+
   const mh=menu.getBoundingClientRect().height;
   if(r.bottom+4+mh>window.innerHeight-8){
     menu.style.top=Math.max(8,r.top-4-mh)+'px';
@@ -1722,7 +1637,6 @@ function showSubMenu(btn, row){
     menu.style.left=Math.max(4, window.innerWidth - mRect.width - 8)+'px';
   }
 }
-
 
 function addRow(){
   if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
@@ -1820,7 +1734,6 @@ let _dragRowId=null;
 let _activeDropEl=null;
 let _dragColId=null;
 
-
 function escapeHtml(s){
   return String(s==null?'':s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -1830,7 +1743,6 @@ function safeNum(v,max=1e12){
   const n=parseFloat(v);
   return (isFinite(n)&&n>=-max&&n<=max)?n:0;
 }
-
 
 let chartInstance=null, chartVisible=false, chartMode='monthly', chartType='bar';
 function toggleChart(){
@@ -1890,9 +1802,7 @@ function renderChart(){
   const isDark=document.documentElement.classList.contains('dark');
   const fgColor=isDark?'#e2e8f0':'#1f2937';
   const gridColor=isDark?'rgba(255,255,255,.1)':'rgba(0,0,0,.08)';
-  // Update in place when the chart type hasn't changed — a theme change or a data edit
-  // then just recolors/reflows the existing chart instead of replaying the entrance
-  // animation that a destroy+recreate would trigger.
+
   if(chartInstance && chartInstance.config.type===chartType){
     chartInstance.data.labels=labels;
     const ds=chartInstance.data.datasets[0];
@@ -1948,7 +1858,6 @@ function renderTop3(data,label){
   el.innerHTML='<h4>'+escapeHtml(label||'Top 3')+'</h4><ol>'+top.map(t=>`<li><strong>${escapeHtml(t.label)}</strong> - $${parseFloat(t.value.toFixed(2))}</li>`).join('')+'</ol>';
 }
 
-
 let resetTimer=null;
 function resetAll(e){
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
@@ -1968,7 +1877,6 @@ function resetAll(e){
     resetTimer=setTimeout(()=>{delete btn.dataset.arm;btn.textContent='⚠ Reset';btn.classList.remove('armed');},2500);
   }
 }
-
 
 function attachColResize(handle,col){
   handle.addEventListener('mousedown',e=>{
@@ -2000,12 +1908,11 @@ function attachRowResize(handle,row,tr){
   });
 }
 
-
 function renderTableHeader(table){
   const cg=document.createElement('colgroup');
   const _mob=window.innerWidth<640;
   const _vw=window.innerWidth;
-  // Mobile: label ~43% vw, data cols 115px. Table scrolls ~30px to show Total — better than cramping.
+
   const _hdrW=_mob?Math.max(150,Math.round(_vw*0.43)):state.headerColWidth||235;
   const _dataW=_mob?115:null;
   const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=_hdrW+'px';cg.appendChild(hc);
@@ -2132,9 +2039,7 @@ function renderTableBody(table){
     rowLabel.addEventListener('blur',()=>{row.label=rowLabel.value.trim()||row.label;save();});
     rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}});
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
-    // row.recurring is a row-wide flag (true if ANY month is governed by a rule), so it stays
-    // true after delinking just the viewed month - check monthInScope too, or a delinked month
-    // still shows the badge and reads as "still part of the chain" when it isn't anymore.
+
     {
       const _badgeRule=row.recurring?_recRuleFor(row.id):null;
       if(_badgeRule && FiRecurring.monthInScope(_badgeRule, currentMK())){const rb=document.createElement('span');rb.className='row-recur-badge';rb.textContent='🔁';rb.title='Recurring';rb.setAttribute('aria-label','Recurring');rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
@@ -2146,7 +2051,7 @@ function renderTableBody(table){
       dd.appendChild(addBtn);
       rhIn.appendChild(dd);
     }
-    // Desktop recurring entry - available on sub-source rows too (mobile uses the gear menu).
+
     if(_recEligible(row, isChild)){
       const _rule=_recRuleFor(row.id);
       const recBtn=document.createElement('button');recBtn.className='sub-add-btn recur-mark-btn';
@@ -2156,9 +2061,7 @@ function renderTableBody(table){
       rhIn.appendChild(recBtn);
     }
     {
-      // Row options gear: was desktop-parent-only, but _openGearMenu already branches
-      // correctly on isChild for every item it offers (colours, recurring, delete), so
-      // sub-source rows get the same menu (minus +Sub, which stays parent-only above).
+
       const gearBtn=document.createElement('button');
       gearBtn.className='row-gear-btn';gearBtn.textContent='⚙';gearBtn.title='Row options';gearBtn.setAttribute('aria-label','Row options');
       gearBtn.addEventListener('click',e=>{ e.stopPropagation();_openGearMenu(gearBtn,row,rhTd,swatch,textSwatch,isChild); });
@@ -2185,7 +2088,7 @@ function renderTableBody(table){
         inp.addEventListener('change',()=>{
           if(inp.value!==''&&isNaN(parseFloat(inp.value))) return;
           if(parseFloat(inp.value)<0) inp.value='0';
-          // Recurring source: route the change through the propagation dialog (month total).
+
           if(_recRuleFor(row.id)){
             const _cols=(state.colsByMonth&&state.colsByMonth[currentMK()])||state.cols||[];
             let _tot=0; _cols.forEach(cc=>{ _tot += (cc.id===col.id ? (parseFloat(inp.value)||0) : (parseFloat((state.cells||{})[currentMK()+'|'+row.id+'|'+cc.id]||0)||0)); });
@@ -2201,9 +2104,7 @@ function renderTableBody(table){
         wrap.appendChild(inp);
         const cur=rowCurrency(currentMK(), row.id);
         const sel=document.createElement('select'); sel.className='cell-curr-sel'; sel.title='Currency for this row';
-        // Actually disabling (not just guarding mousedown) is what stops the native
-        // option list from opening - a preventDefault-on-mousedown guard doesn't
-        // reliably block it, so the walkthrough overlay was clickable underneath.
+
         if(_isClosedMonth(currentMK())||isWalkthroughActive()) sel.disabled=true;
         const codes=getAllUsedCurrencies();
         if(!codes.includes(cur)) codes.push(cur);
@@ -2261,11 +2162,10 @@ function renderFooter(table){
 
 let _expandedCardId=null;
 
-// ── Mobile carousel layout ────────────────────────────────────────────────
 const _MC_LAYOUT_KEY='fiapp_mc_layout_v1';
-let _mcPanel=0; // carousel mode: 0=summary, 1=cards
-window._mcSetPanel=function(i){_mcPanel=i;}; // called by walkthrough in base.html
-// Ensure mobile cards are visible for walkthrough steps that need them
+let _mcPanel=0;
+window._mcSetPanel=function(i){_mcPanel=i;};
+
 window._wtShowCards=function(){
   if(window.innerWidth>=640) return;
   if(getRows().length===0){
@@ -2497,22 +2397,15 @@ function renderMobileCards(){
   }
 }
 
-
 function adjustBodyWidth(){
-  // Centring is handled in CSS: the wider .app-canvas.canvas-wide column is centred in the
-  // viewport (margin:0 auto) and the table is centred inside it (margin-inline:auto), and the
-  // .sheet-wrap scrolls horizontally when the table is genuinely wider than that column.
-  // We no longer shrink-wrap the <body> to the table — because the body sits to the right of
-  // the fixed sidebar (margin:0), sizing it to the table jammed the whole block to the left
-  // with dead space on the right, and capped tables couldn't scroll. Clear any stale inline cap.
+
   document.body.style.maxWidth='';
 }
 window.addEventListener('resize',adjustBodyWidth);
 let _resizeRenderTimer=null;
 let _lastRenderW=window.innerWidth;
 window.addEventListener('resize',()=>{
-  // Only re-render when WIDTH changes (keyboard open/close only changes height — re-rendering
-  // on height-only resize destroys the focused input and closes the keyboard immediately).
+
   const w=window.innerWidth;
   if(w===_lastRenderW) return;
   _lastRenderW=w;
@@ -2520,13 +2413,10 @@ window.addEventListener('resize',()=>{
   _resizeRenderTimer=setTimeout(()=>render(),300);
 });
 
-
 function expPad(s,n){ s=String(s); return s.length>=n?s:s+' '.repeat(n-s.length); }
 function expCsvEsc(v){
   let s=String(v==null?'':v);
-  // Formula-injection guard: a leading quote neutralizes spreadsheet formula triggers
-  // (=,+,-,@, tab, CR) in free-text cells. Skipped when the cell is a genuine number
-  // (e.g. "-50.00") so legitimate negative amounts aren't corrupted.
+
   if(/^[=+\-@\t\r]/.test(s)&&isNaN(Number(s))) s="'"+s;
   return /[,"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
 }
@@ -2626,8 +2516,6 @@ function showExportFlash(msg){
   clearTimeout(window._exportFlashT);
   window._exportFlashT=setTimeout(()=>f.classList.remove('show'),2500);
 }
-
-
 
 function encodeBlob(obj){
   return 'FIAPP-'+obj.kind+'-V1:'+btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -2791,7 +2679,6 @@ function importIncFull(blob, selectedMonths){
   });
 }
 
-
 function openPasteModal(){
   const overlay=document.createElement('div');overlay.className='share-overlay';
   const modal=document.createElement('div');modal.className='share-modal';
@@ -2905,8 +2792,7 @@ function lazyLoadXlsx(){
   if(_xlsxLoading) return _xlsxLoading;
   _xlsxLoading=new Promise((res,rej)=>{
     const s=document.createElement('script');
-    // ?v= matters here: /static/ is served with a 1-year max-age, so without the stamp a
-    // user who has exported once keeps the old vendored build until the cache expires.
+
     s.src='/static/js/vendor/xlsx.full.min.js?v='+(window.ASSET_V||'');
     s.onload=()=>{_xlsxLoaded=true;res();};
     s.onerror=()=>rej(new Error('Failed to load XLSX library'));
@@ -2924,10 +2810,7 @@ function exportXlsx(filename){
 }
 
 let _openExportMenu=null;
-// Hover-to-open, click-to-select: the submenu opens on mouseenter and stays open while
-// the pointer is over either the Export button or the submenu itself, closing shortly
-// after the pointer leaves both - like a native nested menu, instead of requiring a
-// click just to see the options.
+
 let _exportCloseTimer=null;
 function _cancelExportClose(){ if(_exportCloseTimer){clearTimeout(_exportCloseTimer);_exportCloseTimer=null;} }
 function _scheduleExportClose(){ _exportCloseTimer=setTimeout(closeExportMenu,200); }
@@ -2954,11 +2837,7 @@ function showExportMenu(ev){
     btn.addEventListener('click',e=>{e.stopPropagation();closeExportMenu();closeDropdown('dd-more');f.fn();});
     menu.appendChild(btn);
   });
-  // Flyout beside the Export row itself, not up near the "..." toggle: the parent overflow
-  // menu now stays open while this submenu is shown (hover-driven), so there's no reason
-  // to anchor near the toggle anymore - that only made sense when opening Export used to
-  // close the parent list out from under it. Anchor to the right edge of the parent menu,
-  // vertically aligned with the Export row, like a native nested menu.
+
   const exportRect=document.getElementById('export-btn').getBoundingClientRect();
   const parentRect=document.getElementById('dd-more-menu').getBoundingClientRect();
   menu.style.top=exportRect.top+'px';
@@ -3036,7 +2915,6 @@ function showShareModal(title,text){
   overlay.appendChild(modal);document.body.appendChild(overlay);
 }
 
-
 (()=>{
   const tip=document.createElement('div');tip.id='swatch-tip';document.body.appendChild(tip);
   document.addEventListener('mouseover',e=>{
@@ -3069,22 +2947,15 @@ function showShareModal(title,text){
 })();
 
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
-// Retired _esc (a DOM serializer) in favour of escapeHtml, which this file already
-// defines. _esc only entity-encoded & < >, leaving " and ' intact - safe in a text
-// node, silently unsafe the moment a result is moved into an attribute.
 
 (async()=>{
-  // Local-first: render whatever this device already has BEFORE any network I/O,
-  // so a dead or stalled connection can never blank the tracker.
+
   try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
   try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
   try{ loadHistory(); }catch(e){}
   try{ updateHistBtns(); }catch(e){}
   try{ updateMonthNav(); }catch(e){ console.error('FiApp: updateMonthNav failed',e); }
 
-  // Non-blocking on purpose: rate fetches must never delay first render (a
-  // stalled network would otherwise blank the tracker for up to 15s). The
-  // .then callbacks update the note / re-render when rates arrive.
   function _initCurrencyUI(){
     const dc=state.displayCurrency||'USD';
     const dcSel=document.getElementById('curr-sel');
@@ -3105,15 +2976,13 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
   try{ _initCurrencyUI(); }catch(e){ console.warn('FiApp: currency init failed',e); }
   try{
     const usedCurs=[...new Set(Object.values(state.monthRowCurrencies||{}).filter(c=>c&&c!=='USD'))];
-    // Re-render once rates land so non-USD rows show converted values.
+
     if(usedCurs.length) fetchAndCacheUSDRates().then(()=>{ try{ render(); }catch(_){} }).catch(()=>{});
   }catch(e){}
   try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
-  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
-  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+
   try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: income is tracked per month too. Use the month picker up top to switch.','inc-tip'); }catch(_){}
 
-  // Background: establish auth (bounded), refresh from the server, re-render on change.
   try{
     const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
     window.__currentUser=me.username||null;
@@ -3140,9 +3009,7 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
 
   const _preRaw=localStorage.getItem(STORAGE_KEY);
   try{ await loadFromServer(); }catch(e){ console.warn('FiApp: loadFromServer failed',e); }
-  // JSONB round-trips reorder object keys, so raw strings can differ even when the
-  // data is identical; compare semantically (_deepEqual is a tracker-sync.js global)
-  // so a plain online load doesn't force a focus-destroying cosmetic re-render.
+
   const _blobChanged=(pre,key)=>{
     const post=localStorage.getItem(key);
     if(post===pre) return false;
@@ -3155,8 +3022,7 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
     try{ _initCurrencyUI(); }catch(e){}
     try{
       const usedCurs=[...new Set(Object.values(state.monthRowCurrencies||{}).filter(c=>c&&c!=='USD'))];
-      // Server sync can introduce new non-USD row currencies; fetch rates for them
-      // (no-op when the full USD table is already cached this session).
+
       if(usedCurs.length) fetchAndCacheUSDRates().then(()=>{ try{ render(); }catch(_){} }).catch(()=>{});
     }catch(e){}
     try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
@@ -3170,11 +3036,7 @@ function toggleDropdown(id, e){
   const wrap = document.getElementById(id);
   const menu = document.getElementById(id+'-menu');
   const isOpen = menu.classList.contains('open');
-  // "Copy to" (#dd-copy-to) nests inside the "..." overflow menu (#dd-more-menu) so it can
-  // sit alongside the other copy actions. Its menu is position:absolute relative to its own
-  // #dd-copy-to wrapper, so if the ancestor dd-more-menu were closed (display:none) here,
-  // the nested menu would render invisible even with .open set. Skip closing any open menu
-  // that is itself an ancestor of the dropdown being toggled.
+
   document.querySelectorAll('.dropdown-menu.open').forEach(m=>{ if(!wrap || !m.contains(wrap)) m.classList.remove('open'); });
   if(!isOpen) menu.classList.add('open');
 }
@@ -3182,19 +3044,13 @@ function closeDropdown(id){ document.getElementById(id+'-menu').classList.remove
 document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open')); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') document.querySelectorAll('.dropdown-menu.open').forEach(function(m){m.classList.remove('open');}); });
 
-// Batch D Wave 4: mobile quick-add sheet. Income's grid isn't a fixed weekly layout
-// like expenses (columns vary per row set), so the target is simply that row's first
-// column, written additively in the row's own currency (no cross-currency conversion -
-// the amount typed is assumed to already be in that row's set currency).
 function openQuickAdd(){
   var sheet=document.getElementById('qa-sheet');
   var backdrop=document.getElementById('qa-backdrop');
   if(!sheet||!backdrop) return;
   var chips=document.getElementById('qa-chips');
   chips.innerHTML='';
-  // Offer every directly-editable (leaf) source: childless top-level rows AND subcategories.
-  // A parent that has subcategories is excluded because its cell is a computed sum of its
-  // children. Subcategories are labelled "Parent > Child" so they read distinctly.
+
   var _qaRows=getRows();
   _qaRows.filter(function(r){ return !hasChildren(r.id); }).forEach(function(row,i){
     var label=row.label;
@@ -3209,7 +3065,7 @@ function openQuickAdd(){
     chips.appendChild(chip);
   });
   document.getElementById('qa-amount').value='';
-  _qaSetSign('add'); // always reopen in Add mode - Subtract never carries over between uses
+  _qaSetSign('add');
   backdrop.classList.add('open'); sheet.classList.add('open');
   document.body.style.overflow='hidden';
   setTimeout(function(){ var a=document.getElementById('qa-amount'); if(a) a.focus(); },50);
@@ -3221,10 +3077,7 @@ function closeQuickAdd(){
   if(backdrop) backdrop.classList.remove('open');
   document.body.style.overflow='';
 }
-// The quick-add FAB's only mode used to be "add to this cell" - there was no
-// mobile-friendly way to record a correction without opening the row and doing the
-// subtraction by hand. This toggle picks the sign; the amount you type is always
-// entered as a positive magnitude.
+
 function _qaSetSign(sign){
   var addBtn=document.getElementById('qa-sign-add'), subBtn=document.getElementById('qa-sign-sub');
   if(!addBtn||!subBtn) return;
@@ -3255,9 +3108,7 @@ function saveQuickAdd(){
   var openBtn=document.getElementById('qa-open-btn');
   if(openBtn) openBtn.addEventListener('click',function(){
     if(window.innerWidth<640){ openQuickAdd(); return; }
-    // Desktop already shows the whole spreadsheet - every cell is already one click
-    // away, so there's nothing to "jump to". The genuinely new action here is a new
-    // income source row (same as the overflow menu's "Add row").
+
     addRow();
     var wrap=document.getElementById('inc-sheet-wrap');
     if(wrap) wrap.scrollIntoView({behavior:'smooth',block:'end'});
@@ -3286,7 +3137,7 @@ function saveQuickAdd(){
 
 (function(){var b=document.getElementById('close-modal-cancel');if(b)b.addEventListener('click',cancelClose);})();
 (function(){var b=document.getElementById('close-modal-confirm');if(b)b.addEventListener('click',confirmClose);})();
-// Static toolbar event wiring (replaces onclick= attributes)
+
 document.getElementById('help-open-btn').addEventListener('click',openHelp);
 document.getElementById('guide-btn').addEventListener('click',function(){wtStartEnhanced('income');});
 document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
@@ -3309,9 +3160,7 @@ document.getElementById('share-btn').addEventListener('click',function(){shareSh
   var exportBtn=document.getElementById('export-btn');
   exportBtn.addEventListener('mouseenter',function(e){ _cancelExportClose(); showExportMenu(e); });
   exportBtn.addEventListener('mouseleave',_scheduleExportClose);
-  // Touch/keyboard fallback: hover events don't fire on tap, so a plain click still
-  // opens the submenu (parent overflow menu is left open so the format list is
-  // reachable - selecting a format closes both, see the click handler in showExportMenu).
+
   exportBtn.addEventListener('click',function(e){ if(!_openExportMenu) showExportMenu(e); });
 })();
 document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
@@ -3326,7 +3175,6 @@ document.getElementById('chart-type-doughnut').addEventListener('click',function
 document.getElementById('help-modal').addEventListener('click',function(e){if(e.target===this)closeHelp();});
 document.getElementById('help-close-btn').addEventListener('click',closeHelp);
 
-// ── Voice Input Bridge ──────────────────────────────────────────────────
 window._incVoiceBridge = {
   getRows, getCols, currentMK, snapshot, setCell, updateAll, render,
   addRow, forkCurrentMonth, deleteRow,
@@ -3340,4 +3188,3 @@ window._incVoiceBridge = {
   isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
   isForecastMonth: function() { return isForecastMonth(); },
 };
-
