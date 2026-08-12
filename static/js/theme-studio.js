@@ -1,12 +1,8 @@
-/* theme-studio.js - the Theme Studio editor (account page only).
- * Depends on theme-core.js (FIAPP_PRESETS, fiappApplyTheme, fiappThemesCache, ...).
- * Colour math is pure sRGB linear mixing; no libraries.
- */
 (function(){
   'use strict';
-  if (!window.fiappThemesCache) return;            // theme-core.js not present
+  if (!window.fiappThemesCache) return;
   var card = document.getElementById('theme-studio');
-  if (!card) return;                               // not on the account page
+  if (!card) return;
 
   var TOK = window.FIAPP_CUSTOM_TOKENS || {};
   var LIGHT = window.FIAPP_LIGHT_TOKENS || {};
@@ -14,7 +10,6 @@
   var PRESETS = window.FIAPP_PRESETS || {};
   var CSRF = window._CSRF || '';
 
-  // ---- colour helpers --------------------------------------------------------
   function h2r(hex){
     hex = hex.replace('#','');
     if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
@@ -28,7 +23,6 @@
   function tint(hex, t){ return mix(hex, '#ffffff', t); }
   function rgba(hex, a){ var c=h2r(hex); return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')'; }
 
-  // ---- derivation: 5 seeds -> full token map ---------------------------------
   function seedsToTokens(seeds, mode){
     var accent = seeds.accent, gradFrom = seeds.gradFrom, gradTo = seeds.gradTo, tintc = seeds.tint;
     var t = {};
@@ -100,24 +94,20 @@
              gradTo: tokens['--grad-to'] || '#0891b2', tint: tokens['--bg'] || '#f1f2f8' };
   }
 
-  // ---- WCAG contrast ---------------------------------------------------------
   function _lin(c){ c = c/255; return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
   function _lum(hex){ var c = h2r(hex); return 0.2126*_lin(c[0]) + 0.7152*_lin(c[1]) + 0.0722*_lin(c[2]); }
   function contrastRatio(a, b){
-    if (!/^#/.test(a) || !/^#/.test(b)) return null;   // only hex pairs
+    if (!/^#/.test(a) || !/^#/.test(b)) return null;
     var la = _lum(a), lb = _lum(b), hi = Math.max(la,lb), lo = Math.min(la,lb);
     return (hi + 0.05) / (lo + 0.05);
   }
-  // Lighten a link colour toward white until it clears WCAG AA (4.5:1) against the
-  // dark base, so custom dark themes with a deep accent still get a legible link
-  // rather than accent-on-accent that fails contrast (the ← Home link case).
+
   function _ensureLinkContrast(fg, bg){
     var out = fg;
     for (var i = 0; i < 12 && contrastRatio(out, bg) < 4.5; i++){ out = tint(out, 0.12); }
     return out;
   }
 
-  // ---- editor state ----------------------------------------------------------
   var listEl = card.querySelector('#ts-list');
   var editorEl = card.querySelector('#ts-editor');
   var nameInp = card.querySelector('#ts-name');
@@ -130,11 +120,10 @@
   var countEl = card.querySelector('#ts-count');
   var newBtns = card.querySelector('#ts-new-buttons');
 
-  var editing = null;           // the theme object being edited (draft)
-  var prevActive = null;        // theme value active before opening the editor (for cancel)
+  var editing = null;
+  var prevActive = null;
   var SEED_LABELS = { accent:'Accent', gradFrom:'Gradient start', gradTo:'Gradient end', tint:'Background tint' };
-  // Plain-language labels for the Advanced editor, keyed by the raw CSS custom property.
-  // Anything missing here just falls back to the raw name (see buildAdvanced).
+
   var ADV_LABELS = {
     '--accent':'Accent color', '--accent-strong':'Accent (darker)',
     '--link':'Link color', '--link-text':'Link text color',
@@ -209,7 +198,7 @@
     else fiappApplyTheme(value);
     localStorage.setItem('fiapp_theme', value);
     persistActive(value);
-    if (window.setTheme) { /* keep topbar in sync without re-persisting */ }
+    if (window.setTheme) {  }
     var tb = document.getElementById('theme-btn');
     if (tb && window.fiappThemeLabel) tb.textContent = fiappThemeLabel(value);
     window.dispatchEvent(new CustomEvent('fiapp-themes-changed'));
@@ -222,7 +211,6 @@
       body: JSON.stringify({theme: value})}).catch(function(){});
   }
 
-  // Save the full list to the server + cache; used after any create/edit/delete.
   function saveList(env, activeValue){
     fiappThemesCache.write(env);
     localStorage.setItem('fiapp_themes_dirty', '1');
@@ -238,10 +226,9 @@
     renderList();
   }
 
-  // ---- create / duplicate / delete -------------------------------------------
   function newFromPreset(name){
     var p = PRESETS[name]; if (!p) return;
-    // Keep the preset flag so an untouched Midnight can lock its Light button (below).
+
     startEditor({ id:'ct_'+rand8(), name: name.charAt(0).toUpperCase()+name.slice(1), mode:p.mode,
       preset:name, seeds: Object.assign({}, p.seeds), overrides:{}, tokens: Object.assign({}, p.tokens) }, true);
   }
@@ -268,7 +255,6 @@
     if (editing && editing.id === t.id) closeEditor();
   }
 
-  // ---- editor open/close -----------------------------------------------------
   function openEditor(t){ startEditor(JSON.parse(JSON.stringify(t)), false); }
   function startEditor(draft, isNew){
     editing = draft; editing._isNew = isNew;
@@ -284,8 +270,6 @@
   }
   function closeEditor(){ editing = null; editorEl.style.display = 'none'; }
 
-  // Midnight exists to be a night theme: while it is still the untouched preset, its Light
-  // button is locked. Any edit clears the preset flag and unlocks it.
   function updateModeButtons(){
     var lock = !!(editing && editing.preset === 'midnight');
     modeLight.disabled = lock;
@@ -312,9 +296,6 @@
     });
   }
 
-  // Advanced: every allowlisted token for the mode, as a colour input (colour tokens) or a
-  // read-only chip (length/shadow tokens - not worth a bespoke editor). Editing a colour
-  // pins it as an override and does NOT rederive the rest.
   function buildAdvanced(){
     advWrap.innerHTML = '';
     var keys = Object.keys(TOK).filter(function(k){
@@ -343,8 +324,6 @@
 
   function normHex(v){ return (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? v : (/^#[0-9a-fA-F]{3}$/.test(v) ? mix(v, v, 0) : '#000000'); }
 
-  // Live preview: apply the draft's tokens to <html> without persisting. One cssText write
-  // (not dozens of setProperty calls) keeps dragging a colour picker smooth.
   function liveApply(){
     var el = document.documentElement, css = '';
     el.classList.toggle('dark', editing.mode === 'dark');
@@ -391,12 +370,11 @@
     closeEditor();
   }
   function cancel(){
-    // restore whatever theme was active before editing
+
     fiappApplyTheme(prevActive || 'light');
     closeEditor();
   }
 
-  // ---- wire static controls --------------------------------------------------
   card.querySelector('#ts-save').addEventListener('click', commit);
   card.querySelector('#ts-cancel').addEventListener('click', cancel);
   modeLight.addEventListener('click', function(){ if (!modeLight.disabled) setMode('light'); });
@@ -404,9 +382,7 @@
   function setMode(mode){
     if (!editing || editing.mode === mode) return;
     editing.mode = mode;
-    // Re-base the background tint for the new mode: a light preset flipped to Dark gets a
-    // real dark, accent-tinted background (and a dark theme flipped to Light gets a light
-    // one) instead of an unreadable wrong-luminance background. Advanced overrides survive.
+
     var tintLight = _isLightColor(editing.seeds.tint);
     if (mode === 'dark' && tintLight) editing.seeds.tint = mix('#0f172a', editing.seeds.accent, 0.12);
     else if (mode === 'light' && !tintLight) editing.seeds.tint = mix('#ffffff', editing.seeds.accent, 0.05);
@@ -432,6 +408,5 @@
   window.addEventListener('fiapp-themes-changed', renderList);
   renderList();
 
-  // Exposed for calibration/tests.
   window.fiappStudio = { seedsToTokens: seedsToTokens, reverseSeeds: reverseSeeds, contrastRatio: contrastRatio, mix: mix, shade: shade, tint: tint };
 })();
