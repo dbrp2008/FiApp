@@ -112,6 +112,22 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 if os.environ.get('TRUST_PROXY') == '1':
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+# Werkzeug 3.1 rejects any request whose Host is not listed, before routing. Without it,
+# url_for(..., _external=True) follows the Host header - which is how _google_redirect_uri()
+# builds the OAuth redirect. A forged Host would produce a redirect_uri pointing elsewhere.
+#
+# That was never exploitable: Google refuses any redirect_uri outside the allowlist
+# registered on the OAuth client, so a poisoned value breaks the sign-in rather than sending
+# a code anywhere useful. The point of this is to stop relying on someone else's allowlist
+# for a property this app can assert itself.
+#
+# Comma-separated so a preview or custom domain can be added without a code change. Left
+# unset it is a no-op, because a wrong value here rejects every request - it must be opt-in
+# per environment rather than a default that silently breaks local development.
+_trusted_hosts = [h.strip() for h in os.environ.get('TRUSTED_HOSTS', '').split(',') if h.strip()]
+if _trusted_hosts:
+    app.config['TRUSTED_HOSTS'] = _trusted_hosts
 # Password hashing algorithm, stated explicitly rather than inherited from whatever
 # Werkzeug's default happens to be on the deployed version. scrypt is deliberately slow and
 # memory-hard, so a stolen database cannot be brute-forced at speed: N=32768 is the CPU/memory
