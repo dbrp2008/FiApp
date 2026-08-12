@@ -1,4 +1,3 @@
-
 var _coreRatesCache = {};
 var _coreRatesReady = false;
 
