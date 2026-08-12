@@ -1,8 +1,4 @@
 'use strict';
-// FiApp recurring-rule pure logic. No DOM. Shared by expenses.js and income.js and
-// unit-tested headless via tests/helpers/load-script. Month keys are 'YYYY-MM' strings
-// that sort lexically, so mk comparisons are valid. All functions are side-effect free;
-// callers inject accessors (getMonthTotal, isLocked) and apply the returned writes.
 
 var FiRecurring = (function(){
   var EPS = 1e-9;
@@ -23,8 +19,6 @@ var FiRecurring = (function(){
     return false;
   }
 
-  // opts: { existingMonths:[mk], getMonthTotal:fn(mk)->number, isLocked:fn(mk)->bool }
-  // Returns [{mk, reason:'locked'|'mismatch', want, have?}]
   function detectClashes(rule, opts){
     var out = [];
     (opts.existingMonths || []).forEach(function(mk){
@@ -37,7 +31,6 @@ var FiRecurring = (function(){
     return out;
   }
 
-  // Existing, in-scope, unlocked months that are empty or already match: safe to fill.
   function fillableMonths(rule, opts){
     return (opts.existingMonths || []).filter(function(mk){
       if(!monthInScope(rule, mk)) return false;
@@ -47,8 +40,6 @@ var FiRecurring = (function(){
     });
   }
 
-  // One-line scope summary for the rules manager, so a rule is legible without
-  // opening its config modal. Mirrors monthInScope's field names exactly.
   function describeScope(s){
     if(!s || !s.type) return '';
     if(s.type === 'all')    return 'All months';
