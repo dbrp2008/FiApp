@@ -1,14 +1,3 @@
-/* FiApp native (Capacitor) push notifications for subscription-renewal reminders.
- *
- * Strict no-op in a plain browser: fiappIsNative() is false, so the Notifications card
- * stays hidden and nothing binds. Inside the Capacitor shell it reveals the card on the
- * account page, and the toggle requests OS notification permission, registers the device
- * token with the server (POST /api/push/register), and clears it on disable
- * (POST /api/push/unregister). The actual delivery is FCM, wired server-side.
- *
- * Plugin: @capacitor/push-notifications (accessed via window.Capacitor.Plugins, since the
- * remote page can't ES-import the app's node modules - same constraint as native-auth/lock).
- */
 (function () {
   'use strict';
 
@@ -49,7 +38,7 @@
   function bindListeners(P) {
     if (_listenersBound) return;
     _listenersBound = true;
-    // Fired after register() succeeds; carries the FCM device token.
+
     P.addListener('registration', function (t) {
       _token = t && t.value;
       if (!_token) return;
@@ -64,13 +53,7 @@
       setToggle(false);
       feedback('Notifications could not be set up on this device.', true);
     });
-    // Tapping a reminder routes to the subscriptions page (data.route set server-side).
-    // Defense-in-depth: only follow same-origin app paths, never an absolute/external URL,
-    // in case the data payload is ever sourced from something less trusted than our own scan.
-    //
-    // The second character must not be another slash: /^\/[a-z/]*$/ alone accepts "//evil",
-    // which is protocol-relative and resolves to https://evil/ - an off-origin navigation,
-    // precisely what this check exists to prevent.
+
     P.addListener('pushNotificationActionPerformed', function (ev) {
       var route = ev && ev.notification && ev.notification.data && ev.notification.data.route;
       if (route && route.charAt(1) !== '/' && /^\/[a-z/]*$/.test(route)) {
@@ -100,16 +83,15 @@
   }
 
   function init() {
-    if (!isNative()) return;                       // web: strict no-op
+    if (!isNative()) return;
     var card = document.getElementById('push-card');
     var toggle = document.getElementById('push-toggle');
-    if (!card || !toggle) return;                  // only the account page has the card
-    card.style.display = '';                        // reveal only inside the native shell
+    if (!card || !toggle) return;
+    card.style.display = '';
     var P = plugin();
-    if (P) bindListeners(P);                        // so a cold start from a tap still routes
+    if (P) bindListeners(P);
     toggle.addEventListener('change', function () { toggle.checked ? enable() : disable(); });
-    // Overspend alerts are a separate opt-in: no device registration involved, just a
-    // stored preference the daily scan reads.
+
     var over = document.getElementById('push-overspend-toggle');
     if (over) {
       over.addEventListener('change', function () {
@@ -125,7 +107,7 @@
         });
       });
     }
-    // Reflect the server's stored state so the toggles aren't wrongly off on load.
+
     fetch('/api/prefs').then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d) return;
