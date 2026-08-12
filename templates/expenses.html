@@ -11,13 +11,13 @@
     .toolbar-row-1,.toolbar-row-2{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;}
     .toolbar-row-1{margin-bottom:.4rem;}
     .toolbar-row-2{margin-bottom:.75rem;}
-    
+
     .dropdown{position:relative;display:inline-block;}
     .dropdown-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.3rem;min-width:150px;box-shadow:var(--shadow,0 4px 12px rgba(0,0,0,.15));}
     .dropdown-menu.open{display:flex;flex-direction:column;gap:2px;}
     .dropdown-menu button{background:none;border:none;text-align:left;padding:.42rem .75rem;border-radius:5px;cursor:pointer;font-size:.85rem;color:var(--fg);font-family:inherit;white-space:nowrap;}
     .dropdown-menu button:hover{background:var(--hover-bg,rgba(0,0,0,.06));}
-    
+
     /* Fixed-size inline-flex circle: an inline span with vertical padding overflows its line
        box (covering the field below) and makes the hover area unstable/flickery. */
     .help-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:18px;height:18px;font-size:.72rem;font-weight:700;border-radius:50%;border:1.5px solid var(--accent);background:none;color:var(--accent);cursor:pointer;margin-left:.4rem;vertical-align:middle;line-height:1;}
@@ -37,7 +37,6 @@
        forecast-bar/close-bar (which need attention; this is just orientation). */
     .month-context-note{display:none;font-size:.78rem;color:var(--muted);margin:-.25rem 0 .65rem;}
 
-    
     .income-panel{background:var(--total-soft);border:1px solid var(--success-border);border-radius:8px;padding:.9rem 1.1rem;margin-bottom:.75rem;}
     .income-panel h2{margin:0 0 .6rem;font-size:.9rem;color:var(--total-fg);}
     /* min 190px so the widest label ("Gross Monthly Income (Mex$)" + the synced (i) badge)
@@ -58,7 +57,6 @@
     .pos{color:var(--total-fg);} .neg{color:var(--sem-bad,#ef4444);}
     .apply-row{grid-column:1/-1;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.2rem;}
 
-    
     .chart-section{display:none;margin-bottom:1rem;padding:.75rem 1rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;}
     .chart-mode-btns{display:flex;gap:.4rem;margin-bottom:.5rem;}
     .chart-mode-btn{padding:.28rem .65rem;font-size:.8rem;border:1px solid var(--input-border);border-radius:5px;cursor:pointer;background:var(--th-bg);color:var(--fg);}
@@ -69,7 +67,6 @@
     .top3 ol{margin:0;padding-left:1.2rem;font-size:.85rem;}
     .top3 li{margin-bottom:.2rem;color:var(--fg);}
 
-    
     .forecast-badge{padding:.15rem .45rem;border-radius:4px;font-size:.7rem;font-weight:700;letter-spacing:.04em;background:#fef3c7;color:#92400e;border:1px solid #fde68a;margin-left:.5rem;vertical-align:middle;}
     html.dark .forecast-badge{background:#451a03;color:#fde68a;border-color:#78350f;}
     .forecast-bar{display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.65rem 1rem;margin-bottom:.75rem;align-items:center;gap:.6rem;flex-wrap:wrap;}
@@ -94,19 +91,18 @@
     .forecast-toast{position:fixed;bottom:calc(1.5rem + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);background:#92400e;color:#fff;padding:.5rem 1.1rem;border-radius:6px;font-size:.83rem;font-weight:600;z-index:99999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
     .forecast-toast.show{opacity:1;}
 
-    
     /* Full-width horizontal-scroll box. The table inside is centred via margin (below) when
        it fits, and scrolls left↔right when it's wider than the screen. NOTE: do not put
        width:fit-content here — it makes a wide table shrink-wrap and shift left instead of
        scrolling within a stable, full-width container. */
     .sheet-wrap{overflow-x:auto;margin:.5rem 0 0;-webkit-overflow-scrolling:touch;max-width:100%;}
-    
+
     .drag-handle{cursor:grab;color:var(--muted);font-size:1rem;padding:0 4px;opacity:.45;user-select:none;flex-shrink:0;}
     .drag-handle:active{cursor:grabbing;}
     tr.tr-dragging{opacity:.3;}
     tr.tr-drop-before>td{border-top:2px solid var(--accent)!important;}
     tr.tr-drop-after>td{border-bottom:2px solid var(--accent)!important;}
-    
+
     .subs-link-btn{display:inline-flex;align-items:center;margin-left:5px;padding:1px 7px;border-radius:4px;background:var(--accent);color:var(--on-accent,#fff)!important;font-size:.72rem;font-weight:700;text-decoration:none;opacity:.82;transition:opacity .15s;cursor:pointer;border:none;}
     .subs-link-btn:hover{opacity:1;text-decoration:none;}
     table.sheet{border-collapse:collapse;table-layout:fixed;min-width:max-content;margin-inline:auto;}
@@ -120,17 +116,16 @@
     .col-resize:hover,.col-resize.dragging{background:#93c5fd;}
     .row-resize{position:absolute;left:0;right:0;bottom:0;height:5px;cursor:row-resize;z-index:2;}
     .row-resize:hover,.row-resize.dragging{background:#93c5fd;}
-    
+
     .col-drag-handle{cursor:grab;color:var(--muted);font-size:.75rem;margin-right:.3rem;user-select:none;opacity:.55;}
     .col-drag-handle:hover{opacity:1;}
     th.th-drop-before{border-left:3px solid var(--accent)!important;}
     th.th-drop-after {border-right:3px solid var(--accent)!important;}
 
-    
     .rh-cell{position:relative;overflow:visible;}
     .rh-inner{display:flex;align-items:center;gap:5px;padding:3px 6px;min-height:32px;}
     .color-swatch{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.2);}
-    
+
     .color-swatch-wrap{position:relative;display:inline-flex;flex-shrink:0;cursor:pointer;}
     .color-inp-overlay{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0;}
     .row-label{flex:1;outline:none;font-weight:600;font-size:.85rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -142,7 +137,6 @@
     .collapse-btn{background:none;border:none;cursor:pointer;font-size:.8rem;color:var(--muted);padding:0 2px;flex-shrink:0;line-height:1;}
     .collapse-btn:hover{color:var(--fg);}
 
-    
     .sub-dropdown{position:relative;flex-shrink:0;}
     .sub-add-btn{background:none;border:1px solid var(--input-border);border-radius:4px;cursor:pointer;font-size:.72rem;padding:1px 5px;color:var(--muted);white-space:nowrap;}
     .sub-add-btn:hover{background:var(--hover-bg);color:var(--fg);}
@@ -160,18 +154,15 @@
     .sub-other-form .cancel{background:var(--secondary-bg);color:var(--secondary-fg);}
     .sub-other-err{color:#ef4444;font-size:.74rem;}
 
-    
     .child-row .rh-inner{padding-left:22px;}
     .child-row .row-label{font-weight:500;font-size:.83rem;color:var(--fg);}
 
-    
     .num-input{display:block;width:100%;height:100%;min-height:32px;border:none;outline:none;padding:4px 7px;box-sizing:border-box;background:transparent;font-family:inherit;font-size:.82rem;text-align:right;color:var(--fg);}
     .num-input:focus{background:var(--input-focus);}
     .num-input::-webkit-inner-spin-button,.num-input::-webkit-outer-spin-button{opacity:0;}
     .num-input:hover::-webkit-inner-spin-button{opacity:1;}
     .parent-sum{display:block;padding:4px 7px;text-align:right;color:var(--muted);font-size:.83rem;min-height:32px;line-height:24px;font-style:italic;}
 
-    
     .th-total{background:var(--total-bg);color:var(--total-fg);}
     .total-val{padding:4px 7px;font-weight:700;text-align:right;color:var(--total-fg);font-size:.85rem;line-height:1.2;}
     .goal-btn{background:none;border:none;cursor:pointer;font-size:.72rem;padding:0;width:18px;text-align:center;flex-shrink:0;opacity:.85;line-height:1;vertical-align:middle;transition:opacity .12s;}
@@ -185,7 +176,6 @@
     .goal-pop-save{flex:1;padding:.28rem 0;background:var(--accent);color:var(--on-accent,#fff);border:none;border-radius:6px;font-size:.82rem;font-weight:700;cursor:pointer;}
     .goal-pop-clear{padding:.28rem .6rem;background:none;border:1.5px solid var(--panel-border);border-radius:6px;font-size:.82rem;color:var(--muted);cursor:pointer;}
 
-    
     table.sheet tfoot td{background:var(--panel-bg);font-weight:700;border-top:2px solid var(--muted);color:var(--fg);}
     .gtotal-val{display:block;padding:4px 7px;font-weight:800;text-align:right;font-size:.85rem;min-height:32px;line-height:24px;}
     .week-total-cell{background:var(--total-soft);}
@@ -202,15 +192,12 @@
     .btn-add-row{background:none;border:1px dashed var(--muted);border-radius:4px;cursor:pointer;font-size:.82rem;padding:4px 12px;color:var(--muted);margin-top:4px;}
     .btn-add-row:hover{background:var(--hover-bg);}
 
-    
     .text-color-swatch{width:13px;height:13px;flex-shrink:0;border-radius:3px;border:1px solid rgba(128,128,128,.4);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1;}
     .text-color-swatch:hover{border-color:var(--accent);}
 
-    
     .rh-inner .tip-host::after,
     .rh-inner .tip-host::before { display:none !important; }
 
-    
     #swatch-tip{
       position:fixed;z-index:99999;pointer-events:none;
       background:var(--tooltip-bg);color:var(--tooltip-fg);
@@ -220,13 +207,11 @@
     }
     #swatch-tip.show{opacity:1;}
 
-    
     .export-menu{position:fixed;z-index:9999;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;box-shadow:var(--shadow);min-width:160px;}
     .export-menu button{display:block;width:100%;text-align:left;padding:.45rem .8rem;font-size:.85rem;border:none;background:none;cursor:pointer;color:var(--fg);}
     .export-menu button:hover{background:var(--hover-bg);}
     .export-menu button+button{border-top:1px solid var(--panel-border);}
 
-    
     .share-overlay{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;background:var(--overlay);z-index:9998;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;-webkit-overflow-scrolling:touch;}
     .share-modal{background:var(--panel-bg);border-radius:10px;padding:1rem 1.2rem;padding-bottom:max(1rem,env(safe-area-inset-bottom));max-width:600px;width:100%;max-height:85vh;max-height:85dvh;display:flex;flex-direction:column;gap:.6rem;box-shadow:var(--shadow);overflow-y:auto;}
     .share-modal h3{margin:0;font-size:1rem;color:var(--fg);}
@@ -235,15 +220,12 @@
     .share-flash{font-size:.78rem;color:var(--total-fg);font-weight:600;align-self:center;}
     .share-hint{font-size:.74rem;color:var(--muted);font-style:italic;}
 
-    
     .apply-flash{font-size:.78rem;color:var(--total-fg);font-weight:600;background:var(--total-bg);border:1px solid var(--success-border);padding:.25rem .55rem;border-radius:5px;opacity:0;transition:opacity .25s;}
     .apply-flash.show{opacity:1;}
 
-    
     .export-flash{font-size:.78rem;color:var(--total-fg);font-weight:600;background:var(--total-bg);border:1px solid var(--success-border);padding:.25rem .55rem;border-radius:5px;margin-left:.5rem;opacity:0;transition:opacity .25s;}
     .export-flash.show{opacity:1;}
 
-    
     .paste-status{font-size:.83rem;padding:.4rem .55rem;border-radius:5px;background:var(--secondary-bg);color:var(--fg);}
     .paste-status.ok{background:var(--success-bg);border:1px solid var(--success-border);color:var(--success-fg);}
     .paste-status.bad{background:var(--error-bg);border:1px solid var(--error-border);color:var(--error-fg);}
@@ -395,12 +377,11 @@
     </div>
   </div>
 
-  <!-- Monthly Close Bar -->
   <div id="close-bar" style="display:none;align-items:center;justify-content:space-between;gap:.75rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:.55rem .9rem;margin-bottom:.6rem;flex-wrap:wrap;">
     <span id="close-bar-text" style="font-size:.85rem;color:var(--fg);"></span>
     <button id="close-bar-btn" class="btn btn-sm" style="flex-shrink:0">Review &amp; close ✓</button>
   </div>
-  <!-- Monthly Close Modal -->
+
   <div id="close-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="close-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
     <div style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:14px;padding:1.5rem;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.25);">
       <h2 id="close-modal-title" style="font-size:1rem;font-weight:700;margin:0 0 .75rem">Close this month?</h2>
@@ -419,7 +400,6 @@
   </div>
 
   <div class="overspend-nudge" id="overspend-nudge"></div>
-
 
   <div class="income-panel glass-panel" data-wt="expenses-tax-link">
     <h2>Monthly Budget - <span id="budget-month"></span></h2>
@@ -473,13 +453,12 @@
   </div>
 
   <div id="template-prompt"></div>
-  <!-- W2: empty-state teaching for goals (🎯) — explains the feature before
-       the user has ever set one; dismissible, never reappears once a goal exists. -->
+
   <div id="goal-hint" style="display:none;margin-bottom:.6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;">
     <span>🎯 <strong>Tip:</strong> click the target icon next to any category's total to set a monthly spending limit - FiApp will track your progress and let you know before you go over.</span>
     <button id="goal-hint-dismiss" aria-label="Dismiss tip about spending goals" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0">✕</button>
   </div>
-  <!-- Spend trend voice strip -->
+
   <div id="voice-strip" style="display:none;margin-bottom:.6rem;padding:.55rem .9rem;background:var(--panel-bg);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:8px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--fg);gap:.75rem;">
     <span id="voice-strip-text"></span>
     <button id="voice-strip-dismiss" aria-label="Dismiss" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:.2rem;font-size:.85rem;flex-shrink:0">✕</button>
