@@ -624,6 +624,26 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def _log_security(event, **fields):
+    """Record a security-relevant event.
+
+    Everything the app logged before this was startup configuration or an operational
+    exception, so the rate limiting and the account lockout were invisible in operation -
+    there was no way to answer "was this account attacked?" after the fact.
+
+    Deliberately takes only named fields and never the request body, so a password or a token
+    cannot be logged by accident. The remote address is read through get_remote_address(),
+    which is the same function the rate limiter keys on, so a log line and a rate-limit
+    decision always agree about who the caller was (both honour ProxyFix when TRUST_PROXY is
+    set, and both see the proxy without it).
+    """
+    parts = ' '.join('%s=%r' % (k, v) for k, v in fields.items() if v is not None)
+    try:
+        ip = get_remote_address()
+    except Exception:
+        ip = None
+    app.logger.warning('security event=%s ip=%s %s', event, ip, parts)
+
 def login_required_page(f):
     """login_required for navigations rather than API calls.
 
@@ -649,6 +669,8 @@ def csrf_required(f):
         if not token or not hmac.compare_digest(
                 token.encode('utf-8', 'replace'),
                 (session.get('csrf_token') or '').encode('utf-8', 'replace')):
+            _log_security('csrf_rejected', path=request.path,
+                          had_token=bool(token), user=session.get('username'))
             return jsonify({"error": "Invalid CSRF token"}), 403
         return f(*args, **kwargs)
     return decorated
@@ -1119,6 +1141,11 @@ def auth_login():
                 row = cur.fetchone()
         if not row:
             check_password_hash(_DUMMY_PWHASH, password)  # equalize timing
+            # Logged too: credential stuffing sprays usernames that mostly do not exist, so
+            # without this the most common shape of the attack leaves no trace at all. The
+            # log is server-side, so recording which usernames were tried discloses nothing
+            # to the attacker and does not weaken the identical response they receive.
+            _log_security('login_failed', username=username, reason='no_such_user')
             return jsonify({"error": "Invalid username or password"}), 401
         if row[6] and row[6] > datetime.now(timezone.utc):
             # Locked. Burn a hash and answer with the byte-identical wrong-password response.
@@ -1127,6 +1154,7 @@ def auth_login():
             # never reads the body - which is exactly the pair of holes the no-such-user and
             # Google-only branches above already close.
             check_password_hash(_DUMMY_PWHASH, password)
+            _log_security('login_failed', username=username, reason='locked')
             return jsonify({"error": "Invalid username or password"}), 401
         if not row[1]:
             # Google-only account: there's no password to check. Calling
@@ -1154,7 +1182,23 @@ def auth_login():
                                                       THEN NOW() + (%s || ' minutes')::interval
                                                       ELSE locked_until END
                          WHERE id = %s
+                     RETURNING locked_until
                     """, (LOCKOUT_THRESHOLD, LOCKOUT_THRESHOLD, str(LOCKOUT_MINUTES), row[0]))
+                    # RETURNING tells us whether THIS attempt tripped the lock, without a
+                    # second round trip and without re-reading a value another request may
+                    # have changed in between.
+                    try:
+                        _r = cur.fetchone()
+                        locked_now = _r[0] if _r else None
+                    except Exception:
+                        locked_now = None
+            _log_security('login_failed', username=username, reason='bad_password')
+            # isinstance, not a bare truthiness check: a cursor that does not implement
+            # RETURNING hands back whatever it last held, and comparing that to a datetime
+            # would raise inside the failure path.
+            if isinstance(locked_now, datetime) and locked_now > datetime.now(timezone.utc):
+                _log_security('account_locked', username=username,
+                              minutes=LOCKOUT_MINUTES, until=locked_now.isoformat())
             return jsonify({"error": "Invalid username or password"}), 401
         with conn:
             with conn.cursor() as cur:
@@ -2406,6 +2450,7 @@ def run_renewal_scan():
     if not secret or not hmac.compare_digest(
             secret.encode('utf-8', 'replace'),
             provided.encode('utf-8', 'replace')):
+        _log_security('scan_secret_rejected', configured=bool(secret), had_header=bool(provided))
         return jsonify(ok=False, error='forbidden'), 403
     today = datetime.now(timezone.utc).date()
     users_scanned = reminders_sent = 0
