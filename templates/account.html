@@ -476,6 +476,14 @@
     function _confirmCurrency(){
       persist(sel.value);
       try{ localStorage.setItem('fiapp_currency_confirmed','1'); }catch(_){}
+      // Also record it on the account. localStorage is cleared on logout and on an account
+      // switch (it is per-user state), so without this the confirmation is forgotten and the
+      // user is asked to pick a home currency again on every login.
+      try{
+        fetch('/api/prefs',{method:'PATCH',
+          headers:{'Content-Type':'application/json','X-CSRF-Token':(window._CSRF||'')},
+          body:JSON.stringify({currency_confirmed:true})}).catch(function(){});
+      }catch(_){}
       if(_curBanner) _curBanner.style.display='none';
       if(_curConfirmBtn) _curConfirmBtn.style.display='none';
       if(_curPanel) _curPanel.classList.remove('confirm-highlight');
