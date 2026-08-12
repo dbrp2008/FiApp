@@ -38,16 +38,35 @@
   </script>
   <script nonce="{{ csp_nonce }}">
   (function(){
+    // Every per-user key in localStorage, in ONE place. Three separate sites clear these -
+    // logout, and two independent "different user" detectors - and they had drifted apart:
+    // the sync markers (__dirty / __ver) were cleared on logout but not on an account
+    // switch, and an earlier gap between two of the lists leaked a previous account's
+    // currency and onboarding state onto the next user. A single list cannot drift.
+    //
+    // The detector keys themselves (fiapp_auth_user, fiapp_last_user) are deliberately NOT
+    // in here: each site owns its own, and wiping another site's detector would silently
+    // disable that site's next comparison.
+    window.FIAPP_USER_DATA_KEYS=[
+      'fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
+      'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
+      'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
+      // Sync markers. __ver is write-only today so a stale one is inert, but a stale
+      // __dirty makes the next user's first load take the merge path instead of a clean
+      // overwrite. No data crosses accounts either way - the server is session-scoped - but
+      // it is a needless wrinkle.
+      'fiapp_expenses_v4__dirty','fiapp_expenses_v4__ver',
+      'fiapp_income_v1__dirty','fiapp_income_v1__ver',
+      'fiapp_subs_v4__dirty','fiapp_subs_v4__ver',
+      'fiapp_tax_result','fiapp_tax_ui_v1','fiapp_prefill_income',
+      'fiapp_walkthrough_v1','fiapp_wt_backup_v1','fiapp_template_dismissed',
+      'fiapp_personality','fiapp_analytics_currency',
+      'fiapp_currency_confirmed','fiapp_currency_confirm_pending'];
     try {
       var _srv={{ current_user|default(none)|tojson }};
       var _stored=localStorage.getItem('fiapp_auth_user');
       if(_stored && _stored!==_srv){
-        ['fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
-         'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
-         'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
-         'fiapp_tax_result','fiapp_prefill_income',
-         'fiapp_walkthrough_v1','fiapp_analytics_currency','fiapp_personality',
-         'fiapp_currency_confirmed','fiapp_currency_confirm_pending'].forEach(function(k){localStorage.removeItem(k);});
+        window.FIAPP_USER_DATA_KEYS.forEach(function(k){localStorage.removeItem(k);});
         localStorage.removeItem('fiapp_auth_user');
       }
       if(_srv) localStorage.setItem('fiapp_auth_user',_srv);
@@ -353,14 +372,10 @@
   }
   window.setTheme=setTheme;
   var toggleThemeMenu=toggleAcctMenu;
-  var FIAPP_USER_KEYS=['fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
-    'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
-    'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
-    'fiapp_expenses_v4__dirty','fiapp_expenses_v4__ver','fiapp_income_v1__dirty','fiapp_income_v1__ver',
-    'fiapp_subs_v4__dirty','fiapp_subs_v4__ver',
-    'fiapp_tax_result','fiapp_tax_ui_v1','fiapp_prefill_income','fiapp_auth_user',
-    'fiapp_walkthrough_v1','fiapp_personality','fiapp_analytics_currency',
-    'fiapp_currency_confirmed','fiapp_currency_confirm_pending'];
+  // Logout clears the shared per-user list plus BOTH account-switch detectors: with the
+  // data gone, a stale detector would only cause a redundant purge, whereas leaving one
+  // set could suppress a later one.
+  var FIAPP_USER_KEYS=(window.FIAPP_USER_DATA_KEYS||[]).concat(['fiapp_auth_user','fiapp_last_user']);
   function logOutStep(btn){
     if(btn.dataset.confirm!=='1'){
       btn.dataset.confirm='1';
@@ -585,16 +600,9 @@
       var _LAST_USER_KEY='fiapp_last_user';
       var _lastUser=localStorage.getItem(_LAST_USER_KEY);
       if(_lastUser!==_wtUser){
-        ['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4',
-         'fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
-         'fiapp_income_undo_v1','fiapp_income_redo_v1',
-         'fiapp_subs_undo_v4','fiapp_subs_redo_v4',
-         'fiapp_wt_backup_v1','fiapp_template_dismissed',
-         // Kept in sync with the fiapp_auth_user purge list above (two independent
-         // "different user" detectors existed in this file; a gap in either one
-         // leaked a previous account's currency/onboarding state onto the next).
-         'fiapp_analytics_currency','fiapp_personality',
-         'fiapp_currency_confirmed','fiapp_currency_confirm_pending'].forEach(function(k){localStorage.removeItem(k);});
+        // Shares FIAPP_USER_DATA_KEYS with the fiapp_auth_user detector and with logout.
+        // This list used to be maintained separately and had already drifted twice.
+        (window.FIAPP_USER_DATA_KEYS||[]).forEach(function(k){localStorage.removeItem(k);});
         localStorage.setItem(_LAST_USER_KEY,_wtUser);
       }
     })();
