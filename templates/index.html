@@ -486,18 +486,17 @@
 
 {% block body_scripts %}
 <script nonce="{{ csp_nonce }}">
-// ── Home Page Snapshot ──────────────────────────────────────────────────────
+
 (async function(){
   var _CU = {{ current_user|default(none)|tojson }};
-  if(!_CU) return; // non-logged-in: no snapshot
+  if(!_CU) return;
 
   var root = document.getElementById('snapshot-root');
   if(!root) return;
 
-  // NOTE: API returns { data: { rows, cells, ... } } — unwrap .data before storing.
   async function _fetchFresh(key, apiPath) {
     try {
-      if(localStorage.getItem(key + '__dirty')) return; // unsynced offline edits: local wins until flushed
+      if(localStorage.getItem(key + '__dirty')) return;
       var r = await fetch(apiPath, {credentials:'same-origin'});
       if(!r.ok) return;
       var resp = await r.json();
@@ -512,26 +511,22 @@
     } catch(e) {}
   }
 
-  // Local-first: build the snapshot from localStorage immediately; the server
-  // refresh below re-runs this builder only if any tracker blob changed.
   async function _buildDashboard() {
-  // Reset the slots this builder writes into, so a re-run can't duplicate content.
+
   var _slotR=document.getElementById('snap-renewal-slot'); if(_slotR) _slotR.innerHTML='';
   var _slotN=document.getElementById('snap-nudge-slot'); if(_slotN) _slotN.innerHTML='';
   var _alerts=document.getElementById('dash-alerts');
   if(_alerts) [..._alerts.children].forEach(function(n){ if(n.id!=='snap-renewal-slot'&&n.id!=='snap-nudge-slot') n.remove(); });
   root.innerHTML='';
 
-  // Load tracker state from localStorage
   var exp  = null, inc = null, subs = null;
   try{ var _es=localStorage.getItem('fiapp_expenses_v4');     if(_es) exp  = JSON.parse(_es); }catch(e){}
   try{ var _is=localStorage.getItem('fiapp_income_v1');       if(_is) inc  = JSON.parse(_is); }catch(e){}
   try{ var _ss=localStorage.getItem('fiapp_subs_v4');         if(_ss) subs = JSON.parse(_ss); }catch(e){}
 
-  var cmk = todayMK(); // current month key e.g. "2026-05"
-  var pmk = prevMK(cmk); // previous calendar month
+  var cmk = todayMK();
+  var pmk = prevMK(cmk);
 
-  // ── Helper: current-month spending total ──
   function currentMonthSpent() {
     if(!exp || !exp.cells) return 0;
     var sum = 0;
@@ -541,12 +536,11 @@
         sum += parseFloat(exp.cells[cmk+'|'+row.id+'|'+col.id] || 0) || 0;
       });
     });
-    // Add subscriptions for current month
+
     var subCost = subs ? subCostPerMonth(subs, [cmk])[0] : 0;
     return parseFloat((sum + subCost).toFixed(2));
   }
 
-  // ── Helper: count non-zero cells in current month ──
   function currentMonthCellCount() {
     if(!exp || !exp.cells) return 0;
     var count = 0;
@@ -556,17 +550,11 @@
     return count;
   }
 
-  // ── Helper: gross income for a given month ──
   function grossForMonth(mk2) {
-    // The Income Tracker is the sole source of income for the whole app (home, analytics,
-    // and the Expenses budget panel all read it). The Expenses tracker's own gross-income
-    // field used to accept manual entries and fall back to them here, but that desynced
-    // from this total and stored raw USD without converting to the home currency - manual
-    // entry was removed, so there is nothing left to fall back to.
+
     if(inc && inc.rows && inc.rows.length > 0) {
       var rows = incRows(inc, mk2);
-      // Months with an import.js-created "Imported" column only exist in colsByMonth (per-month
-      // fork), not in the global inc.cols — mirrors the fallback combinedMonthTotals uses for exp.cols.
+
       var mCols = (inc.colsByMonth && inc.colsByMonth[mk2]) || inc.cols || [];
       var total = 0;
       var getCurrency = function(rowId){ return (inc.monthRowCurrencies||{})[mk2+'|'+rowId]||'USD'; };
@@ -593,31 +581,24 @@
     return 0;
   }
 
-  // ── Helper: last active month (most recent month with actual expense cells) ──
   function lastActiveMonth() {
     if(!exp || !exp.cells) return null;
     var months = new Set();
     Object.keys(exp.cells).forEach(function(k) {
       if(parseFloat(exp.cells[k]) > 0) { var m = k.split('|')[0]; if(m) months.add(m); }
     });
-    // Deliberately excludes subscription-generated months — those run up to today
-    // and would make lastActiveMonth always return the current month.
+
     var sorted = Array.from(months).sort();
     return sorted.length ? sorted[sorted.length-1] : null;
   }
 
-  // ── Helper: consecutive-month streak ──
-  // trackingStreakMonths (analytics_core.js) anchors at today rather than the raw
-  // last tracked month, so a future-dated outlier can't hide a real streak.
   function trackingStreak() {
     return trackingStreakMonths(allSpendingMonths(exp, subs));
   }
 
-  // ── Helper: earned identity badge ──
   function earnedBadges() {
     var badges = [];
-    // Streak is shown separately (and less prominently) via .snap-streak in
-    // the card body — not duplicated here as a header badge.
+
     var streak = trackingStreak();
     var hasExp  = currentMonthCellCount() > 0;
     var hasInc  = grossForMonth(cmk) > 0;
@@ -628,7 +609,6 @@
     return badges;
   }
 
-  // ── Helper: top 2 categories for a month ──
   function topCategories(mk2) {
     var cats = combinedCategoryTotals(exp, subs, [mk2]);
     var sorted = Object.keys(cats).map(function(k){ return {name:k, value:cats[k].value}; });
@@ -636,7 +616,6 @@
     return sorted.slice(0, 2);
   }
 
-  // ── Helper: checklist state ──
   function checklistState(mk2) {
     var incDone  = grossForMonth(mk2) > 0;
     var subsDone = !!(subs && subs.rows && subs.rows.length > 0);
@@ -646,19 +625,15 @@
             all: incDone && subsDone && goalDone && currencyDone};
   }
 
-  // ── Helper: subscription monthly total ──
   function subMonthlyTotal(mk2) {
     return subs ? subCostPerMonth(subs, [mk2])[0] : 0;
   }
 
-  // ── Determine product state ──
   var cellCount = currentMonthCellCount();
   var spent     = currentMonthSpent();
   var gross     = grossForMonth(cmk);
   var lastActive = lastActiveMonth();
 
-  // Gradient net-balance hero — reuses the snapshot's own current-month figures
-  // so the hero number can never disagree with the snapshot card below it.
   (function(){
     var heroEl = document.getElementById('snap-hero');
     if(!heroEl) return;
@@ -691,39 +666,24 @@
     }
     heroEl.style.display = '';
   })();
-  // Subscriptions are always-present and not month-specific — don't count toward "current month data"
-  // for State D detection. Only expense cells signal whether this month has been tracked.
+
   var hasCurrentExpData = cellCount > 0;
   var hasCurrentData = hasCurrentExpData || (subs && subs.rows && subs.rows.length > 0);
   var hasAnyData = !!(exp && exp.cells && Object.keys(exp.cells).length > 0) || !!(subs && subs.rows && subs.rows.length > 0);
 
-  // State D: no expense cells this month AND there is historical expense data AND last active was before prev calendar month
   var hasAnyExpCells = !!(exp && exp.cells && Object.keys(exp.cells).length > 0);
   var isStateD = !hasCurrentExpData && hasAnyExpCells && lastActive && lastActive < pmk;
 
-  // State A: no data at all
   var isStateA = !hasAnyData;
 
-  // State C: ≥3 non-zero cells, OR user manually confirmed they're done (override flag)
   var isStateC = cellCount >= 3 || !!localStorage.getItem('fiapp_snap_full_' + cmk);
 
-  // State B: some data but not rich enough for C, and not lapsed
   var isStateB = !isStateA && !isStateC && !isStateD;
-
-  // ── Render HTML using component precedence ──
-  // 1. Renewal alert (Phase 4b — placeholder hook)
-  // 2. Welcome back (State D)
-  // 3. Guidance (State A empty states)
-  // 4. Snapshot (State B / State C)
-  // 5. Win card (Phase 4d — placeholder)
-  // 6. Checklist
 
   var html = '';
 
-  // Renewal alert + overspend nudge now render into #dash-alerts (quick-tools panel), not here.
-
   if(isStateD) {
-    // ─ Component 2: Welcome back (State D) ─
+
     var lastLabel = mkLabel(lastActive);
     var lastSpent = 0;
     var allMons = allSpendingMonths(exp, subs);
@@ -738,13 +698,13 @@
     '</div>';
 
   } else if(isStateC || isStateB) {
-    // ─ Components 4+5+6: Snapshot + wins + checklist ─
+
     var check  = checklistState(cmk);
     var badges = earnedBadges();
     var streak = trackingStreak();
 
     if(isStateC) {
-      // ── Full snapshot (State C) ──
+
       var ratio = gross > 0 ? spent / gross : null;
       var badgeClass = ratio === null ? 'snap-grey' : ratio >= 1 ? 'snap-over' : ratio >= 0.8 ? 'snap-warn' : 'snap-ok';
       var badgeText  = ratio === null ? 'Not enough data' : ratio >= 1 ? 'Over budget' : ratio >= 0.8 ? 'Spending pace increased' : 'On track';
@@ -765,7 +725,7 @@
       if(cats.length) {
         html += '<div class="snap-cats">' + cats.map(function(c){ return escapeHtml(c.name) + ' · ' + fmtMoney(c.value); }).join(' &nbsp;|&nbsp; ') + '</div>';
       }
-      // Phase 5d: category sub-bars (top 3 if spending > 0)
+
       if(spent > 0 && cats.length >= 2) {
         var allCats = combinedCategoryTotals(exp, subs, [cmk]);
         var catSorted = Object.keys(allCats).map(function(k){ return {name:k, value:allCats[k].value}; }).sort(function(a,b){return b.value-a.value;}).slice(0,3);
@@ -795,13 +755,10 @@
       }
       html += '</div>';
 
-      // Overspend nudge now renders into #dash-alerts (quick-tools panel), not here.
-
-      // Component 5: Win card placeholder (Phase 4d will populate)
       html += '<div id="snap-win-slot"></div>';
 
     } else if(isStateB) {
-      // ── Compact strip (State B) ──
+
       html += '<div class="snap-strip">' +
         '<div>' +
           '<div class="snap-strip-label">' + escapeHtml(mkLabel(cmk)) + '</div>' +
@@ -813,7 +770,6 @@
       '</div>';
     }
 
-    // ─ Component 6: Checklist (disappears when all done) ─
     if(!check.all) {
       html += '<div class="snap-checklist">' +
         '<div class="snap-checklist-title">This month</div>' +
@@ -828,7 +784,7 @@
       '</div>';
     }
   }
-  // State A: gentle placeholder so the section isn't invisible
+
   if(isStateA) {
     html += '<div class="snap-strip"><div>' +
       '<div class="snap-strip-label">Your snapshot</div>' +
@@ -838,8 +794,6 @@
 
   root.innerHTML = html;
 
-
-  // Phase 4b: Populate renewal slot (inline — no access to subscriptions.js here)
   (function(){
     if(!subs || !subs.rows || !subs.cols) return;
     var today=new Date(); today.setHours(0,0,0,0);
@@ -889,14 +843,10 @@
     slot.innerHTML='<div class="snap-renewal">⚠ <strong>'+escapeHtml(first.name)+'</strong> renews '+when+extra+'. <a href="/subscriptions" class="snap-renewal-cta">Review subscriptions →</a></div>';
   })();
 
-  // W6: Overspend nudge — pace-vs-calendar projection for the live current
-  // month (mirrors computeOverspendNudge() in expenses.js; shares its
-  // dismissal keys so dismissing on one page dismisses on the other).
   (function(){
     var slot = document.getElementById('snap-nudge-slot');
     if(!slot) return;
-    // cmk is always todayMK() on this page (the snapshot isn't month-navigable
-    // like the trackers), so it's already "the month in progress" by definition.
+
     var now = new Date();
     var daysPassed = now.getDate();
     if(daysPassed < 7) return;
@@ -952,17 +902,13 @@
     };
   })();
 
-  // Phase 4d: Win cards — most recently completed month
   (function(){
     var winSlot = document.getElementById('snap-win-slot');
     if(!winSlot) return;
-    // Only show in State C or D — slot exists only when injected above
-    var prevMonth = pmk; // the most recently completed calendar month
+
+    var prevMonth = pmk;
     var wins = [];
 
-    // Anti-gaming guard for outcome wins that compare income vs spend: a month
-    // only counts once it has real expense data, not just a logged income figure
-    // (blocks a misleading "100% saved" from logging income and nothing else).
     var MIN_EXPENSE_ENTRIES = 3;
     function expenseEntryCount(mk2) {
       var cells2 = (exp && exp.cells) || {};
@@ -973,7 +919,6 @@
       return n;
     }
 
-    // Win 1: Goals met (categories under budget)
     if(exp && exp.goals) {
       var underCount = 0;
       Object.keys(exp.goals).forEach(function(gk){
@@ -982,7 +927,7 @@
         var rowId2 = parts2[1];
         var goalAmt = parseFloat(exp.goals[gk]) || 0;
         if(!goalAmt) return;
-        // sum cells for this row in prevMonth
+
         var rowTotal = 0;
         var cols2 = (exp.colsByMonth && exp.colsByMonth[prevMonth]) || exp.cols || [];
         cols2.forEach(function(col){
@@ -993,7 +938,6 @@
       if(underCount >= 1) wins.push({icon:'fi-target', text:'You stayed under budget in ' + underCount + ' categor' + (underCount === 1 ? 'y' : 'ies') + ' last month.'});
     }
 
-    // Win 2: Subscription cost dropped vs month before
     var allMonths2 = allSpendingMonths(exp, subs);
     if(subs && allMonths2.length >= 2) {
       var ppk = prevMK(prevMonth);
@@ -1005,7 +949,6 @@
       }
     }
 
-    // Win 3: Savings rate > 20%
     var prevGross = grossForMonth(prevMonth);
     if(prevGross > 0 && expenseEntryCount(prevMonth) >= MIN_EXPENSE_ENTRIES) {
       var prevSpent2 = 0, savingsRowTotal = 0;
@@ -1026,8 +969,6 @@
       if(freeRate > 0.20) wins.push({icon:'fi-check', text:'Only ' + Math.round((1 - freeRate) * 100) + '% of your income was budgeted last month.'});
     }
 
-    // Win 4: Positive cash-flow streak — consecutive complete months (ending
-    // at prevMonth) where logged income exceeded logged spend.
     var spendByMonth = combinedMonthTotals(exp, subs, allMonths2);
     var pcfStreak = 0, walkMk = prevMonth;
     while(grossForMonth(walkMk) > (spendByMonth[walkMk] || 0) && expenseEntryCount(walkMk) >= MIN_EXPENSE_ENTRIES) {
@@ -1045,13 +986,10 @@
     }).join('') + '</div>';
   })();
 
-  // Income vs expenses chart (dashboard row 2) — exposed as renderChart so a theme
-  // change (base.html setTheme calls renderChart()) redraws it with the new palette's colours.
   window.renderChart = function(){
     var cv = document.getElementById('dash-ive-chart'); if(!cv || typeof Chart === 'undefined') return;
     var months = (typeof allSpendingMonths === 'function') ? allSpendingMonths(exp, subs) : [];
-    // Never chart future/forecast months - drop anything past the current month, then keep
-    // the last 5 (4 past + the present) so the emphasis stays on actuals.
+
     var _cur = (typeof todayMK === 'function') ? todayMK() : null;
     if(_cur) months = months.filter(function(m){ return m <= _cur; });
     months = months.slice(-5);
@@ -1065,8 +1003,7 @@
     var expData = months.map(function(m){ return Math.round(spendTotals[m] || 0); });
     var labels  = months.map(function(m){ return (typeof mkLabel === 'function') ? mkLabel(m) : m; });
     if(cv._c){
-      // Update in place (no destroy/recreate) so a theme change just recolors the
-      // existing chart instead of replaying its entrance animation.
+
       var c = cv._c;
       c.data.labels = labels;
       c.data.datasets[0].data = incData; c.data.datasets[0].backgroundColor = incCol;
@@ -1082,16 +1019,13 @@
         {label:'Income',  data:incData, backgroundColor:incCol, borderRadius:6},
         {label:'Expenses',data:expData, backgroundColor:expCol, borderRadius:6}]},
       options:{responsive:true, maintainAspectRatio:false,
-        // A7: Playful grows the bars in slowly; Default/Quiet keep Chart.js defaults (undefined).
+
         animation:(window.fiappPersonality&&fiappPersonality()==='playful')?{duration:(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)?0:1100,easing:'easeOutQuart'}:undefined,
         plugins:{legend:{display:true, labels:{boxWidth:10, font:{size:11}, color:muted}}},
         scales:{y:{beginAtZero:true, ticks:{color:muted}}, x:{ticks:{color:muted}}}}});
   };
   window.renderChart();
 
-  // Alerts: if no renewal/nudge landed in the dashboard alerts area, show an all-clear -
-  // but only when the account actually has data. "You're all caught up" implies there was
-  // something to catch up ON; showing it on a brand-new, empty account is a false claim.
   (function(){
     var a = document.getElementById('dash-alerts'); if(!a) return;
     if(!hasAnyData){ var _prevClear0=a.querySelector('.dash-allclear'); if(_prevClear0) _prevClear0.remove(); return; }
@@ -1106,11 +1040,10 @@
     }
   })();
 
-  } // end _buildDashboard
+  }
 
   await _buildDashboard();
 
-  // Background refresh: rates + fresh tracker blobs, then rebuild if anything changed.
   (async function(){
     var keys=['fiapp_expenses_v4','fiapp_income_v1','fiapp_subs_v4'];
     var before=keys.map(function(k){ return localStorage.getItem(k); });
@@ -1123,9 +1056,7 @@
         _fetchFresh('fiapp_subs_v4',       '/api/load/subs'),
       ]);
     } catch(e) {}
-    // Semantic comparison: JSONB round-trips reorder object keys, so raw-string
-    // equality misfires. This page does not load tracker-sync.js, so a local
-    // recursive equal is inlined instead of reusing _deepEqual.
+
     function _jsonEq(x,y){
       if(x===y) return true;
       if(!x||!y||typeof x!=='object'||typeof y!=='object') return false;
@@ -1180,8 +1111,6 @@
   show(0);
 })();
 
-
-// Runs after DOMContentLoaded so WT_STEPS (defined in base.html's walkthrough script) is available
 document.addEventListener('DOMContentLoaded', function(){
   var curUser = {{ current_user|default(none)|tojson }};
   if(!curUser) return;
@@ -1196,8 +1125,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if(wt.seen && wt.seen.length > 0 && typeof WT_STEPS !== 'undefined'){
     var _allVis = WT_STEPS.filter(function(s){ return s.wantsCurrencyTour==null||s.wantsCurrencyTour===wt.wantsCurrencyTour; });
     var _lastSt = _allVis[_allVis.length-1];
-    // If the final step is in seen[], the user reached the end even if fast-swipes
-    // skipped recording some intermediate steps. Treat as complete → Restart.
+
     if(_lastSt && wt.seen.indexOf(_lastSt.id) >= 0){
       _hasUnseen = false;
     } else {
@@ -1207,7 +1135,6 @@ document.addEventListener('DOMContentLoaded', function(){
   lbl.textContent = _hasUnseen ? '↺ Continue walkthrough' : '↺ Restart walkthrough';
 });
 
-// CSP: bound here instead of inline onclick attributes
 (function(){
   var heroBtn=document.getElementById('hero-start-wt-btn');
   if(heroBtn) heroBtn.addEventListener('click',function(){window.location.href='/login?tab=register';});
@@ -1219,7 +1146,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if(b) snapConfirmDone(b.dataset.snapDoneMk);
   });
 
-  // Time-based greeting + month subtitle (logged-in only)
   var _u = {{ current_user|default(none)|tojson }};
   if(_u){
     var h=new Date().getHours();
@@ -1230,7 +1156,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if(sEl){ try{ sEl.textContent=new Date().toLocaleDateString(undefined,{month:'long',year:'numeric'})+' overview'; }catch(_){} }
   }
 
-  // Insights toggle — show/hide the snapshot, remembered across visits
   var tog=document.getElementById('insights-toggle');
   var wrap=document.getElementById('snapshot-wrap');
   if(tog && wrap){
