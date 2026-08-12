@@ -1,36 +1,13 @@
-/* FiApp native (Capacitor) app lock.
- *
- * Optional biometric / device-credential gate shown on app launch and on resuming from the
- * background. Loaded (deferred) on every page from base.html right after native-auth.js, and a
- * strict no-op in a plain browser: fiappIsNative() is false, so nothing renders or binds and
- * the web app is entirely unaffected. The render-blocking anti-flash check that must run before
- * first paint lives separately in native-lock-guard.js (loaded earlier, un-deferred) so this
- * larger file doesn't have to be render-blocking on every page navigation.
- *
- * FiApp is server-rendered (each tracker page is its own full document, not an SPA route), so
- * clicking between pages is a genuine full page navigation - this script re-runs from scratch
- * on every one. To avoid re-locking on ordinary in-app navigation (only true launch/resume
- * should challenge), an "unlocked this foreground session" flag lives in sessionStorage: it
- * survives page navigations within the same continuous session but is cleared the moment the
- * app backgrounds, so returning from background still re-locks correctly.
- *
- * Enabled flag lives in localStorage ('fiapp_app_lock'='1'). See the Batch C plan for the
- * fail-open tradeoff (durability backstopped by navigator.storage.persist()).
- */
 'use strict';
 
 (function () {
   var LOCK_KEY = 'fiapp_app_lock';
-  var UNLOCKED_KEY = 'fiapp_lock_unlocked';   // sessionStorage: cleared on backgrounding
+  var UNLOCKED_KEY = 'fiapp_lock_unlocked';
   var _overlay = null;
-  var _locking = false;   // guards against re-entrant auth (the system sheet fires app events)
+  var _locking = false;
 
   function isNative() { return !!(window.fiappIsNative && window.fiappIsNative()); }
 
-  // Plugins are only reachable via the bridge (the remote page can't import the app's node
-  // modules). @aparajita/capacitor-biometric-auth registers itself as 'BiometricAuthNative'
-  // (confirmed from the published package's registerPlugin() call); 'BiometricAuth' is kept
-  // as a defensive fallback in case a future major renames it.
   function bioPlugin() {
     var P = (window.Capacitor && window.Capacitor.Plugins) || {};
     return P.BiometricAuthNative || P.BiometricAuth || null;
@@ -54,15 +31,6 @@
     try { sessionStorage.removeItem(UNLOCKED_KEY); } catch (e) {}
   }
 
-  // One biometric / device-credential challenge. Resolves true on success, false otherwise.
-  //
-  // @aparajita/capacitor-biometric-auth's public authenticate() is inherited from a base
-  // class (BiometricAuthBase.prototype) that just calls this.internalAuthenticate(options)
-  // under the hood (confirmed from the published package source). On this Android build,
-  // the object Capacitor exposes only carries its *own* properties (checkBiometry and
-  // internalAuthenticate, both explicitly rebound in the native wrapper's constructor) -
-  // the inherited authenticate() itself isn't reachable, so it's called directly here with
-  // the exact same options object authenticate() would have passed through unchanged.
   async function runAuth() {
     var bio = bioPlugin();
     if (!bio) { console.error('[fiapp-lock] runAuth: no biometric plugin resolved'); return false; }
@@ -87,7 +55,7 @@
       return true;
     } catch (e) {
       console.error('[fiapp-lock] authenticate rejected:', e && e.code, e && e.message, e);
-      return false;   // cancelled, failed, or lockout
+      return false;
     }
   }
 
@@ -95,8 +63,7 @@
     if (_overlay) return _overlay;
     var o = document.createElement('div');
     o.id = 'fiapp-lock-overlay';
-    // Inline styles so the overlay renders even mid-load; visibility:visible survives the
-    // anti-flash body-hide. Themed via the app's own CSS vars with safe fallbacks.
+
     o.style.cssText = [
       'position:fixed', 'inset:0', 'z-index:2147483647',
       'display:none', 'visibility:visible',
@@ -132,7 +99,7 @@
 
   function showOverlay() {
     buildOverlay().style.display = 'flex';
-    // Overlay is up and opaque; safe to reveal <body> (overlay covers it).
+
     document.documentElement.classList.remove('fiapp-lock-pending');
   }
   function hideOverlay() {
@@ -145,7 +112,7 @@
     _locking = true;
     var ok = await runAuth();
     _locking = false;
-    if (ok) { markUnlocked(); hideOverlay(); }   // else leave the overlay up; the Unlock button retries
+    if (ok) { markUnlocked(); hideOverlay(); }
   }
 
   function lockNow() {
@@ -153,12 +120,11 @@
     unlockAttempt();
   }
 
-  // ---- Account-page toggle -------------------------------------------------
   function wireToggle() {
     var card = document.getElementById('app-lock-card');
     var toggle = document.getElementById('app-lock-toggle');
     if (!card || !toggle) return;
-    card.style.display = '';   // reveal only inside the native shell
+    card.style.display = '';
     toggle.checked = isEnabled();
 
     var fbEl = document.getElementById('app-lock-feedback');
@@ -171,7 +137,7 @@
 
     toggle.addEventListener('change', async function () {
       fb('');
-      if (!toggle.checked) {                 // disable: no challenge needed
+      if (!toggle.checked) {
         try { localStorage.removeItem(LOCK_KEY); } catch (e) {}
         fb('App lock is off.', true);
         return;
@@ -189,10 +155,10 @@
       } catch (e) {
         console.error('[fiapp-lock] checkBiometry() threw:', e && e.code, e && e.message, e);
       }
-      var ok = await runAuth();              // prove it works before persisting
+      var ok = await runAuth();
       if (ok) {
         try { localStorage.setItem(LOCK_KEY, '1'); } catch (e) {}
-        markUnlocked();   // just proved it works; don't immediately re-challenge this session
+        markUnlocked();
         fb('App lock is on. You will unlock each time you open FiApp.', true);
       } else {
         toggle.checked = false;
@@ -201,10 +167,9 @@
     });
   }
 
-  // ---- Wiring --------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     if (!isNative()) {
-      // Never leave the page hidden in a plain browser (defensive; the guard above is native-gated).
+
       document.documentElement.classList.remove('fiapp-lock-pending');
       return;
     }
@@ -216,16 +181,14 @@
       app.addListener('appStateChange', function (state) {
         if (!isEnabled()) return;
         if (state && state.isActive === false) {
-          markLocked();           // true backgrounding: require a fresh check on next resume
-          showOverlay();          // hide content in the recent-apps thumbnail + on next resume
+          markLocked();
+          showOverlay();
         } else if (state && state.isActive === true) {
           if (_overlay && _overlay.style.display !== 'none') unlockAttempt();
         }
       });
     }
 
-    // Launch or a same-session page navigation: only challenge if enabled AND not already
-    // unlocked this foreground session (ordinary in-app navigation must not re-lock).
     if (isEnabled() && !isUnlockedThisSession()) lockNow();
     else document.documentElement.classList.remove('fiapp-lock-pending');
   });
