@@ -1,30 +1,5 @@
-// tracker-sync.js — Shared server-sync manager for FiApp trackers
-// Usage:
-//   var sync = createSyncManager(storageKey, saveApiPath, loadApiPath, opts);
-//   var syncToServer   = sync.syncToServer;
-//   var loadFromServer = sync.loadFromServer;
-//   var setSyncStatus  = sync.setSyncStatus;
-//   var saveLocal      = sync.saveLocal;
-//
-// opts (all optional):
-//   getState()       : returns the tracker's current state object (required for saveLocal)
-//   onReload()       : called after server data is loaded in the stale-reload path,
-//                      and again after a 409 conflict has been merged into localStorage
-//   onMerge(message) : called after a 409 merge actually changes the user's local view,
-//                      so the tracker can surface a brief "merged changes" toast
-//   showQuotaWarning(): called when localStorage quota is exceeded
-//   contentGuard(data): returns true if server response has real content worth persisting
-//                       default: checks data.rows || data.cells || data.rowsByMonth
-
-// How many times one save cycle will retry after a 409 before giving up (and marking
-// the status as failed). Each retry re-merges against the latest server state, so this
-// only matters for back-to-back conflicts landing on the same save attempt.
 var _MAX_MERGE_RETRIES = 3;
 
-// Order-independent deep equality for plain JSON values (objects/arrays/primitives).
-// Needed because a blob that round-trips through the server's JSONB column can come
-// back with object keys in a different order than the client's own JSON.stringify,
-// even when the underlying data is byte-for-byte the same.
 function _deepEqual(a, b) {
   if (a === b) return true;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
@@ -42,19 +17,6 @@ function _deepEqual(a, b) {
   return true;
 }
 
-// Merges two arrays of {id,...} objects (rows or columns) by unioning on `id`,
-// preserving each side's ordering for items it contributed and appending any
-// items the other side added that it doesn't have. Items present on both sides
-// keep the local version (the side currently trying to save — the freshest
-// edit from the user's perspective).
-//
-// Why this matters: bulk operations (CSV/OFX import, paste, "+Row"/"+Column",
-// copy-from-previous-month) create NEW rows/cols *and* new cells in the same
-// state mutation. Taking rows/cols wholesale from the server would silently
-// drop those newly-created rows/cols on a 409, while the cell-merge logic below
-// (which operates on `cells`/`cellTimes` independently) keeps the values that
-// reference them — leaving orphaned cells that point at rows/cols which no
-// longer exist, and are therefore permanently invisible in the UI.
 function _mergeIdArrays(localArr, serverArr, maxLen) {
   var local  = Array.isArray(localArr)  ? localArr  : [];
   var server = Array.isArray(serverArr) ? serverArr : [];
@@ -68,18 +30,14 @@ function _mergeIdArrays(localArr, serverArr, maxLen) {
   local.forEach(function(item) {
     if (!item || item.id == null) return;
     if (!Object.prototype.hasOwnProperty.call(byId, item.id)) order.push(item.id);
-    byId[item.id] = item; // local wins when both sides have this id
+    byId[item.id] = item;
   });
   var out = order.map(function(id) { return byId[id]; });
-  // Hard backstop: repeated cold-boot seeds (fresh random ids for the SAME default rows/
-  // cols) would otherwise union-accumulate past the server's MAX_ROWS/MAX_COLS cap and make
-  // every save 400 (the "16 duplicate columns" bug). Bound the merged length. maxLen
-  // omitted -> no cap (preserves prior behavior for callers that don't pass one).
+
   if (maxLen && out.length > maxLen) out = out.slice(0, maxLen);
   return out;
 }
 
-// Same id-union merge, applied per month-key for rowsByMonth/colsByMonth maps.
 function _mergeArraysByMonth(localMap, serverMap, maxLen) {
   var local  = (localMap  && typeof localMap  === 'object') ? localMap  : {};
   var server = (serverMap && typeof serverMap === 'object') ? serverMap : {};
@@ -89,16 +47,6 @@ function _mergeArraysByMonth(localMap, serverMap, maxLen) {
   return out;
 }
 
-// Merges a local tracker blob with the server's blob after a 409 conflict.
-//   - cells/cellTimes: union of keys; whichever side has the strictly-newer cellTimes
-//     entry wins (a key absent from `cells` but present in `cellTimes` is a deletion);
-//     ties prefer whichever side actually has a value, then fall back to the server.
-//   - rows/cols/rowsByMonth/colsByMonth: id-union merge (see _mergeIdArrays) so that
-//     bulk operations which add new rows/cols can't have those additions clobbered.
-//   - Every other field (goals, income, collapsed, ...) is taken wholesale from the
-//     server's blob — EXCEPT currentYear/currentMonth, which (mirroring loadFromServer's
-//     existing stale-reload behavior below) stay on the local device's own choice,
-//     since they're per-device viewing state, not synced data.
 function _mergeTrackerBlobs(localBlob, serverBlob, caps) {
   var local  = (localBlob  && typeof localBlob  === 'object') ? localBlob  : {};
   var server = (serverBlob && typeof serverBlob === 'object') ? serverBlob : local;
@@ -110,19 +58,8 @@ function _mergeTrackerBlobs(localBlob, serverBlob, caps) {
   if (local.rowsByMonth || server.rowsByMonth) merged.rowsByMonth = _mergeArraysByMonth(local.rowsByMonth, server.rowsByMonth, caps.rows);
   if (local.colsByMonth || server.colsByMonth) merged.colsByMonth = _mergeArraysByMonth(local.colsByMonth, server.colsByMonth, caps.cols);
 
-  // expenses.js's per-month budget-panel figures (gross/tax/taxCurrency), keyed by
-  // month like rowsByMonth. This merge only runs while a local edit is unsynced
-  // (loadFromServer's dirty path, or a 409 during save) - taking it wholesale from
-  // the server like the fields below would silently discard whatever just changed
-  // locally (e.g. the tax calculator's "apply to month" carryover racing the boot-time
-  // server fetch: the tax gets set and saved locally, but since save() can't actually
-  // reach the server until _serverLoaded flips true, the local edit sits unsynced and
-  // this merge is exactly what's supposed to protect it). Per-month, local wins when
-  // both sides have the same month - same principle as the row/col id-union above.
   if (local.income || server.income) merged.income = Object.assign({}, server.income || {}, local.income || {});
 
-  // recurringRules ride the wholesale server copy, but on the dirty/409 path the local
-  // device may hold rules the server hasn't seen yet - keep local when the server has none.
   if (local.recurringRules && (!server.recurringRules || !server.recurringRules.length)) {
     merged.recurringRules = local.recurringRules;
   }
@@ -147,8 +84,8 @@ function _mergeTrackerBlobs(localBlob, serverBlob, caps) {
     var sTime = serverTimes[k] || 0;
     var useLocal;
     if (lTime !== sTime)    useLocal = lTime > sTime;
-    else if (lHas !== sHas) useLocal = lHas;   // tie, one side a tombstone: the value wins
-    else                    useLocal = false;  // genuine tie: server/incoming wins
+    else if (lHas !== sHas) useLocal = lHas;
+    else                    useLocal = false;
 
     if (useLocal) {
       if (lHas)  mergedCells[k] = localCells[k];
@@ -168,12 +105,6 @@ function _mergeTrackerBlobs(localBlob, serverBlob, caps) {
   return merged;
 }
 
-// Per-month row/column reconstruction, shared by the expenses and income trackers (their
-// getRows/getCols were previously byte-identical copies). Returns the month's own forked
-// rows/cols if that month has been forked, else falls back to the global rows/cols.
-// A forked-but-empty month is returned as-is (truthy check) — that's the trackers' current
-// behavior; note analytics_core's expRows uses a length>0 check instead, an intentional
-// difference left untouched here.
 function effectiveRowsForMonth(state, mk) {
   return (state && state.rowsByMonth && state.rowsByMonth[mk]) ? state.rowsByMonth[mk] : (state && state.rows) || [];
 }
@@ -181,9 +112,6 @@ function effectiveColsForMonth(state, mk) {
   return (state && state.colsByMonth && state.colsByMonth[mk]) ? state.colsByMonth[mk] : (state && state.cols) || [];
 }
 
-// Is the onboarding walkthrough currently active? Centralizes the localStorage read +
-// JSON parse + guard the trackers previously inlined at ~19 call sites (each with its own
-// try/catch). Returns false on any parse error, matching the inlined behavior.
 function isWalkthroughActive() {
   try {
     var w = JSON.parse(localStorage.getItem('fiapp_walkthrough_v1') || 'null');
@@ -193,12 +121,9 @@ function isWalkthroughActive() {
 
 function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   opts = opts || {};
-  // Per-tracker row/col caps for the merge backstop (see _mergeIdArrays). Undefined when a
-  // tracker doesn't declare them -> merge stays uncapped, as before.
+
   var _caps = { rows: opts.maxRows, cols: opts.maxCols };
 
-  // Pages with a live sync manager own their key's flushing; the global flusher
-  // in sw-register.js skips these (see window.__fiappFlushDirtyTrackers).
   try {
     window.__fiappSyncManagedKeys = window.__fiappSyncManagedKeys || {};
     window.__fiappSyncManagedKeys[storageKey] = true;
@@ -218,14 +143,11 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
   function setSyncStatus(msg, cls) {
     var el = document.getElementById('sync-status');
     if (!el) return;
-    // C4 (Playful): a small sparkle on the saved confirmation. Default/Quiet unchanged.
+
     if (cls === 'synced' && msg && window.fiappPersonality && fiappPersonality() === 'playful') msg += ' ✨';
     el.textContent = msg; el.className = cls || '';
   }
 
-  // Surface the existing revision-history safety net (server keeps the last
-  // _REVISION_KEEP=20 versions per tracker, app.py) next to the save status —
-  // trust signal, not a transient status message, so it's a separate static element.
   (function() {
     var statusEl = document.getElementById('sync-status');
     if (!statusEl || document.getElementById('sync-revision-note')) return;
@@ -244,9 +166,6 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     return JSON.stringify({ data: blob, base_version: _baseVersion });
   }
 
-  // A 409 means our base_version is stale: merge the server's current blob with
-  // whatever's in localStorage right now, persist + adopt the merged result, then
-  // retry the save against the version we just learned about.
   function _resolveConflict(resp, retriesLeft) {
     var serverData = resp && resp.server_data;
     var serverVersion = (resp && typeof resp.server_version === 'number') ? resp.server_version : _baseVersion;
@@ -279,8 +198,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
       if (r.ok) {
         return r.json().then(function(resp) {
           if (resp && typeof resp.version === 'number') { _baseVersion = resp.version; _persistVer(resp.version); }
-          // Clear the dirty flag only if no edit landed after this payload was
-          // built; a newer edit has its own pending save that will clear it.
+
           var d = parseInt(_getDirty() || '0', 10);
           if (d && d <= _payloadTime) { try { localStorage.removeItem(storageKey + '__dirty'); } catch (_) {} }
           setSyncStatus(
@@ -293,8 +211,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
         return r.json().then(function(resp) { _resolveConflict(resp, retriesLeft); });
       }
       _setDirty();
-      // Surface the server's specific reason (e.g. "Too many columns (max 12)")
-      // rather than a bare "Sync failed" that needs DevTools to diagnose.
+
       return r.json().catch(function() { return {}; }).then(function(resp) {
         var why = (resp && resp.error) ? ' - ' + resp.error : '';
         setSyncStatus('⚠ Sync failed' + why, 'failed');
@@ -308,9 +225,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
       var _wts = JSON.parse(localStorage.getItem('fiapp_walkthrough_v1') || 'null');
       if (_wts && _wts.active) { setSyncStatus('', ''); return; }
     } catch (_) {}
-    // A data edit is pending until the server acks it. Marked here rather than in
-    // saveLocal so per-device view-state writes (month navigation, derived income
-    // mirrors - saveLocal-only callers) don't flag the blob as needing merge/flush.
+
     _setDirty();
     if (!window.__currentUser) { setSyncStatus('Local only - sign in to sync', 'local'); return; }
     if (!_serverLoaded) {
@@ -336,7 +251,6 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
       _attemptSave(_MAX_MERGE_RETRIES);
     }, 1500);
 
-    // Flush to server immediately on page unload if a sync is still pending
     window.addEventListener('beforeunload', function() {
       if (!_syncPending) return;
       fetch(saveApiPath, {
@@ -371,10 +285,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
         };
         if (data && typeof data === 'object' && guard(data)) {
           if (_getDirty()) {
-            // Unsynced offline edits exist: merge the server's blob into the local
-            // one (cells win by newer cellTimes, rows/cols union by id) instead of
-            // overwriting, then push the merged result. __dirty clears only when
-            // the server acks that save.
+
             var _dirtyLocal = null;
             try { _dirtyLocal = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (_) {}
             localStorage.setItem(storageKey, JSON.stringify(_mergeTrackerBlobs(_dirtyLocal, data, _caps)));
@@ -422,8 +333,6 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     _attemptSave(_MAX_MERGE_RETRIES);
   }
 
-  // Reconnect: __currentUser is null after an offline boot (auth/me failed), so
-  // re-establish it before flushing any pending offline edits.
   try {
     window.addEventListener('online', function () {
       var authP = (typeof window.fiappFetchTimeout === 'function')
