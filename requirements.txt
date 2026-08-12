@@ -1,14 +1,9 @@
 Flask==3.1.3
-# Pinned explicitly even though Flask depends on it. app.py now passes method=PWHASH_METHOD
-# to generate_password_hash(), so the hashing algorithm no longer depends on this version -
-# the pin is ordinary dependency hygiene (reproducible builds), not the control protecting
-# passwords. Bumping it is safe; change PWHASH_METHOD in app.py if the algorithm itself
-# should change.
 Werkzeug==3.1.8
-requests==2.32.5
+requests==2.34.2
 gunicorn==25.3.0
 psycopg2-binary==2.9.12
 Flask-Limiter==4.1.1
 redis==8.0.0
-Authlib==1.3.2
-firebase-admin==6.5.0
+Authlib==1.7.2
+firebase-admin==7.5.0
