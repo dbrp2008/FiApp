@@ -1,19 +1,3 @@
-/* FiApp celebration + mascot helper — shared across every page (loaded in base.html <head>).
-
-   Self-contained: owns its own confetti canvas and a transient mascot bubble, both created
-   lazily on first use (this script runs in <head>, before <body> exists, so it must not
-   touch the DOM until a public function is actually called from a body script).
-
-   Gating: every visible effect is a no-op unless the active personality meets a minimum
-   level (default 'playful') AND the user has not asked for reduced motion. 'balanced'
-   (the default) and 'quiet' therefore see nothing new here — this is what preserves the
-   "Default behaves exactly like today" guarantee.
-
-   Public API:
-     window.fiappPersonality()  -> 'quiet' | 'balanced' | 'playful'   (single source of truth)
-     window.fiappCelebrate({confetti, mascot, minLevel='playful', big=false})
-     window.fiappMascotTip(text, sessionKey)  -> once-per-session, dismissable, playful-only
-*/
 (function(){
   'use strict';
 
@@ -36,7 +20,6 @@
     return LEVEL[fiappPersonality()] >= need;
   }
 
-  // ---- Confetti -------------------------------------------------------------
   var _cvs = null;
   function _canvas(){
     if (_cvs) return _cvs;
@@ -49,8 +32,7 @@
   }
 
   function _palette(){
-    // E3: fold the active theme accent into a festive base palette so the burst
-    // matches whatever theme is currently live.
+
     var cs = getComputedStyle(document.documentElement);
     var accent = (cs.getPropertyValue('--accent') || '').trim();
     var strong = (cs.getPropertyValue('--accent-strong') || '').trim();
@@ -79,10 +61,6 @@
     requestAnimationFrame(draw);
   }
 
-  // ---- Coin flip (big celebrations only) -------------------------------------
-  // A small pure-CSS 3D coin (rotateY flip + rise-and-fall arc; classes + keyframes in
-  // styles.css) fired alongside the big confetti burst on month close. Same gates as
-  // confetti: playful-only (via the fiappCelebrate _meets check) + reduced-motion bail.
   function _fireCoin(){
     if (_reducedMotion()) return;
     var wrap = document.createElement('div');
@@ -100,10 +78,9 @@
     var done = false;
     function cleanup(){ if (done) return; done = true; wrap.remove(); }
     coin.addEventListener('animationend', cleanup);
-    setTimeout(cleanup, 2200); // fallback if animationend never fires
+    setTimeout(cleanup, 2200);
   }
 
-  // ---- Mascot bubble --------------------------------------------------------
   var _bubble = null, _txt = null, _close = null, _timer = null;
   function _ensureBubble(){
     if (_bubble) return _bubble;
@@ -144,29 +121,28 @@
     _txt.textContent = text;
     _close.style.display = showClose ? '' : 'none';
     _bubble.style.display = 'flex';
-    void _bubble.offsetWidth;                 // force reflow so the transition runs
+    void _bubble.offsetWidth;
     _bubble.style.opacity = '1';
     _bubble.style.transform = 'translateX(-50%) translateY(0)';
     if (_timer) { clearTimeout(_timer); _timer = null; }
     if (autoMs) _timer = setTimeout(_hideBubble, autoMs);
   }
 
-  // ---- Public API -----------------------------------------------------------
   function fiappCelebrate(opts){
     opts = opts || {};
     if (!_meets(opts.minLevel)) return;
-    if (opts.confetti) _fireConfetti(!!opts.big);   // confetti bails on reduced motion
-    if (opts.confetti && opts.big) _fireCoin();     // coin joins big bursts only; same gates
-    if (opts.mascot)   _showBubble(opts.mascot, 4200, false);  // informational; shows even under reduced motion
+    if (opts.confetti) _fireConfetti(!!opts.big);
+    if (opts.confetti && opts.big) _fireCoin();
+    if (opts.mascot)   _showBubble(opts.mascot, 4200, false);
   }
 
   function fiappMascotTip(text, sessionKey){
-    if (!text || !_meets('playful')) return;        // tips are playful-only
+    if (!text || !_meets('playful')) return;
     if (sessionKey){
       var k = 'fiapp_tip_' + sessionKey;
       try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch (_) {}
     }
-    setTimeout(function(){ _showBubble(text, 9000, true); }, 900);  // let page-load settle first
+    setTimeout(function(){ _showBubble(text, 9000, true); }, 900);
   }
 
   window.fiappPersonality = fiappPersonality;
