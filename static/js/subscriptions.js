@@ -5,9 +5,7 @@ const MONTHS_SHORT= ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const BILLING_OPTS= ['Monthly','Quarterly','Semi-Annual','Annual','Weekly','Bi-Weekly'];
 const STATUS_OPTS = ['Active','Trial','Paused','Cancelled'];
-// Declared up here with the other module constants because createSyncManager (below)
-// reads it at top-level execution time - a `const` further down the file is still in
-// its temporal dead zone at that point and throws, killing the whole script.
+
 const MAX_SUBS    = 100;
 const TRIAL_OPTS  = [
   {v:'none',  l:'No free trial'},
@@ -26,10 +24,9 @@ const _measureCtx = document.createElement('canvas').getContext('2d');
 function uid(){ return '_'+Math.random().toString(36).slice(2,9); }
 const msDay = 864e5;
 
-
 const ratesCache = {};
 let ratesReady = false;
-let _ratesStaleDate = null; // set when rates came from the offline fallback (rates-utils stale:true)
+let _ratesStaleDate = null;
 function _staleNote(){
   return _ratesStaleDate ? ' · offline rates from '+new Date(_ratesStaleDate).toLocaleDateString() : '';
 }
@@ -62,9 +59,8 @@ function costToUSD(rawCost, rowId){
   const cur=rowCurrency(rowId);
   if(cur==='USD') return rawCost;
   const rate=ratesCache[cur];
-  return rate?rawCost/rate:rawCost; 
+  return rate?rawCost/rate:rawCost;
 }
-
 
 function freshState(){
   const c1=uid(),c2=uid(),c3=uid(),c4=uid(),c5=uid(),c6=uid(),c7=uid(),c8=uid();
@@ -104,9 +100,7 @@ function loadState(){
       if(!s.cellTimes)       s.cellTimes={};
       if(!s.displayCurrency) s.displayCurrency='USD';
       if(!s.rowCurrencies)   s.rowCurrencies={};
-      // A blob that arrives without the month cursor (e.g. a partial server payload) would
-      // otherwise make render()'s `new Date(currentYear, currentMonth, ...)` an Invalid Date
-      // and throw "Invalid time value". Default to the current month, same as freshState().
+
       const _now=new Date();
       if(typeof s.currentYear!=='number'||isNaN(s.currentYear))  s.currentYear=_now.getFullYear();
       if(typeof s.currentMonth!=='number'||isNaN(s.currentMonth)) s.currentMonth=_now.getMonth();
@@ -129,12 +123,7 @@ var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
 var setSyncStatus=_sync.setSyncStatus;
 var saveLocal=_sync.saveLocal;
-// Stamps state.cellTimes[key]=now for any cell whose value changed since the last
-// save, by diffing against the snapshot still sitting in localStorage (saveLocal()
-// is about to overwrite it). One diff on every save() uniformly catches every way
-// `cells` can change — typing, paste, bulk delete, import, undo/redo — without
-// scattering Date.now() stamps across mutation sites. A key that just vanished
-// (delete) gets stamped too: that's what marks it as a tombstone for the merge.
+
 function _stampCellTimes(){
   if(!state.cellTimes) state.cellTimes={};
   let prevCells={};
@@ -152,7 +141,6 @@ function save(){
   syncToServer();
 }
 
-// ── Phase 4b: Upcoming Renewal Alert ─────────────────────────────────────
 function upcomingRenewals(withinDays){
   withinDays=withinDays||7;
   if(!state.rows||!state.cols) return [];
@@ -173,11 +161,11 @@ function upcomingRenewals(withinDays){
     var billing=get(billingCol)||'Monthly';
     var name=nameCol?get(nameCol)||'Unnamed subscription':'Unnamed subscription';
     var rawCost=parseFloat(costCol?get(costCol):0)||0;
-    // Compute next renewal from today
+
     var start=new Date(startStr); start.setHours(0,0,0,0);
-    if(start>horizon) return; // hasn't started yet
+    if(start>horizon) return;
     var intervalMs;
-    if(billing==='Monthly')    intervalMs=null; // handled separately
+    if(billing==='Monthly')    intervalMs=null;
     else if(billing==='Yearly')    intervalMs=365.25*86400000;
     else if(billing==='Quarterly') intervalMs=91.3125*86400000;
     else if(billing==='Weekly')    intervalMs=7*86400000;
@@ -185,7 +173,7 @@ function upcomingRenewals(withinDays){
     else return;
     var nextDate;
     if(intervalMs===null){
-      // Monthly: same day of month each month
+
       var d=new Date(today); d.setDate(start.getDate());
       if(d<today){ d.setMonth(d.getMonth()+1); }
       nextDate=d;
@@ -230,7 +218,12 @@ function showToast(msg, isError=false, duration=4000, undoCb=null){
   el.setAttribute('aria-live','polite');
   el.setAttribute('aria-atomic','true');
   el.className=isError?'error':'success';
-  el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
+
+  const _bar=document.querySelector('.tab-bar');
+  const _bottom=(_bar&&getComputedStyle(_bar).display!=='none')
+    ? (_bar.getBoundingClientRect().height+8)+'px'
+    : 'calc(1rem + env(safe-area-inset-bottom,0px))';
+  el.style.cssText='position:fixed;bottom:'+_bottom+';left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
   const txt=document.createElement('span'); txt.textContent=msg; el.appendChild(txt);
   if(undoCb){
     const btn=document.createElement('button');
@@ -241,7 +234,6 @@ function showToast(msg, isError=false, duration=4000, undoCb=null){
   }
   document.body.appendChild(el); setTimeout(()=>el.remove(),duration);
 }
-
 
 let undoStack=[], redoStack=[];
 function loadHistory(){
@@ -265,17 +257,13 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))){e.preventDefault();redo();}
 });
 
-
 function ck(rId,cId){ return rId+'|'+cId; }
 function getCell(rId,cId){ return state.cells[ck(rId,cId)]||''; }
 function setCell(rId,cId,v){ state.cells[ck(rId,cId)]=v; save(); }
 function colByType(t){ return state.cols.find(c=>c.ctype===t); }
 
-
 function parseDate(str){ if(!str) return null; const d=new Date(str+'T00:00:00'); return isNaN(d.getTime())?null:d; }
-// Not toISOString(): that converts to UTC, so a local-midnight Date built from
-// getFullYear/Month/Date (as every caller does) silently shifts a day backward in any
-// timezone ahead of UTC - e.g. the last day of the month reads as unselectable.
+
 function toDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function daysInMo(y,m){ return new Date(y,m+1,0).getDate(); }
 function firstOfViewedMonthStr(){
@@ -292,7 +280,6 @@ function getTrialEnd(start,trial){
   if(trial==='3months'){d.setMonth(d.getMonth()+3);d.setDate(d.getDate()-1); return d;}
   return null;
 }
-
 
 function calcMonthCost(row, year, month){
   const costCol  =colByType('number');
@@ -360,7 +347,6 @@ function calcMonthCost(row, year, month){
   return cost*count;
 }
 
-
 function isHiddenForMonth(row){
   const cancelCol=colByType('canceldate'), statusCol=colByType('status');
   if(!cancelCol||!statusCol) return false;
@@ -374,7 +360,6 @@ function isHiddenForMonth(row){
 function calcYearlyCost(row,year){
   let t=0; for(let m=0;m<12;m++) t+=calcMonthCost(row,year,m); return t;
 }
-
 
 const today=new Date();
 const minY=today.getFullYear()-1, minM=today.getMonth();
@@ -476,7 +461,6 @@ function openHelp(){
   setTimeout(()=>close.focus(),20);
 }
 
-
 function isForecastMonth(){
   const today=new Date();
   const current=new Date(state.currentYear, state.currentMonth);
@@ -486,10 +470,10 @@ function updateForecastUI(){
   const fc=isForecastMonth();
   const bar=document.getElementById('forecast-bar');
   if(bar) bar.style.display=fc?'flex':'none';
-  
+
   const tp=document.querySelector('.totals-panel');
   if(tp) tp.classList.toggle('forecast-panel',fc);
-  
+
   const sl=document.getElementById('sum-label');
   if(sl){
     sl.querySelectorAll('.forecast-badge').forEach(b=>b.remove());
@@ -497,10 +481,6 @@ function updateForecastUI(){
   }
 }
 
-
-// Batch D Wave 4: header stat strip (monthly/yearly cost, active/paused/cancelled
-// counts, next renewal). mUSD/yUSD are passed in from recalcTotals - same figures
-// as the "Spending Summary" card below, just surfaced at a glance up top.
 function updateSubsStatStrip(mUSD,yUSD){
   var mEl=document.getElementById('stat-monthly-cost');
   if(!mEl) return;
@@ -547,7 +527,7 @@ function recalcTotals(){
   state.rows.forEach(r=>{
     if(isHiddenForMonth(r)) return;
     mUSD+=calcMonthCost(r,state.currentYear,state.currentMonth); yUSD+=calcYearlyCost(r,state.currentYear); });
-  
+
   const hasNonUSD=state.rows.some(r=>rowCurrency(r.id)!=='USD');
   const pendingRates=hasNonUSD&&!ratesReady;
   const suffix=pendingRates?' (est.)':'';
@@ -562,7 +542,6 @@ function recalcTotals(){
   renderRenewalAlert();
   updateSubsStatStrip(mUSD,yUSD);
 }
-
 
 function showConvFields(cur,rate){
   currentRate=rate;
@@ -592,7 +571,7 @@ function onCurrencyChange(){
   state.displayCurrency=cur; save();
   if(cur==='USD'){ hideConvFields(); recalcTotals(); return; }
   document.getElementById('curr-note').textContent='Fetching…';
-  
+
   if(ratesCache[cur]){
     document.getElementById('curr-note').textContent='1 USD = '+ratesCache[cur].toFixed(4)+' '+cur+_staleNote();
     showConvFields(cur,ratesCache[cur]);
@@ -628,13 +607,9 @@ function applyOtherCurrency(){
     }).catch(()=>note.textContent='Could not validate. Check your connection.');
 }
 
-
 function fmtCost(usd){
   if(state.displayCurrency&&state.displayCurrency!=='USD'){
-    // Label by the selected currency even before rates finish loading (or offline) -
-    // currentRate defaults to 1 until showConvFields() runs, so waiting for it to
-    // differ from 1 silently mislabels the amount as USD. Flag the unconverted case
-    // instead of hiding it, matching recalcTotals()'s "(est.)" convention.
+
     const suffix=ratesReady?'':' (est.)';
     return state.displayCurrency+' '+(usd*currentRate).toFixed(2)+suffix;
   }
@@ -680,9 +655,7 @@ function renderLeaderboard(){
   wrap.innerHTML=html;
 }
 
-
 function renderChart(){}
-
 
 let resetTimer=null;
 function resetAll(){
@@ -696,7 +669,6 @@ function resetAll(){
   }
 }
 
-
 function onPresetChange(){ document.getElementById('custom-inp').style.display=document.getElementById('sub-sel').value==='__other__'?'inline-block':'none'; }
 function nameAlreadyExists(name){
   const svc=colByType('text'); if(!svc) return false;
@@ -705,18 +677,19 @@ function nameAlreadyExists(name){
 }
 function addSubscription(){
   const sel=document.getElementById('sub-sel'); let name=sel.value;
-  if(!name){showToast('Please select a service.');return;}
+
+  if(!name){showToast('Please select a service.',true);return;}
   if(name==='__other__'){
     name=document.getElementById('custom-inp').value.trim();
-    if(!name){showToast('Enter a service name.');return;}
+    if(!name){showToast('Enter a service name.',true);return;}
   }
-  if(state.rows.length>=MAX_SUBS){showToast('Maximum '+MAX_SUBS+' subscriptions reached.');return;}
+  if(state.rows.length>=MAX_SUBS){showToast('Maximum '+MAX_SUBS+' subscriptions reached.',true);return;}
   if(nameAlreadyExists(name)){
     if(!confirm(`You already track "${name}". Add another anyway?`)) return;
   }
   snapshot();
   const rowId=uid(); state.rows.push({id:rowId,height:36});
-  // Notify walkthrough validator that a new row was added this session
+
   if(isWalkthroughActive())window._wtSubsHasNewRow=true;
   state.rowCurrencies[rowId]='USD';
   const svc=colByType('text'),status=colByType('status'),bill=colByType('billing');
@@ -726,7 +699,6 @@ function addSubscription(){
   sel.value=''; document.getElementById('custom-inp').value=''; document.getElementById('custom-inp').style.display='none';
   save(); render(); recalcTotals(); renderChart();
 }
-
 
 function addCol(){ snapshot(); state.cols.push({id:uid(),label:'New Column',width:120,ctype:'number'}); save(); render(); }
 function deleteRow(id){
@@ -758,7 +730,6 @@ function moveSubRow(fromId, toId, before){
 let _dragSubId=null;
 let _dragColId=null;
 
-
 function attachColResize(handle,col){
   handle.addEventListener('mousedown',e=>{
     e.preventDefault();handle.classList.add('dragging');
@@ -778,14 +749,13 @@ function attachRowResize(handle,row,tr){
   });
 }
 
-
 function getAllUsedCurrencies(){
   const set=new Set(CELL_CURRENCIES);
   Object.values(state.rowCurrencies||{}).forEach(c=>{ if(c) set.add(c); });
   return [...set];
 }
 function showCellCurrencyOther(wrap, sel, row){
-  
+
   sel.style.display='none';
   const form=document.createElement('span'); form.className='curr-other-cell';
   const inp=document.createElement('input'); inp.type='text'; inp.maxLength=5; inp.placeholder='VND';
@@ -806,7 +776,7 @@ function showCellCurrencyOther(wrap, sel, row){
     const code=inp.value.trim().toUpperCase();
     if(!code){ showErr('Enter a code.'); return; }
     if(!/^[A-Z]{2,5}$/.test(code)){ showErr('2–5 letters only.'); return; }
-    if(code==='USD'){ 
+    if(code==='USD'){
       setRowCurrency(row.id,code); close(); render(); recalcTotals(); renderChart(); return;
     }
     ok.disabled=true; ok.textContent='…';
@@ -824,15 +794,10 @@ function showCellCurrencyOther(wrap, sel, row){
   });
 }
 
-
-
-
 function pad(s,n){ s=String(s); return s.length>=n?s:s+' '.repeat(n-s.length); }
 function csvEsc(v){
   v=v==null?'':String(v);
-  // Formula-injection guard: a leading quote neutralizes spreadsheet formula triggers
-  // (=,+,-,@, tab, CR) in free-text cells. Skipped when the cell is a genuine number
-  // (e.g. "-50.00") so legitimate negative amounts aren't corrupted.
+
   if(/^[=+\-@\t\r]/.test(v)&&isNaN(Number(v))) v="'"+v;
   if(/[",\n]/.test(v)) return '"'+v.replace(/"/g,'""')+'"';
   return v;
@@ -843,7 +808,7 @@ function buildSubsRowsArray(){
   const svcCol=colByType('text'), costCol=colByType('number'), billCol=colByType('billing'),
         startCol=colByType('date'), cancelCol=colByType('canceldate'),
         trialCol=colByType('trial'), statusCol=colByType('status');
-  
+
   const notesCol=state.cols.filter(c=>c.ctype==='text')[1];
   state.rows.forEach(r=>{
     const m=calcMonthCost(r,state.currentYear,state.currentMonth);
@@ -862,7 +827,7 @@ function buildSubsRowsArray(){
       y.toFixed(2),
     ]);
   });
-  
+
   let mUSD=0,yUSD=0;
   state.rows.forEach(r=>{ mUSD+=calcMonthCost(r,state.currentYear,state.currentMonth); yUSD+=calcYearlyCost(r,state.currentYear); });
   out.push(['TOTAL','','','','','','','','',mUSD.toFixed(2),yUSD.toFixed(2)]);
@@ -880,7 +845,7 @@ function buildJson(){
 }
 function buildTxt(){
   const arr=buildSubsRowsArray();
-  
+
   const widths=arr[0].map((_,i)=>Math.max(...arr.map(r=>String(r[i]==null?'':r[i]).length)));
   const lines=arr.map((r,ri)=>r.map((v,i)=>pad(v==null?'':v,widths[i])).join(' │ '));
   const sep='─'.repeat(lines[0].length);
@@ -893,13 +858,11 @@ function buildTsv(){
     .join('\r\n');
 }
 
-
 function gmailHref(subject, body){
   return 'https://mail.google.com/mail/?view=cm&fs=1&tf=1'
        + '&su='+encodeURIComponent(subject)
        + '&body='+encodeURIComponent(body);
 }
-
 
 function clipboardWrite(text){
   if(navigator.clipboard){
@@ -922,7 +885,6 @@ function showExportFlash(msg){
   window._exportFlashT=setTimeout(()=>f.classList.remove('show'),2500);
 }
 
-
 function escapeHtml(s){
   return String(s==null?'':s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -932,7 +894,6 @@ function safeNum(v,max=1e12){
   const n=parseFloat(v);
   return (isFinite(n)&&n>=-max&&n<=max)?n:0;
 }
-
 
 function encodeBlob(obj){
   return 'FIAPP-'+obj.kind+'-V1:'+btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -950,15 +911,14 @@ function decodeBlob(str){
   if(obj.kind==='SUBS'){
     if(typeof obj.cells!=='object'||Array.isArray(obj.cells)) throw new Error('Invalid blob: bad cells object.');
   }
-  
+
   if(obj.rows.length>500) throw new Error('Blob rejected: too many rows (max 500).');
   if(obj.cols.length>52)  throw new Error('Blob rejected: too many columns (max 52).');
   if(obj.cells&&Object.keys(obj.cells).length>50000) throw new Error('Blob rejected: too many cells (max 50,000).');
   return migrateBlob(obj);
 }
 function migrateBlob(obj){
-  
-  
+
   return obj;
 }
 function buildSubsBlob(){
@@ -1017,7 +977,7 @@ function openPasteModal(){
   applyBtn.addEventListener('click',async()=>{
     if(!parsed) return;
     snapshot();importSubs(parsed);save();
-    
+
     if(state.displayCurrency&&state.displayCurrency!=='USD') await ensureRate(state.displayCurrency);
     const codes=new Set(Object.values(state.rowCurrencies||{}));
     for(const c of codes){ if(c&&c!=='USD'&&!ratesCache[c]) await ensureRate(c); }
@@ -1047,8 +1007,7 @@ function lazyLoadXlsx(){
   if(_xlsxLoading) return _xlsxLoading;
   _xlsxLoading=new Promise((resolve,reject)=>{
     const s=document.createElement('script');
-    // ?v= matters here: /static/ is served with a 1-year max-age, so without the stamp a
-    // user who has exported once keeps the old vendored build until the cache expires.
+
     s.src='/static/js/vendor/xlsx.full.min.js?v='+(window.ASSET_V||'');
     s.onload=()=>resolve(window.XLSX);
     s.onerror=()=>reject(new Error('Failed to load XLSX library'));
@@ -1068,10 +1027,7 @@ async function exportXlsx(filename){
   }
 }
 let _exportMenuEl=null;
-// Hover-to-open, click-to-select: the submenu opens on mouseenter and stays open while
-// the pointer is over either the Export button or the submenu itself, closing shortly
-// after the pointer leaves both - like a native nested menu, instead of requiring a
-// click just to see the options.
+
 let _exportCloseTimer=null;
 function _cancelExportClose(){ if(_exportCloseTimer){clearTimeout(_exportCloseTimer);_exportCloseTimer=null;} }
 function _scheduleExportClose(){ _exportCloseTimer=setTimeout(closeExportMenu,200); }
@@ -1094,11 +1050,7 @@ function showExportMenu(ev){
     b.addEventListener('click',e=>{ e.stopPropagation(); f.fn(); closeExportMenu(); closeDropdown('dd-more'); });
     menu.appendChild(b);
   });
-  // Flyout beside the Export row itself, not up near the "..." toggle: the parent overflow
-  // menu now stays open while this submenu is shown (hover-driven), so there's no reason
-  // to anchor near the toggle anymore - that only made sense when opening Export used to
-  // close the parent list out from under it. Anchor to the right edge of the parent menu,
-  // vertically aligned with the Export row, like a native nested menu.
+
   const exportRect=document.getElementById('export-btn').getBoundingClientRect();
   const parentRect=document.getElementById('dd-more-menu').getBoundingClientRect();
   menu.style.top=exportRect.top+'px';
@@ -1181,7 +1133,6 @@ function showShareModal(title,text){
   document.body.appendChild(overlay);
 }
 
-
 function makeCellEl(row,col){
   const v=getCell(row.id,col.id);
   const ct=col.ctype||'text';
@@ -1198,14 +1149,14 @@ function makeCellEl(row,col){
     wrap.appendChild(inp);
     const cur=rowCurrency(row.id);
     const sel=document.createElement('select'); sel.className='cell-curr-sel'; sel.title='Cost currency for this subscription';
-    
+
     const codes=getAllUsedCurrencies();
     if(!codes.includes(cur)) codes.push(cur);
     codes.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; if(c===cur) o.selected=true; sel.appendChild(o); });
     const otherOpt=document.createElement('option'); otherOpt.value='__other__'; otherOpt.textContent='Other…'; sel.appendChild(otherOpt);
     sel.addEventListener('change',()=>{
       if(sel.value==='__other__'){
-        
+
         showCellCurrencyOther(wrap, sel, row);
         return;
       }
@@ -1298,13 +1249,12 @@ function makeCellEl(row,col){
     });
     return inp;
   }
-  
+
   const div=document.createElement('div'); div.contentEditable='true'; div.className='c-text'; div.textContent=v;
   div.addEventListener('focus',()=>snapshot());
   div.addEventListener('blur',()=>setCell(row.id,col.id,div.textContent.trim()));
   return div;
 }
-
 
 function render(){
   const table=document.getElementById('sheet'); table.innerHTML='';
@@ -1372,7 +1322,7 @@ function render(){
   thead.appendChild(htr);table.appendChild(thead);
 
   const tbody=document.createElement('tbody');
-  
+
   if(!state.rows.length){
     const etr=document.createElement('tr');const etd=document.createElement('td');etd.colSpan=state.cols.length+1;etd.className='empty-msg';
     etd.textContent='No subscriptions yet. Use the dropdown above to add one.';etr.appendChild(etd);tbody.appendChild(etr);
@@ -1382,12 +1332,12 @@ function render(){
     const statusCol=colByType('status');const st=statusCol?getCell(row.id,statusCol.id):'Active';
     const tr=document.createElement('tr');tr.style.height=(row.height||36)+'px';
     if(st==='Cancelled') tr.classList.add('cancelled-row');
-    
+
     tr.dataset.rowId=row.id;
     state.cols.forEach((col,ci)=>{
       const td=document.createElement('td');td.style.position='relative';
       if(ci===0){
-        
+
         const dh=document.createElement('span');dh.className='drag-handle';dh.textContent='⠿';dh.title='Drag to reorder';
         dh.style.cssText+='display:inline-block;vertical-align:middle;margin-right:2px;';
         dh.addEventListener('pointerdown',e=>{
@@ -1429,14 +1379,12 @@ function render(){
   table.classList.toggle('forecast',isForecastMonth());
   updateForecastUI();
 
-  
   const sel=document.getElementById('curr-sel');
   const dc2=state.displayCurrency||'USD';
   const optExists=[...sel.options].some(o=>o.value===dc2);
   sel.value=optExists?dc2:'__other__';
   renderMobileCards();
 }
-
 
 function _openCardEdit(row){
   const serviceCol=colByType('text');
@@ -1471,7 +1419,6 @@ function _openCardEdit(row){
   const nameInp=serviceCol?inp('text',getCell(row.id,serviceCol.id)):null;
   if(nameInp) field('Service name',nameInp);
 
-  // Cost + currency on same row
   const costInp=costCol?inp('number',getCell(row.id,costCol.id)):null;
   if(costInp){
     costInp.min='0';costInp.step='0.01';costInp.inputMode='decimal';
@@ -1498,7 +1445,7 @@ function _openCardEdit(row){
   const startInp=dateCol?inp('date',getCell(row.id,dateCol.id)):null;
   if(startInp){ startInp.min=monthFirstStr; startInp.max=monthLastStr; field('Start date',startInp); }
   const cancelInp=cancelCol?inp('date',getCell(row.id,cancelCol.id)):null;
-  // Cancel date field: only visible/relevant when status is Cancelled (mirrors table behaviour)
+
   let cancelFieldWrap=null;
   if(cancelInp&&cancelCol){
     cancelFieldWrap=document.createElement('div');cancelFieldWrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
@@ -1534,7 +1481,6 @@ function _openCardEdit(row){
   const notesInp=notesCol?inp('text',getCell(row.id,notesCol.id)):null;
   if(notesInp) field('Notes',notesInp);
 
-  // Buttons
   const actions=document.createElement('div');actions.className='share-actions';
   const saveBtn=document.createElement('button');saveBtn.className='btn';saveBtn.textContent='Save';
   saveBtn.style.cssText='background:#065f46;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:6px;font-size:1rem;cursor:pointer;';
@@ -1611,19 +1557,17 @@ function renderMobileCards(){
       const status=statusCol?(getCell(row.id,statusCol.id)||'Active'):'Active';
       const clr=STATUS_CLR[status]||'#6b7280';
 
-      // Name + status badge
       const nameRow=document.createElement('div');nameRow.className='sub-card-row';
       const nameEl=document.createElement('span');nameEl.className='sub-card-name';
       nameEl.textContent=serviceCol?(getCell(row.id,serviceCol.id)||'(unnamed)'):'(unnamed)';
       const badge=document.createElement('span');badge.className='sub-card-status';
       badge.textContent=status;badge.style.background=clr;
-      // Delete button lives in nameRow so it never overlaps the badge
+
       const delBtn=document.createElement('button');delBtn.className='sub-card-del';
       delBtn.textContent='🗑';delBtn.setAttribute('aria-label','Delete subscription');
       delBtn.addEventListener('click',e=>{e.stopPropagation();deleteRow(row.id);});
       nameRow.appendChild(nameEl);nameRow.appendChild(badge);nameRow.appendChild(delBtn);card.appendChild(nameRow);
 
-      // Cost + billing
       if(costCol){
         const rawCost=parseFloat(getCell(row.id,costCol.id))||0;
         const usd=costToUSD(rawCost,row.id);
@@ -1633,7 +1577,6 @@ function renderMobileCards(){
         card.appendChild(costEl);
       }
 
-      // Start / cancel dates
       const meta=[];
       if(dateCol){const s=getCell(row.id,dateCol.id);if(s){const d=new Date(s+'T00:00:00');meta.push('Since '+MONTHS_SHORT[d.getMonth()]+' '+d.getFullYear());}}
       if(cancelCol){const s=getCell(row.id,cancelCol.id);if(s){const d=new Date(s+'T00:00:00');meta.push('Cancels '+MONTHS_SHORT[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear());}}
@@ -1643,7 +1586,6 @@ function renderMobileCards(){
         warnEl.textContent='No cancellation date set';card.appendChild(warnEl);
       }
 
-      // Tap card to edit (exclude delete button)
       card.addEventListener('click',e=>{ if(!e.target.closest('.sub-card-del')) _openCardEdit(row); });
       cardsEl.appendChild(card);
     });
@@ -1656,13 +1598,12 @@ function renderMobileCards(){
 }
 window.addEventListener('resize',()=>renderMobileCards());
 
-
 async function preloadRates(){
   const set=new Set();
   Object.values(state.rowCurrencies||{}).forEach(c=>{ if(c&&c!=='USD') set.add(c); });
   if(state.displayCurrency&&state.displayCurrency!=='USD') set.add(state.displayCurrency);
   if(set.size>0){
-    await fetchAndCacheUSDRates(); 
+    await fetchAndCacheUSDRates();
   }
   if(state.displayCurrency&&state.displayCurrency!=='USD'&&ratesCache[state.displayCurrency]){
     showConvFields(state.displayCurrency,ratesCache[state.displayCurrency]);
@@ -1674,13 +1615,8 @@ async function preloadRates(){
   recalcTotals();
 }
 
-// Retired _esc (a DOM serializer) in favour of escapeHtml, which this file already
-// defines. _esc only entity-encoded & < >, leaving " and ' intact - safe in a text
-// node, silently unsafe the moment a result is moved into an attribute.
-
 (async()=>{
-  // Local-first: render whatever this device already has BEFORE any network I/O,
-  // so a dead or stalled connection can never blank the tracker.
+
   state=loadState();
   loadHistory();
   render();
@@ -1689,11 +1625,9 @@ async function preloadRates(){
   recalcTotals();
   updateHistBtns();
   preloadRates();
-  // D (Playful): one-off, dismissable orientation tip, once per session. No-op for
-  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
+
   try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: FiApp warns you before a subscription renews. Add your recurring ones here.','subs-tip'); }catch(_){}
 
-  // Background: establish auth (bounded), refresh from the server, re-render on change.
   try{
     const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
     window.__currentUser=me.username||null;
@@ -1720,9 +1654,7 @@ async function preloadRates(){
 
   const _preRaw=localStorage.getItem(STORAGE_KEY);
   await loadFromServer();
-  // JSONB round-trips reorder object keys, so raw strings can differ even when the
-  // data is identical; compare semantically (_deepEqual is a tracker-sync.js global)
-  // so a plain online load doesn't force a focus-destroying cosmetic re-render.
+
   const _blobChanged=(pre,key)=>{
     const post=localStorage.getItem(key);
     if(post===pre) return false;
@@ -1738,7 +1670,6 @@ async function preloadRates(){
   }
 })();
 
-// Static toolbar event wiring (replaces onclick= attributes)
 document.getElementById('help-open-btn').addEventListener('click',openHelp);
 document.getElementById('guide-btn').addEventListener('click',function(){wtStartEnhanced('subscriptions');});
 document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
@@ -1760,16 +1691,12 @@ document.getElementById('share-btn').addEventListener('click',function(){shareSh
   var exportBtn=document.getElementById('export-btn');
   exportBtn.addEventListener('mouseenter',function(e){ _cancelExportClose(); showExportMenu(e); });
   exportBtn.addEventListener('mouseleave',_scheduleExportClose);
-  // Touch/keyboard fallback: hover events don't fire on tap, so a plain click still
-  // opens the submenu (parent overflow menu is left open so the format list is
-  // reachable - selecting a format closes both, see the click handler in showExportMenu).
+
   exportBtn.addEventListener('click',function(e){ if(!_exportMenuEl) showExportMenu(e); });
 })();
 document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
 document.getElementById('reset-btn').addEventListener('click',resetAll);
-// Batch D Wave 4: header "+ Add" focuses the existing add-subscription selector
-// (there's no blank "row" to add here without a service name, unlike the other
-// two trackers - the add-bar already does exactly what a quick-add sheet would).
+
 document.getElementById('qa-open-btn').addEventListener('click',function(){
   var sel=document.getElementById('sub-sel');
   if(sel){ sel.scrollIntoView({behavior:'smooth',block:'center'}); sel.focus(); }
