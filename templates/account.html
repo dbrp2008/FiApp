@@ -434,7 +434,7 @@
       otherInp.style.display='none'; otherBtn.style.display='none'; note.textContent='';
       persist(sel.value);
     });
-    // Commit a verified code: add it as an option (once), select it, and persist.
+
     function applyCode(raw){
       var opt=Array.prototype.find.call(sel.options, function(o){ return o.value===raw; });
       if(!opt){
@@ -450,10 +450,9 @@
     function applyOther(){
       var raw=otherInp.value.trim().toUpperCase();
       if(!raw){ note.textContent='Enter a currency code.'; return; }
-      // Real ISO 4217 codes are exactly 3 letters, so this alone rejects things like DDDDD.
+
       if(!/^[A-Z]{3}$/.test(raw)){ note.textContent='Use a 3-letter currency code (e.g. THB, VND).'; return; }
-      // Format-valid but maybe not a real currency (e.g. VNB): confirm the exchange-rate
-      // provider actually quotes it, since every conversion depends on that.
+
       if(typeof fiappGetRates!=='function'){ note.textContent='Couldn\'t verify the code right now. Please try again.'; return; }
       otherBtn.disabled=true; note.textContent='Checking '+raw+'...';
       fiappGetRates('USD').then(function(obj){
@@ -471,8 +470,6 @@
     otherBtn.addEventListener('click', applyOther);
     otherInp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); applyOther(); } });
 
-    // Post-walkthrough / checklist currency confirmation. The reveal is triggered by the
-    // tab controller (it owns tab visibility, and this panel lives in the Preferences tab).
     var _curBanner=document.getElementById('home-currency-banner');
     var _curConfirmBtn=document.getElementById('home-currency-confirm');
     var _curPanel=document.getElementById('home-currency');
@@ -534,7 +531,7 @@
     syncLabels();
     slider.addEventListener('input', syncLabels);
     slider.addEventListener('change', function(){ setPersonality(PMAP[slider.value]); });
-    // Clicking a label jumps the slider to that stop (easier than dragging to an exact detent).
+
     document.querySelectorAll('.personality-labels span').forEach(function(s){
       s.addEventListener('click', function(){
         slider.value = s.dataset.v; syncLabels(); setPersonality(PMAP[slider.value]);
@@ -543,7 +540,6 @@
   })();
   </script>
 
-  <!-- App Lock (native app only - revealed by native-lock.js when running in the Capacitor shell) -->
   <div class="glass-panel" style="display:none;" id="app-lock-card" data-group="preferences">
     <h2>🔒 App Lock</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Require a fingerprint, face unlock, or your device screen lock each time you open FiApp on this device.</p>
@@ -557,7 +553,6 @@
     <span id="app-lock-feedback" style="display:none;font-size:.85rem;margin-top:.5rem;"></span>
   </div>
 
-  <!-- Renewal reminders (native app only - revealed by native-push.js in the Capacitor shell) -->
   <div class="glass-panel" style="display:none;" id="push-card" data-group="preferences">
     <h2>🔔 Renewal Reminders</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">Get a notification about a week before and again the day before each subscription renews, so a charge never surprises you.</p>
@@ -631,7 +626,7 @@
     </div>
   </div>
 
-  </div><!-- /.account-grid -->
+  </div>
 
   <div class="glass-panel" id="theme-studio" data-group="preferences">
     <h2>🎨 Theme Studio</h2>
@@ -688,7 +683,6 @@ function exportAllCSV(){
   };
   const date=new Date().toISOString().slice(0,10);
 
-
   const rows=[['Tracker','Month','Category','Row','Column','Value','Currency']];
   [{key:'fiapp_expenses_v4',name:'Expenses'},{key:'fiapp_income_v1',name:'Income'}]
   .forEach(({key,name})=>{
@@ -715,7 +709,6 @@ function exportAllCSV(){
   });
   dl(rows,'fiapp-export-'+date+'.csv');
 
-
   try{
     const s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');
     if((s.rows||[]).length){
@@ -729,7 +722,6 @@ function exportAllCSV(){
   }catch(e){}
 }
 
-// ── Full-state JSON backup/restore (Tier A) ─────────────────────────────
 var BACKUP_TRACKER_MAP={
   expenses:      {storageKey:'fiapp_expenses_v4', saveApi:'/api/save/expenses'},
   subscriptions: {storageKey:'fiapp_subs_v4',     saveApi:'/api/save/subs'},
@@ -751,23 +743,16 @@ function exportFullBackup(){
   a.download='fiapp-backup-'+date+'.json'; a.click(); URL.revokeObjectURL(a.href);
 }
 
-// Cell keys are machine-built, never typed: "YYYY-MM|rowId|colId" for expenses/income
-// (ck() in expenses.js/income.js) and "rowId|colId" for subscriptions, where ids come from
-// uid() ('_' + base36) or a seeded literal like "col-wk1". This allowlist admits every
-// legitimate shape while excluding < > " ' & and whitespace - the characters that let a
-// crafted key become markup once a month key is sliced out of it and rendered.
 var _BACKUP_CELLKEY_RE=/^[A-Za-z0-9_|-]+$/;
 var _BACKUP_MAX_LABEL=200;
 
 function _isValidTrackerBlob(t){
   if(!t || typeof t!=='object' || Array.isArray(t)) return false;
   if(!(Array.isArray(t.rows)||t.cells||t.rowsByMonth)) return false;
-  // Sanity caps — a crafted "backup" must not be able to stuff localStorage to quota.
+
   if(Array.isArray(t.rows) && t.rows.length>500) return false;
   if(t.cells && typeof t.cells==='object' && Object.keys(t.cells).length>50000) return false;
-  // A backup is an untrusted file - someone can be talked into restoring one. Validate the
-  // SHAPE of every key and label, not just the counts, so a hostile blob cannot smuggle
-  // markup into a month label (which analytics renders) or a row label.
+
   if(t.cells && typeof t.cells==='object'){
     var keys=Object.keys(t.cells);
     for(var i=0;i<keys.length;i++){
@@ -789,7 +774,6 @@ function _isValidTrackerBlob(t){
   return true;
 }
 
-// Rows must be objects with string labels of sane length. Returns true for absent/empty.
 function _backupRowsOk(rows){
   if(rows==null) return true;
   if(!Array.isArray(rows)) return false;
@@ -804,9 +788,6 @@ function _backupRowsOk(rows){
   return true;
 }
 
-// Validates the whole file before anything is written. Returns the list of
-// tracker names to restore, or null if the file is malformed in any way —
-// we never want to partially apply a backup.
 function _validateBackup(obj){
   if(!obj||typeof obj!=='object'||!obj.trackers||typeof obj.trackers!=='object') return null;
   const names=Object.keys(BACKUP_TRACKER_MAP).filter(function(n){
@@ -852,8 +833,7 @@ async function restoreFromBackupFile(file){
   const btn=document.getElementById('restore-backup-btn');
   if(btn){ btn.disabled=true; btn.textContent='Restoring…'; }
   try{
-    // Serialize everything first so a JSON.stringify failure can't leave us
-    // with some keys written and others not (validate-all-then-write-all).
+
     const blobs={};
     names.forEach(function(name){ blobs[name]=JSON.stringify(parsed.trackers[name]); });
     names.forEach(function(name){
@@ -870,10 +850,6 @@ async function restoreFromBackupFile(file){
   }
 }
 
-// ── Revision history (W3 safety net) ────────────────────────────────────
-// Maps the API's tracker names (matching app.py's _TRACKER_COLUMNS — note
-// "subs", not "subscriptions") to a display label and the localStorage key
-// the live tracker page caches its state under.
 var REV_TRACKERS={
   expenses: {label:'Expenses',      storageKey:'fiapp_expenses_v4'},
   subs:     {label:'Subscriptions', storageKey:'fiapp_subs_v4'},
@@ -947,10 +923,7 @@ async function restoreRevision(tracker,version,when,btn){
       btn.disabled=false; btn.textContent=original;
       return;
     }
-    // The restore endpoint only updates the server copy. Drop our local cache so the
-    // next time this tracker's page loads, loadFromServer() adopts the restored data
-    // unconditionally — its "don't clobber local data" guard exists for routine
-    // background sync, not for a restore the user just explicitly confirmed.
+
     if(info.storageKey) localStorage.removeItem(info.storageKey);
     showRevFeedback('✓ Restored. Reloading…','success');
     setTimeout(function(){ window.location.reload(); },900);
@@ -962,12 +935,12 @@ async function restoreRevision(tracker,version,when,btn){
 
 function _clearAllStorage(){
   FIAPP_USER_KEYS.forEach(function(k){ localStorage.removeItem(k); });
-  // Only clear this specific user's keys — not other users' keys on the same device
+
   localStorage.removeItem('fiapp_wt_u_{{ current_user }}');
   localStorage.removeItem('fiapp_import_seen_v1_{{ current_user }}');
   localStorage.removeItem('fiapp_import_catmap_v1_{{ current_user }}');
   localStorage.removeItem('fiapp_import_income_catmap_v1_{{ current_user }}');
-  // Also purge the service-worker page caches (authenticated page shells).
+
   if(typeof fiappClearSWCache==='function') fiappClearSWCache();
 }
 
@@ -989,8 +962,7 @@ function armDelete(){
   }
   document.getElementById('delete-arm-step').style.display='none';
   document.getElementById('delete-confirm-step').style.display='block';
-  // W8c: move focus onto the warning so screen-reader users hear it before
-  // reaching the destructive button; Esc collapses back to the arm step.
+
   const warning=document.getElementById('delete-confirm-warning');
   if(warning) warning.focus();
   document.addEventListener('keydown',_deleteConfirmEsc);
@@ -1106,7 +1078,7 @@ function pwIssues(pw){
   if(pw.length<8||pw.length>128) out.push('8–128 characters');
   if(!/[A-Z]/.test(pw)) out.push('one uppercase letter');
   if(!/[0-9]/.test(pw)) out.push('one number');
-  return out; // [] === valid
+  return out;
 }
 
 function updatePwChecklist(listEl, pw){
@@ -1137,7 +1109,7 @@ async function submitChangePassword(){
     body.current_password=cur;
   }
   const btn=document.getElementById('pw-btn');
-  const setting=!window._hasPassword;  // first-time set for a Google-only user
+  const setting=!window._hasPassword;
   btn.disabled=true; btn.textContent='Saving…';
   try{
     const res=await apiFetch('/auth/change_password',{
@@ -1150,8 +1122,7 @@ async function submitChangePassword(){
       showPwFeedback(data.error||'Failed to change password.','error');
       btn.disabled=false; btn.textContent=setting?'Set password':'Save new password';
     } else if(setting){
-      // Now they have a password too — reload so the page switches to the full
-      // (password-confirmed) account-management UI.
+
       showPwFeedback('✓ Password set. You can now sign in with your username too. Reloading…','success');
       setTimeout(()=>window.location.reload(),1200);
     } else {
@@ -1167,7 +1138,6 @@ async function submitChangePassword(){
   }
 }
 
-// ── Google connection management: password step-up, then connect/change/disconnect ──
 function setupGoogleAuth(){
   function fb(msg,type){ var el=document.getElementById('google-feedback'); if(el){ el.textContent=msg; el.className='change-feedback '+(type||''); el.style.display='block'; } }
   var pending=null;
@@ -1197,13 +1167,13 @@ function setupGoogleAuth(){
         if(!r2.ok||!d2.ok){ fb(d2.error||'Could not disconnect Google.','error'); go.disabled=false; go.textContent='Confirm'; return; }
         fb('✓ Google disconnected. Reloading…','success'); setTimeout(function(){ location.reload(); },900);
       } else if(window.fiappIsNative && window.fiappIsNative()){
-        fiappNativeGoogleLink();  // native shell: id_token bridge (redirect OAuth breaks in a webview)
+        fiappNativeGoogleLink();
       } else {
-        window.location='/auth/google/link';  // step-up is now fresh → connect/change
+        window.location='/auth/google/link';
       }
     }catch(e){ fb('Network error. Please try again.','error'); go.disabled=false; go.textContent='Confirm'; }
   });
-  // Notices coming back from a link/change/disconnect round-trip.
+
   var g=new URLSearchParams(window.location.search).get('google');
   if(g){
     var msgs={
@@ -1259,8 +1229,7 @@ document.addEventListener('DOMContentLoaded',function(){
   var revSelect=document.getElementById('rev-tracker-select');
   var revDetails=document.getElementById('rev-details');
   if(revSelect){
-    // The 20-revision list is collapsed by default; fetch on first expand instead of on
-    // every page load, so the account page stays light and short.
+
     if(revDetails){
       revDetails.addEventListener('toggle',function(){
         if(revDetails.open && !revDetails.dataset.loaded){
@@ -1296,8 +1265,6 @@ document.addEventListener('DOMContentLoaded',function(){
   var cb = document.getElementById('voice-always-confirm');
   if (cb) cb.checked = localStorage.getItem('fiapp_voice_always_confirm') === 'true';
 
-  // Segmented settings tabs: show one group of cards at a time. Cards carry
-  // data-group; the active group's cards stay, the rest get .tab-hidden.
   var GROUPS = ['profile','preferences','data','danger'];
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.settings-tab'));
   var cards = Array.prototype.slice.call(document.querySelectorAll('[data-group]'));
@@ -1317,7 +1284,7 @@ document.addEventListener('DOMContentLoaded',function(){
       try { history.replaceState(null, '', '#tab-' + n); } catch(e){}
     });
   });
-  // Left/Right arrow roving within the tablist (a11y).
+
   var tablist = document.querySelector('.settings-tabs');
   if (tablist) tablist.addEventListener('keydown', function(e){
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
@@ -1327,12 +1294,9 @@ document.addEventListener('DOMContentLoaded',function(){
     var j = (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
     tabs[j].focus(); tabs[j].click();
   });
-  // Initial tab: the theme dropdown's "New theme" deep-links to #theme-studio
-  // (lives in Preferences); #tab-<name> re-opens a specific tab on reload.
+
   var initial = 'profile', hash = location.hash;
-  // Currency confirmation deep-link: the walkthrough sets a pending marker and redirects
-  // here; the home checklist links straight to #home-currency. Either way, if the user
-  // hasn't confirmed yet, open Preferences and reveal the confirm prompt.
+
   var _curDeep = false, _curUnconfirmed = false;
   try {
     _curUnconfirmed = localStorage.getItem('fiapp_currency_confirmed') !== '1';
