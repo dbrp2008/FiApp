@@ -43,18 +43,12 @@
   --secondary-fg:#374151;
   --secondary-hover:#d1d5db;
   --grad-from:#7c3aed; --grad-to:#0891b2;
-  /* Label colour for filled accent/gradient buttons. Custom themes get these computed at
-     apply time (theme-core.js) from their accent; the built-ins set them here. Light's
-     accent is a dark purple, so white reads. */
+
   --on-accent:#ffffff; --on-gradient:#ffffff;
   --glow-1:rgba(124,58,237,.20); --glow-2:rgba(8,145,178,.16);
   --glass-bg:rgba(255,255,255,.72); --glass-border:rgba(255,255,255,.65); --glass-blur:12px;
   --shell-rail-bg:rgba(255,255,255,.72);
-  /* Semantic status colours (foreground + tint). Deliberately theme-stable so
-     "good/warn/bad/neutral" stay legible AS status on every theme rather than
-     blending into each theme's accent. Only light-vs-dark contrast varies -
-     the two dark themes share the lighter palette in the rule just below; the
-     light custom themes (ocean/forest/etc.) inherit these light values. */
+
   --sem-ok:#15803d;      --sem-ok-bg:rgba(21,128,61,.10);
   --sem-warn:#b45309;    --sem-warn-bg:rgba(217,119,6,.12);
   --sem-bad:#b91c1c;     --sem-bad-bg:rgba(185,28,28,.10);
@@ -105,23 +99,13 @@ html.dark{
   --secondary-fg:#e2e8f0;
   --secondary-hover:#475569;
   --grad-from:#a855f7; --grad-to:#22d3ee;
-  /* Built-in dark's accent (#a78bfa) and gradient (lavender->cyan) are light, so white
-     labels fail contrast - use near-black instead. */
+
   --on-accent:#1a1a1a; --on-gradient:#1a1a1a;
   --glow-1:rgba(168,85,247,.30); --glow-2:rgba(34,211,238,.22);
   --glass-bg:rgba(255,255,255,.06); --glass-border:rgba(255,255,255,.12); --glass-blur:12px;
   --shell-rail-bg:rgba(13,13,22,.85);
 }
 
-/* The 7 pre-redesign colour themes (ocean/forest/sunset/midnight/rose/purple/indigo)
-   now live as PRESETS in static/js/theme-core.js: custom themes apply their tokens as
-   inline CSS custom properties on <html> over a light/dark base, so no per-theme CSS
-   blocks exist here anymore. */
-
-/* ── Batch D Wave 0: design-language tokens (elevation, radius, tab bar) ──
-   Elevation ladder: --elev-1 pills/small controls, --elev-2 floating cards,
-   --elev-3 sheets/toasts, --elev-hero gradient hero, --elev-cta primary button.
-   Shadow tints follow each theme's gradient; dark themes use deeper black. */
 :root{
   --r-sm:10px; --r-md:14px; --r-lg:18px;
   --elev-1:0 2px 8px rgba(31,41,55,.06);
@@ -152,10 +136,6 @@ body {
   transition: background .2s, color .2s;
 }
 
-/* Theme switching: theme-core.js wraps user-initiated switches in a View Transition
-   (compositor cross-fade of two full-page snapshots). While it runs, per-element
-   colour transitions are suppressed so nothing animates live underneath the fade -
-   live colour transitions re-rasterize every backdrop-filter surface per frame. */
 html.theme-switching,
 html.theme-switching *,
 html.theme-switching *::before,
@@ -278,9 +258,7 @@ textarea:focus-visible {
   align-items: center;
   gap: .5rem;
 }
-/* The back link is nav chrome, not a content link. It sits directly on the aurora
-   glow (no panel behind it), where an accent-tinted --link-text can drop below AA in
-   some themes. Use --fg, which is built to stay legible over the aurora everywhere. */
+
 .nav > a { color: var(--fg); }
 
 a {
@@ -290,7 +268,6 @@ a {
 a:hover { text-decoration: underline; }
 
 h1, h2, h3, h4 { color: var(--fg); }
-
 
 .theme-toggle {
   background: var(--secondary-bg);
@@ -305,7 +282,6 @@ h1, h2, h3, h4 { color: var(--fg); }
   transition: background .2s;
 }
 .theme-toggle:hover { background: var(--secondary-hover); }
-
 
 .auth-badge {
   font-size: .82rem;
@@ -329,7 +305,7 @@ h1, h2, h3, h4 { color: var(--fg); }
 #sync-status:not(:empty) { opacity: 1; }
 #sync-status.synced { color: var(--sem-ok); }
 #sync-status.failed { color: var(--sem-bad); }
-/* Guest / offline-queued: nothing failed, so stay neutral rather than alarming. */
+
 #sync-status.local { color: var(--muted); }
 #sync-revision-note {
   font-size: .75rem;
@@ -368,15 +344,13 @@ h1, h2, h3, h4 { color: var(--fg); }
 .theme-opt { display:block; width:100%; text-align:left; padding:.5rem .85rem; border-radius:7px; font-size:.87rem; color:var(--fg); background:none; border:none; cursor:pointer; font-family:inherit; font-weight:600; white-space:nowrap; box-sizing:border-box; transition:background .12s; }
 .theme-opt:hover { background:var(--hover-bg); }
 .theme-opt.active { background:var(--accent-strong); color:#fff; }
-/* Custom-theme entries + the "New theme" link rendered into #theme-dropdown-customs */
+
 .theme-opt-dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:.5rem; vertical-align:-1px; border:1px solid rgba(0,0,0,.12); }
 a.theme-opt-new { text-decoration:none; color:var(--muted); font-weight:600; border-top:1px solid var(--panel-border); border-radius:0 0 7px 7px; margin-top:.2rem; padding-top:.55rem; }
 a.theme-opt-new:hover { color:var(--fg); }
 .nav-drawer-theme-more { font-size:.78rem; font-weight:600; color:var(--accent-strong); text-decoration:none; margin-left:.4rem; }
 
-
 * { touch-action: manipulation; }
-
 
 .income-sync-badge {
   display: inline-flex;
@@ -402,7 +376,6 @@ a.theme-opt-new:hover { color:var(--fg); }
   text-decoration: none;
 }
 .income-sync-link:hover { text-decoration: underline; }
-
 
 .tip-host { position: relative; }
 
@@ -435,7 +408,6 @@ a.theme-opt-new:hover { color:var(--fg); }
   pointer-events: none;
 }
 
-/* ── Sticky first column (all trackers) ─────────────────────── */
 .sheet td:first-child,
 .sheet th:first-child {
   position: sticky;
@@ -444,13 +416,10 @@ a.theme-opt-new:hover { color:var(--fg); }
   background: var(--panel-bg);
 }
 
-/* ── iOS auto-zoom prevention (inputs must be ≥16px on mobile) ─ */
 @media (max-width: 640px) {
   input, select, textarea { font-size: max(16px, 1rem); }
   #sync-revision-note { display: none; }
 }
-
-/* ── Voice Input ─────────────────────────────────────────────── */
 
 .voice-fab {
   display: none;
@@ -599,7 +568,6 @@ a.theme-opt-new:hover { color:var(--fg); }
   max-width: 90vw; box-sizing: border-box; text-align: center; pointer-events: none;
 }
 
-/* Voice toggle (account page) */
 .voice-toggle-label {
   position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;
 }
@@ -615,18 +583,16 @@ a.theme-opt-new:hover { color:var(--fg); }
 }
 .voice-toggle-label input:checked + .voice-toggle-track { background: var(--accent); }
 .voice-toggle-label input:checked + .voice-toggle-track::after { transform: translateX(20px); }
-/* App lock (native only): hide the page from first paint on a locked cold start until
-   native-lock.js mounts its overlay, so no real content flashes. Removed as soon as the
-   overlay is shown. See static/js/native-lock.js. */
+
 html.fiapp-lock-pending body { visibility: hidden !important; }
-/* ── Redesign component layer (Batch D soft-depth values) ────── */
+
 .gradient-card{
   background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
   color:#fff;border-radius:var(--r-lg);padding:1.1rem 1.25rem;border:none;
   box-shadow:var(--elev-hero);
 }
 .glass-panel{
-  background:var(--panel-bg);              /* opaque fallback first */
+  background:var(--panel-bg);
   background:var(--glass-bg);
   border:1px solid var(--glass-border);
   border-radius:var(--r-lg);padding:1.1rem 1.25rem;
@@ -660,24 +626,13 @@ html.fiapp-lock-pending body { visibility: hidden !important; }
   .stat-card:hover,.glass-panel:hover{transform:translateY(-2px);}
 }
 
-/* ───────────────────────────────────────────────────────────────
-   Playful personality (slider → Playful). Everything here is scoped to
-   html.personality-playful, so Default and Quiet are completely unaffected.
-   Motion sits inside prefers-reduced-motion:no-preference so reduced-motion
-   users opt out. The app already ships hover-lifts and a hero count-up for
-   everyone; these are the *extra* touches Playful layers on top.
-   (Cluster E flourish rules are appended to this section.)
-   ─────────────────────────────────────────────────────────────── */
 @keyframes fi-card-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
 @media (prefers-reduced-motion: no-preference){
-  /* A1 — livelier mascot bob (the shared bob is 2.4s for everyone). */
+
   html.personality-playful #wt-avatar{animation-duration:1.5s;}
-  /* A3 — tactile button press. */
+
   html.personality-playful .btn:active{transform:scale(.96);}
-  /* A8 — dashboard tiles fade-and-rise in on load. .app-card is the logged-out marketing
-     grid; .dash-tool is what a logged-in user (the only one who can set Playful) actually
-     sees on the dashboard ("Quick tools" list). Desktop only, so it does not replay as the
-     mobile card-carousel toggles .app-card's display. */
+
   @media (min-width:641px){
     html.personality-playful .app-card,
     html.personality-playful .dash-tool{animation:fi-card-in .5s both;}
@@ -691,10 +646,7 @@ html.fiapp-lock-pending body { visibility: hidden !important; }
     html.personality-playful .app-card:nth-child(7){animation-delay:.30s;}
   }
 }
-/* E2 — Playful rounds corners a touch more (always) and, when motion is allowed, springs
-   the dashboard tiles a little higher on hover than the shared baseline (-3px on .app-card,
-   -1px on .dash-tool). E1 flourish is carried by Playful's copy emoji (the greeting wave,
-   the saved sparkle, the mascot); E3 theme-matched confetti lives in celebrate.js. */
+
 html.personality-playful .app-card,
 html.personality-playful .glass-panel,
 html.personality-playful .stat-card,
@@ -704,16 +656,10 @@ html.personality-playful .dash-tool{border-radius:14px;}
 @media (prefers-reduced-motion: no-preference){
   html.personality-playful .dash-tool:hover{transform:translateY(-3px);}
   html.personality-playful .app-card:hover{transform:translateY(-5px);}
-  /* 3D press-tilt on gradient CTAs: replaces the flat .btn:active scale above for
-     .btn-gradient only (higher specificity than the shared .btn:active rule, so this
-     wins regardless of source order). Pronounced enough to read in the ~100-150ms an
-     :active state is actually visible during a real click. */
+
   html.personality-playful .btn-gradient:active{transform:perspective(300px) rotateX(14deg) translateY(1px) scale(.94);}
 }
 
-/* ── Coin flip (big celebrations; element built by celebrate.js _fireCoin) ──
-   Pure-CSS 3D coin: two stacked faces with backface-visibility so the flip reads as a
-   real coin. JS bails on reduced motion; the media override below is belt-and-braces. */
 .fi-coin-wrap{position:fixed;left:50%;top:34%;z-index:9599;pointer-events:none;perspective:600px;}
 .fi-coin{position:relative;width:72px;height:72px;margin-left:-36px;transform-style:preserve-3d;
   animation:fi-coin-flip 1.25s cubic-bezier(.3,.7,.4,1) both;}
@@ -731,14 +677,12 @@ html.personality-playful .dash-tool{border-radius:14px;}
   100%{transform:translateY(8px) rotateY(720deg) scale(.9);opacity:0;}
 }
 @media (prefers-reduced-motion: reduce){ .fi-coin{animation:none;display:none;} }
-/* ── App shell ──────────────────────────────────────────────── */
+
 body{max-width:none;margin:0;padding:0;}
 .app-rail{display:none;}
 .app-canvas{max-width:1080px;margin:0 auto;padding:1.25rem 1.25rem 4rem;}
 @media (min-width:900px){
-  /* box-sizing matters here: the body offset below is a hard-coded 230px, so the rail's
-     padding and border must sit INSIDE that width. Without it the rail measured 256.6px
-     and the canvas ran ~27px underneath it, eating almost the whole content gap. */
+
   .app-rail{display:flex;flex-direction:column;gap:.2rem;position:fixed;top:0;left:0;bottom:0;
     box-sizing:border-box;
     width:230px;padding:1.1rem .8rem;background:var(--shell-rail-bg);
@@ -758,34 +702,26 @@ body{max-width:none;margin:0;padding:0;}
   .rail-ico{font-size:1.05rem;width:1.3rem;text-align:center;}
   body:has(.app-rail){padding-left:230px;}
   .app-canvas{margin:0 auto;max-width:960px;padding:1.5rem 2rem 4rem;}
-  /* Trackers hold wide data tables, so they opt into a wider content column (via the
-     canvas-wide modifier on the <main>) so a normal multi-column month fits and centres
-     instead of overflowing. Higher specificity than the rule above, so it wins. */
+
   .app-canvas.canvas-wide{max-width:1280px;}
 }
 .nav, .home-nav{align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:14px;
   background:var(--glass-bg);border:1px solid var(--glass-border);
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
   margin-bottom:1.25rem;position:relative;z-index:60;}
-/* Dropdowns must escape the glass-panel stacking contexts below the topbar */
+
 .acct-dropdown, .theme-dropdown{z-index:1000;}
 .topbar-help{font-weight:700;min-width:34px;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:.5rem;}
 .topbar-right .theme-menu-wrap{margin-left:0;}
 
-/* Glass scroll-wheel picker (desktop-only; built by /static/js/glass-picker.js) */
-/* z-index well above every other fixed overlay in the app (walkthrough highlight/bubble,
-   confetti, modals all top out under 10001) - an open native-select replacement should always
-   render on top, the same way the browser's own select popup would. */
 .gp-overlay{position:fixed;inset:0;z-index:20000;background:transparent;}
 .gp-wheel{position:fixed;min-width:172px;max-width:280px;border-radius:16px;overflow:hidden;
   background:color-mix(in srgb, var(--panel-bg) 86%, transparent);
   border:1px solid var(--glass-border);
   backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);
   box-shadow:0 18px 50px rgba(0,0,0,.38);}
-/* 5 visible rows of 40px = 200px window; padding must equal (clientHeight-itemHeight)/2 = 80px
-   so the FIRST and LAST items can scroll all the way to the centre band. box-sizing:border-box
-   keeps height honest regardless of the page's default. */
+
 .gp-list{position:relative;box-sizing:border-box;height:200px;overflow-y:auto;
   overscroll-behavior:contain;padding:80px 0;scrollbar-width:thin;}
 .gp-band{position:absolute;left:8px;right:8px;top:50%;height:40px;transform:translateY(-50%);
@@ -809,8 +745,6 @@ body{max-width:none;margin:0;padding:0;}
 .acct-dropdown-right{right:0;left:auto;}
 @media (min-width:900px){ .nav, .home-nav{margin-top:.25rem;} }
 
-/* ── Wave A: global control & surface polish ──────────────────── */
-/* Buttons — glass pills (Batch D soft-depth form) + responsive hover/press */
 .btn-ghost, .btn-glass{
   background:var(--glass-bg);
   border:1px solid var(--glass-border);
@@ -823,27 +757,22 @@ body{max-width:none;margin:0;padding:0;}
 .btn{ transition:filter .14s ease, transform .1s ease; }
 .btn:active{ transform:translateY(1px); }
 
-/* Inputs — softer radius + theme-tinted focus ring (replaces the hard accent ring) */
 input, select, textarea{ border-radius:12px; transition:border-color .14s ease, box-shadow .14s ease; }
 input:focus-visible, select:focus-visible, textarea:focus-visible{
   outline:none; border-color:var(--grad-from); box-shadow:0 0 0 3px var(--glow-1);
 }
 
-/* Themed slim scrollbars */
 *{ scrollbar-width:thin; scrollbar-color:var(--panel-border) transparent; }
 *::-webkit-scrollbar{ width:10px; height:10px; }
 *::-webkit-scrollbar-track{ background:transparent; }
 *::-webkit-scrollbar-thumb{ background:var(--panel-border); border-radius:6px; border:2px solid transparent; background-clip:content-box; }
 *::-webkit-scrollbar-thumb:hover{ background:var(--secondary-hover); }
 
-/* Reusable uppercase section label */
 .section-label{ font-size:.72rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin:0 0 .5rem; }
 
-/* ── Wave B: tracker grid polish (CSS-only, render JS untouched) ── */
 .sheet tbody tr:hover td{ background:var(--hover-bg); }
 .sheet thead th{ border-bottom:2px solid color-mix(in srgb, var(--grad-from) 35%, transparent); }
 
-/* ── Wave E: flourishes ───────────────────────────────────────── */
 @media (min-width:900px){
   .rail-link.rail-active{ position:relative; }
   .rail-link.rail-active::before{ content:''; position:absolute; left:-2px; top:18%; bottom:18%;
@@ -854,15 +783,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
   @keyframes canvas-fade{ from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:none;} }
 }
 
-/* ── Batch D Wave 0: component layer ──────────────────────────
-   Values transcribed from the approved mockups (docs/redesign-mockups/) -
-   see the "Fidelity contract" in the Batch D plan before changing any. */
-
-/* Icons (self-hosted sprite: /static/icons/ui-sprite.svg) */
 .fi-ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:-.125em;display:inline-block;}
 
-/* Icon chips: 32px rounded square, semantic tint at ~10-13% */
 .icon-chip{display:inline-flex;align-items:center;justify-content:center;
   width:32px;height:32px;border-radius:11px;font-size:17px;flex-shrink:0;}
 .icon-chip.chip-sm{width:26px;height:26px;border-radius:9px;font-size:14px;}
@@ -872,19 +795,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .chip-neutral{background:var(--sem-neutral-bg);color:var(--sem-neutral);}
 .chip-on-gradient{background:rgba(255,255,255,.20);color:#fff;}
 
-/* Stat delta line: always icon + text, never colour alone */
 .stat-delta{display:flex;align-items:center;gap:.25rem;font-size:.72rem;margin-top:3px;color:var(--muted);}
 .stat-delta .fi-ico{font-size:12px;}
 .stat-delta.good{color:var(--sem-ok);}
 .stat-delta.bad{color:var(--sem-bad);}
 
-/* Status pills (subscriptions + generic ok/warn) */
 .status-pill{display:inline-block;font-size:.66rem;font-weight:500;padding:3px 10px;border-radius:999px;white-space:nowrap;}
 .status-pill.status-active, .status-pill.status-ok{background:var(--sem-ok-bg);color:var(--sem-ok);}
 .status-pill.status-paused, .status-pill.status-warn{background:var(--sem-warn-bg);color:var(--sem-warn);}
 .status-pill.status-cancelled{background:var(--sem-neutral-bg);color:var(--sem-neutral);}
 
-/* Month navigation pill: chevrons + label/select in one glass pill */
 .month-pill{position:relative;display:inline-flex;align-items:center;gap:2px;
   background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:999px;
   padding:4px 6px;box-shadow:var(--elev-1);
@@ -897,13 +817,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
   font-weight:500;font-size:.78rem;color:var(--fg);padding:2px 4px;cursor:pointer;}
 .month-pill select:focus-visible{box-shadow:none;outline:2px solid var(--grad-from);outline-offset:1px;}
 
-/* Progress bar: gradient fill on a soft track */
 .progress-bar{height:5px;border-radius:3px;background:var(--track-bg);overflow:hidden;margin-top:7px;}
 .progress-bar>span{display:block;height:100%;border-radius:3px;
   background:linear-gradient(90deg,var(--grad-from),var(--grad-to));transition:width .3s ease;}
 @media (prefers-reduced-motion: reduce){ .progress-bar>span{transition:none;} }
 
-/* Sync trust pill (applied to #sync-status in Wave 1) */
 .sync-pill{display:inline-flex;align-items:center;gap:.3rem;
   background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:999px;
   padding:4px 11px;font-size:.72rem;font-weight:500;box-shadow:var(--elev-1);color:var(--muted);}
@@ -912,7 +830,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .sync-pill.failed{color:var(--sem-bad);}
 .sync-pill.local{color:var(--muted);}
 
-/* Round icon-only glass button (overflow menus etc.) */
 .btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   border-radius:999px;background:var(--glass-bg);border:1px solid var(--glass-border);
   box-shadow:var(--elev-1);color:var(--fg);cursor:pointer;font-family:inherit;font-size:16px;
@@ -921,7 +838,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .btn-icon:active{transform:translateY(1px);}
 .btn-icon:disabled{opacity:.4;cursor:not-allowed;}
 
-/* Undo toast (calm trust affordance) */
 .undo-toast{position:fixed;bottom:calc(1.5rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);
   background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:var(--r-md);
   padding:.5rem .9rem;font-size:.78rem;color:var(--fg);box-shadow:var(--elev-3);z-index:99999;
@@ -929,12 +845,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .undo-toast button{background:none;border:none;color:var(--accent-strong);font-weight:500;
   font-family:inherit;font-size:.78rem;cursor:pointer;margin-left:.6rem;padding:0;}
 
-/* ── Batch D Wave 1: mobile bottom tab bar + pull-up drawer ──────────────
-   z-index ladder (fixed-position UI, low to high): nav-drawer-backdrop 938,
-   nav-drawer 939, tab-bar 940, tab-grabber 941 < acct/theme-dropdown 1000
-   < wt-overlay 9500.. < voice-fab 9997 < voice-listening-overlay 9998
-   < voice-confirm-sheet 9999 < voice-cat-picker/toasts 99999+
-   < gp-overlay 20000 < app-lock overlay 2147483647 (always on top). */
 :root{ --tabbar-h:64px; }
 .tab-bar{display:none;}
 @media(max-width:899px){
@@ -999,22 +909,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
   .tab-bar,.tab-grabber,.nav-drawer,.nav-drawer-backdrop{display:none!important;}
 }
 
-/* ── Batch D Wave 4: tracker header + stat strip (shared: expenses/income/subscriptions) */
 .tracker-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.75rem;}
 .tracker-head-left{display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;}
 .tracker-head-left h1{font-size:1.35rem;font-weight:500;letter-spacing:-.01em;margin:0;}
 .tracker-head-right{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
-/* The "..." overflow toggle sits at the right edge of the header; its menu must open
-   right-aligned (anchored to the toggle button itself) at every viewport width, not
-   just mobile — left:0 (the shared .dropdown-menu default) pushes it off-screen past
-   the right edge of the page on desktop. */
+
 .tracker-head-right .dropdown-menu{left:auto;right:0;}
 .stat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem;}
 @media(max-width:640px){ .stat-strip{grid-template-columns:1fr 1fr;} }
 .stat-strip .stat-card{padding:.7rem .85rem;}
 .stat-strip .stat-value{font-size:1.15rem;}
 
-/* Quick-add FAB: stacks above the voice FAB (56px + gap) on mobile only */
 .add-fab{
   display:none; position:fixed; right:1.25rem;
   bottom:calc(var(--tabbar-h) + 56px + 1.75rem + env(safe-area-inset-bottom, 0px));
@@ -1026,7 +931,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .add-fab .fi-ico{font-size:22px;}
 @media(max-width:640px){ .add-fab{display:flex;} }
 
-/* Quick-add bottom sheet (mobile) */
 .quick-add-backdrop{display:none;position:fixed;inset:0;z-index:9994;background:rgba(15,23,42,.28);}
 .quick-add-backdrop.open{display:block;}
 .quick-add-sheet{
@@ -1042,15 +946,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible{
 .qa-sign-btn.selected{background:var(--panel-bg);color:var(--fg);box-shadow:0 1px 4px rgba(31,41,55,.10);}
 .qa-sign-btn[data-sign="sub"].selected{color:var(--sem-bad);}
 
-/* ── Recurring rows (see recurring-core.js) ── */
 .recur-mark-btn.active{border-color:var(--accent);color:var(--accent-strong);}
 .rec-monthly-cell{text-align:right;}
 .rec-monthly-wrap{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
 .rec-monthly-wrap .num-input{flex:1;min-width:0;}
 .rec-pill{background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent-strong);flex-shrink:0;}
-/* In dark themes --accent-strong is a darkened accent that vanishes on the dark row, and a
-   12% tint barely reads as a pill. Use body color for guaranteed legibility over a stronger
-   accent tint so the "Monthly" badge is visible in every dark custom theme. */
+
 html.dark .rec-pill{background:color-mix(in srgb, var(--accent) 22%, transparent);color:var(--fg);}
 .rec-mgr-item{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem 0;border-top:1px solid var(--panel-border);}
 .rec-mgr-name{font-weight:600;font-size:.9rem;}
