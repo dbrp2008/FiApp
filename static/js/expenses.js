@@ -58,7 +58,6 @@ const CAT_COLORS = {
 };
 function uid(){ return '_'+Math.random().toString(36).slice(2,9); }
 
-
 function freshState(){
   const now=new Date(),y=now.getFullYear(),m=now.getMonth();
   return {
@@ -103,9 +102,7 @@ function loadState(){
       if(!Array.isArray(s.cols)) s.cols=freshState().cols;
       if(!s.rowsByMonth) s.rowsByMonth={};
       if(!s.colsByMonth) s.colsByMonth={};
-      // Self-heal the historical cold-boot duplication bug: fresh-id default columns could
-      // union-accumulate past MAX_COLS in the GLOBAL template (per-month forks are
-      // authoritative and untouched), which then 400s every save. Trim it back to the cap.
+
       if(Array.isArray(s.cols)&&s.cols.length>MAX_COLS) s.cols=s.cols.slice(0,MAX_COLS);
       if(!s.goals) s.goals={};
       if(!Array.isArray(s.recurringRules)) s.recurringRules=[];
@@ -116,7 +113,7 @@ function loadState(){
           s.rows.push({id:uid(),label:'Subscriptions',color:'#bfdbfe',textColor:'#1f2937',height:36,parentId:null,linked:'subscriptions'});
         }
       }
-      // Older defaults (100/110) clip the "Week N" header; widen never-resized data columns.
+
       const _bumpCol=c=>{ if(c&&(c.width===100||c.width===110)) c.width=120; };
       (s.cols||[]).forEach(_bumpCol);
       Object.keys(s.colsByMonth||{}).forEach(mk2=>(s.colsByMonth[mk2]||[]).forEach(_bumpCol));
@@ -126,9 +123,7 @@ function loadState(){
   return freshState();
 }
 let state=loadState();
-// B (Playful first-entry): months that already had data when this session started, so a
-// later edit to an already-populated month is never mistaken for "first entry of a new
-// month". Populated from the server-synced state once startup finishes (see below).
+
 let _monthsWithDataAtLoad=null;
 
 const MAX_ROWS=20;
@@ -144,7 +139,7 @@ function forkCurrentMonth(){
   if(!state.rowsByMonth[mk2]) state.rowsByMonth[mk2]=(state.rows||[]).map(r=>({...r}));
   if(!state.colsByMonth[mk2]) state.colsByMonth[mk2]=(state.cols||[]).map(c=>({...c}));
 }
-// ── Recurring rules: state accessors + writers (pure logic lives in recurring-core.js) ──
+
 function _recRules(){ if(!Array.isArray(state.recurringRules)) state.recurringRules=[]; return state.recurringRules; }
 function _recRuleFor(rowId){ return _recRules().find(r=>r.rowId===rowId)||null; }
 function _monthTotalForRow(rowId, mk2){
@@ -156,29 +151,23 @@ function _existingMonths(){
   Object.keys(state.cells||{}).forEach(k=>{ set[k.split('|')[0]]=1; });
   Object.keys(state.rowsByMonth||{}).forEach(mk2=>{ set[mk2]=1; });
   Object.keys(state.colsByMonth||{}).forEach(mk2=>{ set[mk2]=1; });
-  set[currentMK()]=1;   // the viewed month always counts, even if still empty
+  set[currentMK()]=1;
   return Object.keys(set);
 }
-// A top-level row lives in state.rows and so "exists" in every month via
-// effectiveRowsForMonth's fallback, even ones never forked yet. A subcategory row only
-// exists in the specific months whose fork explicitly includes it (addSubRow writes into
-// state.rowsByMonth, never state.rows) - so this check is a no-op restriction for ordinary
-// rows and a real one for subcategories, without needing to special-case child rows.
+
 function _rowExistsInMonth(rowId, mk2){ return getRows(mk2).some(r=>r.id===rowId); }
 function _recOptsFor(rowId){
   return { existingMonths:_existingMonths().filter(mk2=>_rowExistsInMonth(rowId, mk2)), isLocked:_isClosedMonth,
            getMonthTotal:function(mk2){ return _monthTotalForRow(rowId, mk2); } };
 }
-// Materialize an arbitrary month's rows/cols from the globals (forkCurrentMonth only does
-// the current month). Idempotent.
+
 function _ensureMonthForked(mk2){
   if(!state.rowsByMonth) state.rowsByMonth={};
   if(!state.colsByMonth) state.colsByMonth={};
   if(!state.rowsByMonth[mk2]) state.rowsByMonth[mk2]=(state.rows||[]).map(r=>({...r}));
   if(!state.colsByMonth[mk2]) state.colsByMonth[mk2]=(state.cols||[]).map(c=>({...c}));
 }
-// Write a rule's value into month mk2 for its row, honoring the rule's mode. Caller has
-// already checked scope/lock/mismatch. Does not save().
+
 function _recWriteMonth(rule, mk2){
   _ensureMonthForked(mk2);
   const cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
@@ -191,26 +180,21 @@ function _recWriteMonth(rule, mk2){
     if(state.cellTimes) state.cellTimes[key]=Date.now();
   });
 }
-// Fill a newly-materialized month with every non-draft rule in scope, but only where the
-// row is still empty (never clobber existing data). This is what makes a later-created
-// month inherit its recurring values automatically.
+
 function _recFillNewMonth(mk2){
   if(_isClosedMonth(mk2)) return false;
   let wrote=false;
   _recRules().forEach(rule=>{
     if(rule.draft) return;
     if(!FiRecurring.monthInScope(rule, mk2)) return;
-    // A subcategory only exists in months whose fork explicitly added it - a brand-new
-    // month forks from the top-level state.rows, which never contains subcategories, so
-    // silently skip rather than write an orphaned cell for a row that won't render here.
+
     if(!_rowExistsInMonth(rule.rowId, mk2)) return;
     if(_monthTotalForRow(rule.rowId, mk2)!==0) return;
     _recWriteMonth(rule, mk2); wrote=true;
   });
   return wrote;
 }
-// Set/clear row.recurring across the global rows and every month's copy (the badge follows
-// the flag). Mirrors the old _showRecurringToast "Mark recurring" write.
+
 function markRowRecurring(rowId, on){
   [state.rows].concat(Object.values(state.rowsByMonth||{})).forEach(arr=>{
     const r=(arr||[]).find(x=>x.id===rowId); if(r) r.recurring=!!on;
@@ -224,10 +208,9 @@ function _recMkLabel(mk2){
   const d=new Date(Number(p[0]), Number(p[1])-1, 1);
   return d.toLocaleDateString(undefined,{month:'short',year:'numeric'});
 }
-// Unlock an arbitrary month (the existing reopenMonth() only reopens the current month).
+
 function _recUnlockMonth(mk2){ if(state.closedMonths) delete state.closedMonths[mk2]; }
 
-// ── Recurring config modal ──────────────────────────────────────────────────
 function _recModal(){
   const overlay=document.createElement('div');
   overlay.className='rec-modal-overlay';
@@ -245,10 +228,7 @@ function _recModal(){
 }
 
 function openRecurringConfig(rowId){
-  // Guarded at the choke point, not per call site: the 🔁 row button, the mobile gear menu
-  // and the rules manager all land here. Without this the modal opens during the walkthrough
-  // and TRAPS the user - it is appended to <body>, outside the current step's target, so the
-  // walkthrough's capture-phase click guard swallows every click inside it, Cancel included.
+
   if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   const row=getRows().find(r=>r.id===rowId)||(state.rows||[]).find(r=>r.id===rowId);
   if(!row) return;
@@ -263,16 +243,12 @@ function openRecurringConfig(rowId){
   const h=document.createElement('h3'); h.style.cssText='margin:0 0 .9rem;font-size:1.02rem;color:var(--fg);';
   h.textContent='Recurring: '+(row.label||'Category'); m.panel.appendChild(h);
 
-  // Amount
   const amtLbl=document.createElement('label'); amtLbl.style.cssText='display:block;font-size:.8rem;color:var(--muted);margin-bottom:1rem;';
   amtLbl.appendChild(document.createTextNode('Amount per month'));
   const amt=document.createElement('input'); amt.type='number'; amt.step='0.01'; amt.min='0'; amt.value=draft.amount||0;
   amt.style.cssText='display:block;width:100%;margin-top:.35rem;padding:.55rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;box-sizing:border-box;';
   amtLbl.appendChild(amt); m.panel.appendChild(amtLbl);
 
-  // Per-month overrides pin specific months to a custom amount that otherwise shadows the
-  // base amount above with no on-screen sign (this is the desync bug). Surface any pins here
-  // with a one-click reset so a rule can never silently apply a value the modal isn't showing.
   if(existing && existing.overrides){
     const _pins=Object.keys(existing.overrides).filter(mk2=>Math.abs((existing.overrides[mk2]||0)-(existing.amount||0))>1e-9).sort();
     if(_pins.length){
@@ -291,7 +267,6 @@ function openRecurringConfig(rowId){
     }
   }
 
-  // Mode segmented toggle
   const modeLbl=document.createElement('div'); modeLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; modeLbl.textContent='Display'; m.panel.appendChild(modeLbl);
   const modeWrap=document.createElement('div'); modeWrap.style.cssText='display:flex;gap:.4rem;margin-bottom:1rem;';
   function segBtn(label,val,cur,onPick){
@@ -307,7 +282,6 @@ function openRecurringConfig(rowId){
   function pickMode(v){ draft.mode=v; renderModeBtns(); }
   renderModeBtns(); m.panel.appendChild(modeWrap);
 
-  // Scope
   const scLbl=document.createElement('div'); scLbl.style.cssText='font-size:.8rem;color:var(--muted);margin-bottom:.35rem;'; scLbl.textContent='Applies to'; m.panel.appendChild(scLbl);
   if(row.parentId){
     const scNote=document.createElement('div'); scNote.style.cssText='font-size:.76rem;color:var(--muted);margin-bottom:.5rem;line-height:1.4;';
@@ -318,17 +292,12 @@ function openRecurringConfig(rowId){
   const rangeWrap=document.createElement('div'); rangeWrap.style.cssText='display:none;gap:.4rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
   const rStart=document.createElement('input'); rStart.type='month'; rStart.value=draft.scope.start||currentMK();
   const rEnd=document.createElement('input'); rEnd.type='month'; rEnd.value=draft.scope.end||currentMK();
-  // Bound the range picker to the same +-1 year window the app already enforces for
-  // month navigation (minY/minM..maxY/maxM, see isAtMin/isAtMax above) - not an invented
-  // horizon.
+
   const _recRangeMin=mk(minY,minM), _recRangeMax=mk(maxY,maxM);
   [rStart,rEnd].forEach(x=>{ x.min=_recRangeMin; x.max=_recRangeMax; x.style.cssText='padding:.4rem;border:1px solid var(--input-border);border-radius:8px;background:var(--input-bg,var(--panel-bg));color:var(--fg);font-size:16px;'; });
   const rArrow=document.createElement('span'); rArrow.textContent='to'; rArrow.style.cssText='color:var(--muted);font-size:.85rem;';
   rangeWrap.appendChild(rStart); rangeWrap.appendChild(rArrow); rangeWrap.appendChild(rEnd);
 
-  // A continuous date range can't express "only months that have this subcategory" when its
-  // existence has gaps, so subcategory rows get a checklist of exactly the valid months
-  // instead of Custom range - the picker itself can no longer offer an invalid month.
   const specWrap=document.createElement('div'); specWrap.className='rec-spec-grid'; specWrap.style.display='none';
   const _specMonths=row.parentId?_existingMonths().filter(mk2=>_rowExistsInMonth(rowId,mk2)).sort():[];
   if(!Array.isArray(draft.scope.months)) draft.scope.months=[];
@@ -403,8 +372,7 @@ function openRecurringConfig(rowId){
     } else if(draft.scope.type==='specific' && !draft.scope.months.length){
       fb.textContent='Pick at least one month.'; return;
     }
-    // Monthly mode: amount is the single value. Weekly mode: distribute evenly unless a
-    // per-week pattern already exists on the current month.
+
     if(draft.mode==='weekly'){
       const cols=(state.colsByMonth&&state.colsByMonth[currentMK()])||state.cols||[];
       const cur=cols.map(c=>parseFloat((state.cells||{})[currentMK()+'|'+rowId+'|'+c.id]||0)||0);
@@ -416,9 +384,6 @@ function openRecurringConfig(rowId){
   });
   actions.appendChild(saveBtn); actions.appendChild(cancelBtn); m.panel.appendChild(actions);
 
-  // Delink/Remove live here (not just the mobile gear menu) so they're reachable regardless
-  // of viewport - the gear button is mobile-only (styles.css .row-gear-btn), but this modal
-  // opens from both the mobile gear and the desktop 🔁 button.
   if(existing){
     const _isExcepted=(existing.exceptions||[]).indexOf(currentMK())>=0;
     const sec=document.createElement('div'); sec.style.cssText='display:flex;gap:.9rem;justify-content:center;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--input-border);';
@@ -434,11 +399,6 @@ function openRecurringConfig(rowId){
   amt.focus();
 }
 
-// Apply a rule to all its fillable months, mark the row, and commit. If clashes exist the
-// rule is stored as a draft and the draft banner drives resolution. Writes can span every
-// month in scope (e.g. "All future months"), so this snapshots the rule + every cell it's
-// about to touch first and hands a single Undo back through the toast - one click reverts
-// the whole multi-month write, instead of fixing each month by hand.
 function commitRecurring(draft){
   const opts=_recOptsFor(draft.rowId);
   const clashes=FiRecurring.detectClashes(draft, opts);
@@ -484,7 +444,6 @@ function commitRecurring(draft){
   });
 }
 
-// Write a single monthly value into mk2 (col0 holds it, other week cols cleared to 0).
 function _writeMonthlyValue(rowId, mk2, val){
   _ensureMonthForked(mk2);
   const cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
@@ -496,7 +455,6 @@ function _writeMonthlyValue(rowId, mk2, val){
   });
 }
 
-// Manual edit of a monthly recurring row's single cell: ask how far the change reaches.
 function _onRecurringCellEdit(rowId, mk2, newTotal){
   const rule=_recRuleFor(rowId);
   if(!rule){ _writeMonthlyValue(rowId, mk2, newTotal); save(); render(); return; }
@@ -523,7 +481,6 @@ function _onRecurringCellEdit(rowId, mk2, newTotal){
   m.panel.appendChild(cancel);
 }
 
-// Checkbox list of in-scope existing months; checked months take newTotal as an override.
 function _pickSpecificMonths(rule, newTotal){
   const months=_existingMonths().filter(mk2=>FiRecurring.monthInScope(rule, mk2) && _rowExistsInMonth(rule.rowId, mk2)).sort();
   const m=_recModal();
@@ -557,9 +514,6 @@ function delinkMonth(rowId, mk2){
   showToast('Delinked '+_recMkLabel(mk2)+' from recurring', false, 5000, ()=>relinkMonth(rowId, mk2, true));
 }
 
-// Undo a delink, or manually re-include a month a rule's range/anchor still covers but that
-// was previously excepted out. Re-applies the rule's value the same way commitRecurring does
-// (skip if locked/mismatched -> draft for review, exactly like any other clash).
 function relinkMonth(rowId, mk2, silent){
   const rule=_recRuleFor(rowId); if(!rule) return;
   if(rule.exceptions){ const i=rule.exceptions.indexOf(mk2); if(i>=0) rule.exceptions.splice(i,1); }
@@ -588,10 +542,6 @@ function removeRecurring(rowId){
   save(); render(); _recDraftBannerRefresh();
 }
 
-// Rules manager: every recurring rule in one list. Without it a rule is only
-// visible by opening the row that owns it, which made scope/override/delink state
-// effectively invisible. Row labels are looked up across every month's fork, since
-// a rule can outlive the row in the currently-viewed month.
 function _recRowLabel(rowId){
   const all=[...(state.rows||[])];
   Object.values(state.rowsByMonth||{}).forEach(a=>{(a||[]).forEach(r=>{ if(r) all.push(r); });});
@@ -599,8 +549,7 @@ function _recRowLabel(rowId){
   return r?(r.label||'(unnamed row)'):'(deleted row)';
 }
 function openRecurringManager(){
-  // Same trap as openRecurringConfig: this overlay is body-appended, so the walkthrough's
-  // click guard would block its Edit/Remove/Close buttons.
+
   if(isWalkthroughActive()){showToast('🧭 Finish or skip the walkthrough to use this.');return;}
   const prev=document.getElementById('rec-mgr-overlay'); if(prev) prev.remove();
   const overlay=document.createElement('div'); overlay.id='rec-mgr-overlay';
@@ -650,8 +599,6 @@ function openRecurringManager(){
   close.focus();
 }
 
-// Resolve one clash: apply (unlock+write, or overwrite) or skip (add to exceptions). When a
-// rule's clashes are all cleared it leaves draft state and fills its remaining months.
 function _resolveClash(rowId, mk2, choice){
   const rule=_recRuleFor(rowId); if(!rule) return;
   if(choice==='apply'){
@@ -670,9 +617,6 @@ function _resolveClash(rowId, mk2, choice){
   save(); render(); _recDraftBannerRefresh();
 }
 
-// Clear every per-month override and rewrite the rule's in-scope, unlocked months from the
-// base amount, so the amount shown in the config modal governs all of them again. Backs the
-// modal's "reset those months" control.
 function _recResetOverrides(rowId){
   const rule=_recRuleFor(rowId); if(!rule) return;
   rule.overrides={}; rule.draft=false;
@@ -682,8 +626,6 @@ function _recResetOverrides(rowId){
   showToast('Reset to '+fmt(rule.amount)+'/mo');
 }
 
-// A single persistent banner listing every unresolved clash across all draft rules, each
-// with Apply / Skip and a jump-to-month link. Shown while any rule is a draft.
 let _recDraftBannerEl=null;
 function _recDraftBannerRefresh(){
   const drafts=_recRules().filter(r=>r.draft);
@@ -713,9 +655,7 @@ function _recDraftBannerRefresh(){
   });
   document.body.appendChild(b); _recDraftBannerEl=b;
 }
-// Preview exactly what "Apply here" will overwrite before it does, so applying a conflict is
-// never blind - the value written is the rule's, which may be a per-month override, not the
-// base amount shown in the config modal.
+
 function _confirmApplyClash(it){
   const m=_recModal();
   const h=document.createElement('h3'); h.style.cssText='margin:0 0 .6rem;font-size:1rem;color:var(--fg);';
@@ -802,29 +742,22 @@ var setSyncStatus=_sync.setSyncStatus;
 var saveLocal=_sync.saveLocal;
 async function loadSubsFromServer(){
 
-
   if(!window.__currentUser) return;
   if(isWalkthroughActive())return;
-  if(localStorage.getItem(SUBS_KEY+'__dirty')) return; // unsynced offline subs edits: local wins until flushed
+  if(localStorage.getItem(SUBS_KEY+'__dirty')) return;
   try{
     const res=await fetch('/api/load/subs');
     if(!res.ok) return;
     const resp=await res.json();
     const data=resp&&resp.data;
     if(data&&typeof data==='object'&&(Array.isArray(data.rows)||Array.isArray(data.cols)||data.cells)){
-      // Keep the Subscriptions tracker's own last-viewed month (per-device view state) so
-      // visiting Expenses doesn't reset which month Subscriptions reopens on.
+
       try{const _ln=JSON.parse(localStorage.getItem(SUBS_KEY)||'null');if(_ln&&_ln.currentYear!=null){data.currentYear=_ln.currentYear;data.currentMonth=_ln.currentMonth;}}catch(_){}
       localStorage.setItem(SUBS_KEY,JSON.stringify(data));
     }
   }catch(e){}
 }
-// Stamps state.cellTimes[key]=now for any cell whose value changed since the last
-// save, by diffing against the snapshot still sitting in localStorage (saveLocal()
-// is about to overwrite it). One diff on every save() uniformly catches every way
-// `cells` can change — typing, paste, bulk delete, import, undo/redo — without
-// scattering Date.now() stamps across ~20 mutation sites. A key that just vanished
-// (delete) gets stamped too: that's what marks it as a tombstone for the merge.
+
 function _stampCellTimes(){
   if(!state.cellTimes) state.cellTimes={};
   let prevCells={};
@@ -845,14 +778,13 @@ function save(){
   try{ _maybeCelebrateFirstEntry(currentMK()); }catch(_){}
 }
 
-// ── Phase 4a: Spend Trend Message ────────────────────────────────────────
 function _monthSpendTotal(mk2){
   var sum=0;
   var mCols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
   var rows=getRows(mk2);
   var hasKidsSet=new Set(rows.filter(function(r){return r.parentId;}).map(function(r){return r.parentId;}));
   rows.forEach(function(row){
-    if(hasKidsSet.has(row.id)) return; // parent with children — children's cells are the real values
+    if(hasKidsSet.has(row.id)) return;
     mCols.forEach(function(col){ sum+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; });
   });
   return parseFloat(sum.toFixed(2));
@@ -864,7 +796,7 @@ function checkSpendTrend(){
   var prevMk2=mk(py,pm);
   var thisTotal=_monthSpendTotal(mk2);
   var prevTotal=_monthSpendTotal(prevMk2);
-  // Hide strip and bail if conditions not met
+
   if(thisTotal<10||prevTotal<10){
     var old=document.getElementById('voice-strip'); if(old) old.style.display='none'; return;
   }
@@ -874,7 +806,7 @@ function checkSpendTrend(){
     var old=document.getElementById('voice-strip'); if(old) old.style.display='none'; return;
   }
   var dir=delta>0?'up':'down';
-  // Find the category with the largest absolute change vs last month
+
   var rowTotalsThis={}, rowTotalsPrev={};
   Object.keys(state.cells||{}).forEach(function(k){
     var parts=k.split('|'); if(parts.length!==3) return;
@@ -885,7 +817,7 @@ function checkSpendTrend(){
   var topCat='', topCatPct=0, topCatDir='up';
   getRows(mk2).forEach(function(row){
     if(row.parentId) return;
-    if(row.linked==='subscriptions'||row.snapshotLinkedRow) return; // auto-filled rows, skip
+    if(row.linked==='subscriptions'||row.snapshotLinkedRow) return;
     var kids=getRows(mk2).filter(function(r){return r.parentId===row.id;});
     var t=kids.length>0
       ? kids.reduce(function(s,c){return s+(rowTotalsThis[c.id]||0);},0)
@@ -911,14 +843,14 @@ function showVoiceStrip(text){
   txt.textContent=text;
   el.style.display='flex';
 }
-// ── Phase 5e: Recurring row detection (CV < 0.15, ≥3 months) ──
+
 function detectRecurring(){
-  // Build index: rowId → {label, amounts: [...nonzero monthly totals]}
+
   const rowAmounts={};
   const allMonths=Object.keys(state.cells||{}).map(k=>k.split('|')[0]).filter((v,i,a)=>v&&a.indexOf(v)===i);
   allMonths.forEach(mk2=>{
     const cols2=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
-    // Merge base rows with month-specific rows so rows added after forking are included
+
     const monthRows=(state.rowsByMonth&&state.rowsByMonth[mk2])||[];
     const baseRows=state.rows||[];
     const seenIds=new Set(monthRows.map(r=>r.id));
@@ -936,11 +868,11 @@ function detectRecurring(){
     const entry=rowAmounts[rowId];
     if(entry.amounts.length<3) return;
     if(localStorage.getItem('fiapp_rec_dismissed_'+rowId)) return;
-    // Check if already marked recurring
+
     const row=(state.rows||[]).find(r=>r.id===rowId)||
       Object.values(state.rowsByMonth||{}).reduce((f,arr)=>f||arr.find(r=>r.id===rowId),null);
     if(row&&row.recurring) return;
-    // Compute CV
+
     const n=entry.amounts.length;
     const mean=entry.amounts.reduce((s,v)=>s+v,0)/n;
     if(mean<=0) return;
@@ -959,7 +891,7 @@ function _showRecurringToast(rowId,label){
   const yes=document.createElement('button');yes.className='btn btn-sm';yes.style.fontSize='.8rem';yes.textContent='Mark recurring';
   yes.onclick=function(){
     el.remove();
-    openRecurringConfig(rowId);   // let the user set amount/scope rather than a bare flag
+    openRecurringConfig(rowId);
   };
   const no=document.createElement('button');no.className='btn-ghost btn-sm';no.style.fontSize='.8rem';no.textContent='Skip';
   no.onclick=function(){ localStorage.setItem('fiapp_rec_dismissed_'+rowId,'1');el.remove(); };
@@ -983,7 +915,12 @@ function showToast(msg, isError=false, duration=4000, undoCb=null){
   el.setAttribute('aria-live','polite');
   el.setAttribute('aria-atomic','true');
   el.className=isError?'error':'success';
-  el.style.cssText='position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
+
+  const _bar=document.querySelector('.tab-bar');
+  const _bottom=(_bar&&getComputedStyle(_bar).display!=='none')
+    ? (_bar.getBoundingClientRect().height+8)+'px'
+    : 'calc(1rem + env(safe-area-inset-bottom,0px))';
+  el.style.cssText='position:fixed;bottom:'+_bottom+';left:50%;transform:translateX(-50%);z-index:99999;max-width:480px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;white-space:pre-wrap;';
   const txt=document.createElement('span'); txt.textContent=msg; el.appendChild(txt);
   if(undoCb){
     const btn=document.createElement('button');
@@ -994,7 +931,6 @@ function showToast(msg, isError=false, duration=4000, undoCb=null){
   }
   document.body.appendChild(el); setTimeout(()=>el.remove(),duration);
 }
-
 
 let undoByMonth={}, redoByMonth={};
 function loadHistory(){
@@ -1025,8 +961,7 @@ function _captureSlice(mk2){
     cells:cellsSlice,
     rows:state.rowsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.rowsByMonth[mk2])):null,
     cols:state.colsByMonth?.[mk2]?JSON.parse(JSON.stringify(state.colsByMonth[mk2])):null,
-    // Global (unforked) rows too: applyTemplate mutates these directly, and a
-    // slice without them cannot return the user to the template menu on undo.
+
     globalRows:JSON.parse(JSON.stringify(state.rows||[])),
     goals:goalsSlice
   };
@@ -1040,7 +975,7 @@ function _applySlice(mk2,entry){
   else if(state.rowsByMonth) delete state.rowsByMonth[mk2];
   if(entry.cols!==null){if(!state.colsByMonth) state.colsByMonth={}; state.colsByMonth[mk2]=entry.cols;}
   else if(state.colsByMonth) delete state.colsByMonth[mk2];
-  // Older persisted slices (sessionStorage) predate globalRows - leave rows alone then.
+
   if(entry.globalRows) state.rows=entry.globalRows;
   if(!state.goals) state.goals={};
   Object.keys(state.goals).forEach(k=>{if(k.startsWith(mkPrefix)) delete state.goals[k];});
@@ -1100,7 +1035,6 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))){e.preventDefault();redo();}
 });
 
-
 const today=new Date();
 function mk(y,m){ return String(y)+'-'+String(m+1).padStart(2,'0'); }
 function currentMK(){ return mk(state.currentYear,state.currentMonth); }
@@ -1136,7 +1070,7 @@ function jumpToMonth(mkStr){
   state.currentYear=parseInt(parts[0],10);
   state.currentMonth=parseInt(parts[1],10)-1;
   _mobileColPair=null;
-  // A never-touched month entering the window inherits any in-scope recurring values.
+
   const _mk=currentMK();
   if(!(state.rowsByMonth&&state.rowsByMonth[_mk]) && _recRules().some(r=>!r.draft&&FiRecurring.monthInScope(r,_mk))){
     if(_recFillNewMonth(_mk)) save();
@@ -1154,11 +1088,7 @@ function updateMonthNav(){
   updateCloseBar();
   updateMonthContextNote();
 }
-// W2: explain the per-month "fork" inline — rows, columns, and goals are each
-// month's own copy (see forkCurrentMonth()), which surprises people editing a
-// past/future month expecting it to affect "now". Plain orientation text, kept
-// deliberately distinct from the close-bar's "closed/locked" vocabulary (that's
-// about edit permission, not data scoping).
+
 function updateMonthContextNote(){
   const note=document.getElementById('month-context-note');
   if(!note) return;
@@ -1169,17 +1099,13 @@ function updateMonthContextNote(){
   note.style.display='block';
 }
 
-// ── Monthly Close Flow ────────────────────────────────────────────────────
 function _hasDataForMonth(mk2){
   return Object.keys(state.cells||{}).some(k=>k.startsWith(mk2+'|')&&parseFloat(state.cells[k])>0);
 }
-// B (Playful): the first time a fresh month gains data in this browser session, fire a
-// one-off celebration. The personality gate makes this a near-instant no-op for Default/
-// Quiet (it never reaches the cell scan), and the sessionStorage flag makes it idempotent
-// per month/session. Wrapped in try/catch by the caller so it can never break save().
+
 function _maybeCelebrateFirstEntry(mk2){
   if(!window.fiappCelebrate || (window.fiappPersonality&&fiappPersonality()!=='playful')) return;
-  if(_monthsWithDataAtLoad&&_monthsWithDataAtLoad.has(mk2)) return; // already had data before this session
+  if(_monthsWithDataAtLoad&&_monthsWithDataAtLoad.has(mk2)) return;
   var key='fiapp_firstentry_exp_'+mk2;
   try{ if(sessionStorage.getItem(key)) return; }catch(_){ return; }
   if(!_hasDataForMonth(mk2)) return;
@@ -1214,7 +1140,7 @@ function updateCloseBar(){
     bar.style.display='none'; return;
   }
   if(btn){ btn.textContent='Review & close ✓'; btn.onclick=openCloseModal; }
-  // Compute total for the display
+
   let spent=0;
   const mCols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
   getRows(mk2).forEach(row=>{ mCols.forEach(col=>{ spent+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); });
@@ -1227,7 +1153,7 @@ function openCloseModal(){
   let spent=0, prevSpent=0;
   const mCols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
   getRows(mk2).forEach(row=>{ mCols.forEach(col=>{ spent+=parseFloat((state.cells||{})[mk2+'|'+row.id+'|'+col.id]||0)||0; }); });
-  // prev month
+
   let py=state.currentYear, pm=state.currentMonth-1;
   if(pm<0){py--;pm=11;}
   const pmk2=mk(py,pm);
@@ -1236,17 +1162,17 @@ function openCloseModal(){
   const gross=parseFloat((state.income&&state.income[mk2]&&state.income[mk2].gross)||0)||0;
   const delta=prevSpent>0?spent-prevSpent:null;
   const label=MONTHS_FULL[state.currentMonth]+' '+state.currentYear;
-  // Build modal content
+
   let details='<strong>'+label+'</strong><br>Spent: $'+spent.toFixed(2);
   if(gross>0){ const leftover=gross-spent; details+=' &nbsp;·&nbsp; Income: $'+gross.toFixed(2)+(leftover>=0?' &nbsp;·&nbsp; Left over: $'+leftover.toFixed(2):''); }
   if(delta!==null){ details+='<br><span style="color:var(--muted);font-size:.85rem">'+(delta>=0?'↑ $'+delta.toFixed(2)+' vs prev month':'↓ $'+Math.abs(delta).toFixed(2)+' vs prev month')+'</span>'; }
-  // Find top category
+
   let topCat='', topVal=0;
   const rowIdx={};
   Object.keys(state.cells||{}).forEach(k=>{ const parts=k.split('|'); if(parts.length===3&&parts[0]===mk2){const n=parseFloat(state.cells[k])||0;if(n>0){if(!rowIdx[parts[1]])rowIdx[parts[1]]=0;rowIdx[parts[1]]+=n;}}});
   getRows(mk2).forEach(row=>{ if(!row.parentId&&rowIdx[row.id]>topVal){topVal=rowIdx[row.id];topCat=row.label;}});
   if(topCat) details+='<br><span style="color:var(--muted);font-size:.85rem">Largest: '+escapeHtml(topCat)+' ($'+topVal.toFixed(2)+')</span>';
-  // Show modal
+
   const overlay=document.getElementById('close-modal-overlay');
   if(!overlay) return;
   document.getElementById('close-modal-body').innerHTML=details;
@@ -1260,13 +1186,11 @@ function confirmClose(){
   saveLocal(); save();
   _closeModalOverlay();
   updateCloseBar();
-  // Update month nav dropdown to show lock badge
+
   populateMonthJump();
-  // Re-render so the month's read-only state (disabled inputs/labels, locked controls)
-  // applies immediately, not only after the next navigation.
+
   render();
-  // B (Playful): celebrate closing a month, with a bigger burst + warmer line if it
-  // closed in surplus (income recorded and more than what was spent).
+
   if(window.fiappCelebrate){
     let _spent=0;
     const _cols=(state.colsByMonth&&state.colsByMonth[mk2])||state.cols||[];
@@ -1279,9 +1203,7 @@ function confirmClose(){
 function cancelClose(){
   _closeModalOverlay();
 }
-// W8c: focus trap + Esc-close + focus restore for the close-month dialog —
-// extends the pattern the small popups already use (Esc removes, focus the
-// first control) to a full dialog with multiple controls and a real backdrop.
+
 let _closeModalOpener=null;
 function _modalFocusables(overlay){
   return Array.from(overlay.querySelectorAll('button:not([disabled]),[tabindex]:not([tabindex="-1"])'));
@@ -1312,26 +1234,25 @@ function _closeModalOverlay(){
   _closeModalOpener=null;
 }
 
-
 function isForecastMonth(){
   const now=new Date();
   return state.currentYear>now.getFullYear()||(state.currentYear===now.getFullYear()&&state.currentMonth>now.getMonth());
 }
 function updateForecastUI(){
   const fc=isForecastMonth();
-  
+
   const bar=document.getElementById('forecast-bar');
   if(bar) bar.style.display=fc?'flex':'none';
-  
+
   const ip=document.querySelector('.income-panel');
   if(ip) ip.classList.toggle('forecast-panel',fc);
-  
+
   const bm=document.getElementById('budget-month');
   if(bm){
     bm.querySelectorAll('.forecast-badge').forEach(b=>b.remove());
     if(fc){ const b=document.createElement('span');b.className='forecast-badge';b.textContent='📋 Forecast';bm.appendChild(b); }
   }
-  
+
 }
 function copyLastMonth(){
   if(!isForecastMonth()) return;
@@ -1347,8 +1268,7 @@ function copyLastMonth(){
   });
   if(!state.income[curMk]){
     const pi=state.income[prevMk];
-    // Carry the taxCurrency stamp too - dropping it left the copied figure unconvertible
-    // when the home currency later changed (relabeled without conversion).
+
     if(pi) state.income[curMk]={gross:pi.gross||'',tax:pi.tax||'',taxCurrency:pi.taxCurrency||''};
   }
   save(); render(); syncIncomeInputs();
@@ -1358,7 +1278,7 @@ function useAverages(){
   if(!isForecastMonth()) return;
   snapshot();
   const curMk=currentMK();
-  
+
   const srcMonths=[];
   for(let i=1;i<=3;i++){
     let pm=state.currentMonth-i, py=state.currentYear;
@@ -1387,17 +1307,14 @@ function showForecastToast(msg){
   window._fcToastT=setTimeout(()=>t.classList.remove('show'),3500);
 }
 
-
 function ck(rId,cId){ return currentMK()+'|'+rId+'|'+cId; }
 function getRawCell(rId,cId){ return state.cells[ck(rId,cId)]||''; }
 function getCell(rId,cId){ return safeNum(state.cells[ck(rId,cId)]); }
 function setCell(rId,cId,v){ state.cells[ck(rId,cId)]=v; save(); }
 
-
 function children(rId, mk2){ return getRows(mk2).filter(r=>r.parentId===rId); }
 function hasChildren(rId, mk2){ return getRows(mk2).some(r=>r.parentId===rId); }
 function isCollapsed(rId){ return state.collapsed[rId]===true; }
-
 
 function rowTotal(rId){
   const row=getRows().find(r=>r.id===rId);
@@ -1425,25 +1342,15 @@ function colTotal(cId){
 }
 function _homeCur(){ try{ return localStorage.getItem('fiapp_analytics_currency')||'USD'; }catch(e){ return 'USD'; } }
 function _homePfx(){ var c=_homeCur(); return c==='USD'?'$':c+' '; }
-// USD -> home-currency multiplier (expRatesCache is a USD-based table). 1 when home is
-// USD or rates haven't loaded yet.
+
 function _homeRate(){ var c=_homeCur(); return c==='USD'?1:(expRatesCache[c]||1); }
-// Converts a plain amount between two currencies via the USD-based expRatesCache table.
-// A no-op (returns amount unchanged) until rates have loaded - callers that care should
-// check Object.keys(expRatesCache).length first.
+
 function _convBetween(amount,fromCur,toCur){
   if(!amount||fromCur===toCur) return amount;
   var usd=fromCur==='USD'?amount:(expRatesCache[fromCur]?amount/expRatesCache[fromCur]:amount);
   return toCur==='USD'?usd:usd*(expRatesCache[toCur]||1);
 }
-// Currency symbols (verified renderable against the app's 'Inter' font stack).
-// JPY/CNY and the $-family currencies use their standard international disambiguation
-// prefixes (JP¥/CN¥, US$/HK$/S$/C$/A$/Mex$) since a bare ¥ or $ would be ambiguous
-// with each other. AED/CHF have no standardized single-glyph symbol, so they keep
-// showing the ISO code. SAR does have one now (U+20C1 SAUDI RIYAL SIGN, Unicode 17.0,
-// Sept 2025) but it's deliberately left out: Inter (this app's font) doesn't have the
-// glyph yet (open issue: github.com/rsms/inter/issues/842) and the codepoint is too
-// new for reliable cross-device font support. Revisit once that support lands.
+
 const CUR_SYMBOLS={USD:'US$',EUR:'€',GBP:'£',JPY:'JP¥',CNY:'CN¥',INR:'₹',KRW:'₩',THB:'฿',HKD:'HK$',SGD:'S$',CAD:'C$',AUD:'A$',MXN:'Mex$',BRL:'R$',MYR:'RM'};
 function _curSymbol(c){ return CUR_SYMBOLS[c]||c; }
 function fmt(n){ return _homePfx()+Math.max(0,n).toFixed(2); }
@@ -1568,7 +1475,6 @@ function updateGrandTotal(){
 }
 function updateAll(rId){ updateRowTotal(rId); updateGrandTotal(); if(chartVisible) renderChart(); }
 
-
 function monthIncomeObj(){
   const key=currentMK();
   if(!state.income[key]){
@@ -1594,25 +1500,13 @@ function onIncomeInput(){
 }
 function syncIncomeInputs(){
   const obj=monthIncomeObj();
-  // Tax is hand-entered (unlike gross, which always mirrors the Income Tracker live), so
-  // it's stamped with the currency it was entered in. If the home/analytics currency has
-  // since changed (e.g. on the account page), rebase the stored figure into the new
-  // currency here instead of silently treating the old number as if it were already in
-  // the new currency (that mismatch could make tax exceed income - see bug report).
+
   const homeCur=_homeCur();
-  // Rebase EVERY month's stored tax into the new home currency, not just the month on
-  // screen. Per-record `taxCurrency` stamps say what each figure is denominated in, but
-  // stamps can be missing (tax saved before stamping existed, or copied forward by the
-  // forecast tools), so the blob also carries `state.taxHomeCur` - the home currency its
-  // tax figures were written in - which backfills any unstamped record. Without that
-  // backfill an unstamped figure was silently relabeled to the new currency without ever
-  // being converted (the "US$ 21783.28 -> RUB 21783.28" bug).
+
   {
     let changed=false;
     const recs=state.income||{};
-    // One-time migration: infer the blob's denomination from any existing stamp (every
-    // write path stamps with the then-current home currency, so any stamp is evidence);
-    // otherwise assume the current home currency.
+
     if(!state.taxHomeCur){
       let inferred=null;
       Object.keys(recs).forEach(function(k){
@@ -1621,16 +1515,12 @@ function syncIncomeInputs(){
       state.taxHomeCur=inferred||homeCur;
       changed=true;
     }
-    // Backfill unstamped tax records with the blob denomination (no conversion here).
+
     Object.keys(recs).forEach(function(k){
       const rec=recs[k];
       if(rec && rec.tax && !rec.taxCurrency){ rec.taxCurrency=state.taxHomeCur; changed=true; }
     });
-    // Convert stamped records that differ from the current home currency - but only when
-    // BOTH codes are actually quoted in the rate table (or are USD, the table's base).
-    // _convBetween falls back to a 1:1 rate for unknown codes, and restamping after a 1:1
-    // "conversion" would permanently mislabel the figure, so never restamp without a real
-    // conversion; a skipped record keeps its stamp and converts on a later pass.
+
     const canConv=function(c){ return c==='USD'||typeof expRatesCache[c]==='number'; };
     if(Object.keys(expRatesCache).length){
       Object.keys(recs).forEach(function(k){
@@ -1642,13 +1532,10 @@ function syncIncomeInputs(){
           changed=true;
         }
       });
-      // The blob denomination follows the home currency once a rates-backed pass has run
-      // (only if the new home is convertible - otherwise keep the truthful old value).
+
       if(state.taxHomeCur!==homeCur && canConv(homeCur)){ state.taxHomeCur=homeCur; changed=true; }
     }
-    // A rebase/stamp is a real data change, not per-device view-state: it must reach the
-    // server (syncToServer sets the dirty flag; saveLocal alone does not), or the next
-    // loadFromServer overwrites it with the stale blob and the conversion is lost.
+
     if(changed){ saveLocal(); syncToServer(); }
   }
   document.getElementById('inp-gross').value=obj.gross||'';
@@ -1660,8 +1547,7 @@ function syncIncomeInputs(){
   syncFromIncomeTracker(currentMK());
 }
 function applyIncomeToYear(){
-  // Gross is always synced live from the Income Tracker per month (never manual), so
-  // only tax/deductions - the one field still entered by hand here - gets copied.
+
   snapshot();
   const obj=monthIncomeObj();
   for(let m=0;m<12;m++){
@@ -1695,7 +1581,7 @@ function updateIncomeSummary(){
   const remEl=document.getElementById('disp-remaining');
   remEl.textContent=gross>0?(_homePfx()+Math.abs(rem).toFixed(2)+(rem<0?' over budget':'')):'-';
   remEl.className='income-computed '+(rem<0?'neg':'pos');
-  // Phase 4c — end-of-month projection
+
   const projEl=document.getElementById('eom-projection');
   if(projEl){
     const now2=new Date();
@@ -1712,7 +1598,6 @@ function updateIncomeSummary(){
   }
 }
 
-// ── Batch D Wave 4: header stat strip (spent+delta, budget-left+bar, daily pace) ──
 function _prevMK(mk2){
   var parts=mk2.split('-'); var py=parseInt(parts[0],10), pm=parseInt(parts[1],10)-1;
   pm--; if(pm<0){py--;pm=11;}
@@ -1720,16 +1605,9 @@ function _prevMK(mk2){
 }
 function updateStatStrip(){
   var spentEl=document.getElementById('stat-spent');
-  if(!spentEl) return; // page has no stat strip (shouldn't happen on expenses, guards anyway)
+  if(!spentEl) return;
   var mk2=currentMK();
-  // grandTotal() (same figure the budget panel calls "Total Expenses This Month") is the
-  // source of truth: unlike _monthSpendTotal()'s raw cell sum, it resolves linked
-  // subscription rows via virtualSubChildren() instead of state.cells, which is empty
-  // for those rows. _monthSpendTotal() is still fine for the *previous* month side of
-  // the delta below - it's a directional comparison, not a headline figure, and computing
-  // an exact prior-month subscription total would mean re-plumbing virtualSubChildren()
-  // (used in 8 places, all implicitly bound to the current month) to accept a month
-  // argument - the same simplification checkSpendTrend() already makes for its own trend text.
+
   var spent=grandTotal();
   var prevSpent=_monthSpendTotal(_prevMK(mk2));
   spentEl.textContent=fmt(spent);
@@ -1777,21 +1655,16 @@ function updateStatStrip(){
   }
 }
 
-// Phase: overspend nudge — pace-vs-calendar projection for the live current
-// month. Fires only when spend is *materially* ahead of the calendar (not
-// just slightly), and the linear projection actually crosses the goal/income.
-// Picks at most one nudge (worst category, else overall) — a single firm
-// signal rather than a wall of pastel pills. Per-category/month dismissible.
 function _nudgeDismissKey(scopeKey){ return 'fiapp_nudge_dismissed_'+currentMK()+'_'+scopeKey; }
 function computeOverspendNudge(){
   const now=new Date();
   const isCurrent=state.currentYear===now.getFullYear()&&state.currentMonth===now.getMonth();
   if(!isCurrent) return null;
   const daysPassed=now.getDate();
-  if(daysPassed<7) return null; // too early in the month for a pace signal to be meaningful
+  if(daysPassed<7) return null;
   const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   const timeFraction=daysPassed/daysInMonth;
-  const MATERIAL_GAP=0.15; // spend-fraction must be >15 percentage points ahead of calendar pace
+  const MATERIAL_GAP=0.15;
 
   let worst=null;
   getRows().filter(r=>!r.parentId).forEach(row=>{
@@ -1846,7 +1719,6 @@ function updateOverspendNudge(){
   };
 }
 
-
 function _fmtMkLabel(mk2){
   const [y,m]=mk2.split('-');
   return MONTHS_SHORT[parseInt(m)-1]+' '+y;
@@ -1858,10 +1730,6 @@ async function loadTaxCarryover(){
     const isFresh = t.consumed===false || (t.ts && t.ts>(state.lastTaxTs||0));
     if(!isFresh) return;
 
-    // The tax result is in the calculator country's currency (US->USD, IN->INR, HK->HKD).
-    // The budget card is in the home currency and gross is converted, so the tax must be
-    // converted too - otherwise afterTax mixes currencies (e.g. an INR tax number treated
-    // as HKD dwarfs the income and zeroes out after-tax). Rates load after boot, so await.
     await fetchExpRates();
     const srcCcy = t.country==='IN'?'INR':t.country==='HK'?'HKD':'USD';
     const home=_homeCur();
@@ -1885,8 +1753,7 @@ async function loadTaxCarryover(){
     state.lastTaxTs = t.ts || Date.now();
     localStorage.setItem(TAX_KEY,JSON.stringify(t));
     save();
-    // Boot's syncIncomeInputs()/updateIncomeSummary() ran before this async work finished,
-    // so refresh the input + summary to show the freshly-applied tax.
+
     try{ syncIncomeInputs(); }catch(_){}
     try{ updateIncomeSummary(); }catch(_){}
 
@@ -1900,7 +1767,6 @@ async function loadTaxCarryover(){
     document.getElementById('tax-link').style.display='none';
   }catch(e){ console.warn('FiApp: loadTaxCarryover failed -',e.message); }
 }
-
 
 async function _incomeMonthTotalUSD(incomeState, mk2){
   await fetchExpRates();
@@ -1924,16 +1790,11 @@ async function _incomeMonthTotalUSD(incomeState, mk2){
   }
   return total;
 }
-// Gross income is never typed by hand here - it always mirrors the Income Tracker for
-// the viewed month (converted to home currency), so the budget panel can't drift out of
-// sync with home/analytics the way a manually-entered figure used to. When the Income
-// Tracker has nothing for this month, the (i) badge points the user there instead of
-// accepting a local override.
+
 async function syncFromIncomeTracker(mk2){
   const icon=document.getElementById('income-sync-icon');
   const grossEl=document.getElementById('inp-gross');
-  // During walkthrough, fiapp_income_v1 may still hold real pre-tour data (user hasn't
-  // saved income yet this session). Skip auto-fill so budget stays clean.
+
   if(isWalkthroughActive()){ if(icon) icon.style.display='none'; return; }
   try{
     const incomeState=JSON.parse(localStorage.getItem(INCOME_KEY));
@@ -1957,11 +1818,9 @@ async function syncFromIncomeTracker(mk2){
   }catch(e){}
 }
 
-
 function toggleCollapse(rowId){ snapshot(); state.collapsed[rowId]=!isCollapsed(rowId); save(); render(); }
 function expandAll(){ snapshot(); getRows().filter(r=>!r.parentId&&hasChildren(r.id)).forEach(r=>state.collapsed[r.id]=false); save(); render(); }
 function collapseAll(){ snapshot(); getRows().filter(r=>!r.parentId&&hasChildren(r.id)).forEach(r=>state.collapsed[r.id]=true); save(); render(); }
-
 
 let openMenu=null;
 function closeMenu(){ if(openMenu){openMenu.remove();openMenu=null;} }
@@ -1974,33 +1833,30 @@ document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.row-gear-men
 function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
   _closeGearMenu();
-  // Clean up any orphaned colour inputs from a previous cancelled picker
+
   document.querySelectorAll('input[data-gear-clr]').forEach(el=>el.remove());
 
   const menu=document.createElement('div'); menu.className='row-gear-menu';
 
-  // Regular action button — stopPropagation prevents document click handler closing openMenu
   function mBtn(label,fn){
     const b=document.createElement('button');b.textContent=label;
     b.addEventListener('click',e=>{e.stopPropagation();_closeGearMenu();fn();});
     menu.appendChild(b);
   }
 
-  // Colour item: label+input pattern — user's tap on the label is a trusted event,
-  // so the native colour picker opens. No synthetic .click() needed.
   function mColorItem(labelText, initVal, onInput){
     const id='_gc_'+Math.random().toString(36).slice(2,8);
     const inp=document.createElement('input');
     inp.type='color';inp.id=id;inp.value=initVal;
     inp.setAttribute('data-gear-clr','1');
-    // Off-screen but not display:none — keeps it accessible for label activation
+
     inp.style.cssText='position:fixed;opacity:0;top:50%;left:50%;pointer-events:none;';
     inp.addEventListener('input',()=>onInput(inp.value));
     inp.addEventListener('change',()=>{ _closeGearMenu();save();inp.remove(); });
-    document.body.appendChild(inp); // outside menu so it survives menu removal
+    document.body.appendChild(inp);
 
     const lbl=document.createElement('label');lbl.htmlFor=id;lbl.textContent=labelText;
-    lbl.addEventListener('click',e=>e.stopPropagation()); // don't let click close openMenu
+    lbl.addEventListener('click',e=>e.stopPropagation());
     menu.appendChild(lbl);
   }
 
@@ -2033,7 +1889,7 @@ function _openGearMenu(btn, row, rhTd, swatch, textSwatch, isChild){
   menu.style.cssText=`position:fixed;top:${r.bottom+4}px;left:${left}px;z-index:9999;`;
   document.body.appendChild(menu);
   _gearMenuEl=menu;
-  // Flip upward if menu clips the bottom of the viewport
+
   const mh=menu.getBoundingClientRect().height;
   if(r.bottom+4+mh>window.innerHeight-8){
     menu.style.top=Math.max(8,r.top-4-mh)+'px';
@@ -2104,14 +1960,10 @@ function showSubMenu(btn, row){
   if(mRect.right > window.innerWidth - 8){
     menu.style.left=Math.max(4, window.innerWidth - mRect.width - 8)+'px';
   }
-  // position:fixed is set once from btn's rect above - if the page (or an inner
-  // scroll container) scrolls afterward, the button moves but the menu doesn't,
-  // so it visually detaches from its anchor. Close it instead of tracking it.
+
   document.addEventListener('scroll',closeMenu,{capture:true,once:true});
 }
 
-
-// ── Phase 4h: Row label suggestions ──
 function _allHistoricalLabels(){
   const labels=new Set();
   (state.rows||[]).forEach(r=>{if(r.label) labels.add(r.label);});
@@ -2127,10 +1979,10 @@ function _showLabelSuggest(spanEl){
   if(!dd){
     dd=document.createElement('div');dd.id='_label-suggest-dd';
     dd.style.cssText='position:fixed;z-index:9999;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;max-height:180px;overflow-y:auto;';
-    // Keep the contenteditable span focused until the click resolves.
+
     dd.addEventListener('mousedown',function(e){e.preventDefault();});
     dd.addEventListener('touchstart',function(e){e.preventDefault();},{passive:false});
-    // Delegated click — reads the safely-stored label from data-lbl (no inline JS).
+
     dd.addEventListener('click',function(e){
       var item=e.target.closest('[data-lbl]');
       if(item) _pickLabel(item,item.dataset.lbl);
@@ -2152,7 +2004,6 @@ function _pickLabel(itemEl, label){
   _hideLabelSuggest();
 }
 
-// ── Phase 4g: First-use row templates ──
 var _TEMPLATES={
   Default:    ['Groceries','Subscriptions','Travel','Savings'],
   Student:    ['Rent','Food','Transport','Books & Supplies','Entertainment','Subscriptions','Misc'],
@@ -2261,9 +2112,7 @@ function renderTemplatePrompt(){
   _setSelected(selectedName);
   _renderPreview(selectedName);
 }
-// W2: empty-state teaching for the 🎯 goal feature — explains what it does
-// before the user has ever used it. Shown only once there's something to set
-// a goal on; hidden permanently once dismissed or once any goal exists.
+
 function updateGoalHint(){
   const el=document.getElementById('goal-hint');
   if(!el) return;
@@ -2345,15 +2194,14 @@ function deleteRow(id){
   const toDelete=[id,...kids];
   state.rowsByMonth[mk2]=getRows(mk2).filter(r=>!toDelete.includes(r.id));
   Object.keys(state.cells).forEach(k=>{ if(toDelete.some(d=>k.includes('|'+d+'|'))) delete state.cells[k]; });
-  // If the last subcategory of a parent was just deleted, clear the parent's stale cells
-  // for this month so the parent resets to blank rather than re-exposing pre-subcategory values
+
   const lastChildGone=parentId&&!getRows(mk2).some(r=>r.parentId===parentId);
   if(lastChildGone){
     Object.keys(state.cells).forEach(k=>{ if(k.startsWith(mk2+'|'+parentId+'|')) delete state.cells[k]; });
   }
   save();
   if(lastChildGone){
-    // Full re-render needed: DOM surgery wouldn't update the parent row from italic aggregate to editable
+
     render();
   } else {
     (function(){var tbody=document.querySelector('#sheet tbody');if(!tbody){render();return;}toDelete.forEach(function(rId){var tr=tbody.querySelector('[data-tr-row-id="'+rId+'"]');if(tr)tr.remove();});updateGrandTotal();})();
@@ -2397,7 +2245,6 @@ let _dragRowId=null;
 let _activeDropEl=null;
 let _dragColId=null;
 
-
 function escapeHtml(s){
   return String(s==null?'':s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -2407,7 +2254,6 @@ function safeNum(v,max=1e12){
   const n=parseFloat(v);
   return (isFinite(n)&&n>=-max&&n<=max)?n:0;
 }
-
 
 let chartInstance=null, chartVisible=false, chartMode='monthly', chartType='bar';
 function toggleChart(){
@@ -2479,9 +2325,7 @@ function renderChart(){
   const isDark=document.documentElement.classList.contains('dark');
   const fgColor=isDark?'#e2e8f0':'#1f2937';
   const gridColor=isDark?'rgba(255,255,255,.1)':'rgba(0,0,0,.08)';
-  // Update in place when the chart type hasn't changed — a theme change or a data edit
-  // then just recolors/reflows the existing chart instead of replaying the entrance
-  // animation that a destroy+recreate would trigger.
+
   if(chartInstance && chartInstance.config.type===chartType){
     chartInstance.data.labels=labels;
     const ds=chartInstance.data.datasets[0];
@@ -2537,7 +2381,6 @@ function renderTop3(data,label){
   el.innerHTML='<h4>'+escapeHtml(label||'Top 3')+'</h4><ol>'+top.map(t=>`<li><strong>${escapeHtml(t.label)}</strong> - $${parseFloat(t.value.toFixed(2))}</li>`).join('')+'</ol>';
 }
 
-
 let resetTimer=null;
 function resetAll(e){
   if(_isClosedMonth(currentMK())){showToast('🔒 Month is locked.');return;}
@@ -2557,7 +2400,6 @@ function resetAll(e){
     resetTimer=setTimeout(()=>{delete btn.dataset.arm;btn.textContent='⚠ Reset';btn.classList.remove('armed');},2500);
   }
 }
-
 
 function attachColResize(handle,col){
   function startResize(clientX){
@@ -2610,7 +2452,6 @@ function attachRowResize(handle,row,tr){
   },{passive:false});
 }
 
-
 function loadSubsState(){ if(isWalkthroughActive()) return null; try{ return JSON.parse(localStorage.getItem(SUBS_KEY))||null; }catch{ return null; } }
 
 function calcSubMonthCostInExp(r, subs, yr, mo){
@@ -2635,7 +2476,7 @@ function calcSubMonthCostInExp(r, subs, yr, mo){
   const mStart=new Date(yr,mo,1), mEnd=new Date(yr,mo+1,0,23,59,59);
   if(start>mEnd) return 0;
   if(cancel&&cancel<mStart) return 0;
-  
+
   let trialEnd=null;
   if(trialV!=='none'){
     const td2=new Date(start);
@@ -2645,7 +2486,7 @@ function calcSubMonthCostInExp(r, subs, yr, mo){
     else if(trialV==='2months'){td2.setMonth(td2.getMonth()+2);td2.setDate(td2.getDate()-1);trialEnd=td2;}
     else if(trialV==='3months'){td2.setMonth(td2.getMonth()+3);td2.setDate(td2.getDate()-1);trialEnd=td2;}
   }
-  
+
   let events=0;
   if(billing==='Monthly'){
     const chargeDay=start.getDate();
@@ -2673,17 +2514,12 @@ function calcSubMonthCostInExp(r, subs, yr, mo){
       d=new Date(d.getFullYear()+Math.floor(nm/12),nm%12,d.getDate());
     }
   }
-  
+
   const cur=(subs.rowCurrencies||{})[r.id]||'USD';
   const usdCost=cur==='USD'?rawCost:(expRatesCache[cur]?rawCost/expRatesCache[cur]:rawCost);
-  // Return in the home currency so the linked Subscriptions row matches the rest of
-  // the tracker (whose cells are home-currency) and the home/analytics snapshot, which
-  // both convert via the home rate. Falls back to 1 (USD-equivalent) until rates load;
-  // fetchExpRates() re-renders once they do.
+
   return events*usdCost*_homeRate();
 }
-
-
 
 function getSubWeekCosts(r, subs, yr, mo){
   const cost=calcSubMonthCostInExp(r,subs,yr,mo);
@@ -2705,7 +2541,7 @@ function getSubWeekCosts(r, subs, yr, mo){
     const perEvent=cost/days.length;
     days.forEach(day=>{ weeks[dayToW(day)]+=perEvent; });
   } else {
-    
+
     const day=startStr?new Date(startStr+'T12:00:00').getDate():1;
     weeks[dayToW(day)]=cost;
   }
@@ -2723,12 +2559,11 @@ function virtualSubChildren(){
   }).filter(c=>c.cost>0);
 }
 
-
 function renderTableHeader(table){
   const cg=document.createElement('colgroup');
   const _mob=window.innerWidth<640;
   const _vw=window.innerWidth;
-  // Mobile: label ~30% vw, data cols 90px fixed. Table wider than viewport — horizontal scroll is fine.
+
   const _hdrW=_mob?Math.max(90,Math.round(_vw*0.30)):state.headerColWidth||185;
   const _dataW=_mob?90:null;
   const hc=document.createElement('col');hc.id='cg-hdr';hc.style.width=_hdrW+'px';cg.appendChild(hc);
@@ -2875,9 +2710,7 @@ function renderTableBody(table){
       rowLabel.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();rowLabel.blur();}if(e.key==='Escape')_hideLabelSuggest();});
     }
     rhIn.appendChild(colorWrap);rhIn.appendChild(tcWrap);rhIn.appendChild(rowLabel);
-    // row.recurring is a row-wide flag (true if ANY month is governed by a rule), so it stays
-    // true after delinking just the viewed month - check monthInScope too, or a delinked month
-    // still shows the badge and reads as "still part of the chain" when it isn't anymore.
+
     {
       const _badgeRule=row.recurring?_recRuleFor(row.id):null;
       if(_badgeRule && FiRecurring.monthInScope(_badgeRule, currentMK())){const rb=document.createElement('span');rb.className='row-recur-badge';rb.textContent='🔁';rb.title='Recurring';rb.setAttribute('aria-label','Recurring');rb.style.cssText='font-size:.75em;opacity:.6;margin-left:.25rem;pointer-events:none;flex-shrink:0;';rhIn.appendChild(rb);}
@@ -2889,7 +2722,7 @@ function renderTableBody(table){
       dd.appendChild(addBtn);
       rhIn.appendChild(dd);
     }
-    // Desktop recurring entry - available on subcategory rows too (mobile uses the gear menu).
+
     if(_recEligible(row, isChild)){
       const _rule=_recRuleFor(row.id);
       const recBtn=document.createElement('button');recBtn.className='sub-add-btn recur-mark-btn';
@@ -2909,9 +2742,7 @@ function renderTableBody(table){
       rhIn.appendChild(linkBtn);
     }
     {
-      // Row options gear: was desktop-parent-only, but _openGearMenu already branches
-      // correctly on isChild for every item it offers (colours, recurring, delete), so
-      // subcategory rows get the same menu (minus +Sub, which stays parent-only above).
+
       const gearBtn=document.createElement('button');
       gearBtn.className='row-gear-btn';gearBtn.textContent='⚙';gearBtn.title='Row options';gearBtn.setAttribute('aria-label','Row options');
       gearBtn.addEventListener('click',e=>{ e.stopPropagation();_openGearMenu(gearBtn,row,rhTd,swatch,textSwatch,isChild); });
@@ -2922,7 +2753,7 @@ function renderTableBody(table){
     tr.appendChild(rhTd);
     const isLinkedRow=row.linked==='subscriptions'||row.snapshotLinkedRow;
     const linkedVC=isLinkedRow?(row.linked==='subscriptions'?virtualSubChildren():((row.subsSnapshotByMonth||{})[currentMK()]||virtualSubChildren())):null;
-    // Monthly recurring row: one wide cell spanning the week columns instead of N cells.
+
     const _recRuleRow=(!hasKids&&!isLinkedRow)?_recRuleFor(row.id):null;
     const _recMonthly=_recRuleRow && _recRuleRow.mode==='monthly' && FiRecurring.monthInScope(_recRuleRow, currentMK());
     if(_recMonthly){
@@ -3058,11 +2889,10 @@ function renderFooter(table){
 
 let _expandedCardId=null;
 
-// ── Mobile carousel layout ────────────────────────────────────────────────
 const _MC_LAYOUT_KEY='fiapp_mc_layout_v1';
-let _mcPanel=0; // carousel mode: 0=summary, 1=cards
-window._mcSetPanel=function(i){_mcPanel=i;}; // called by walkthrough in base.html
-// Ensure mobile cards are visible for walkthrough steps that need them
+let _mcPanel=0;
+window._mcSetPanel=function(i){_mcPanel=i;};
+
 window._wtShowCards=function(){
   if(window.innerWidth>=640) return;
   if(getRows().length===0){
@@ -3219,8 +3049,7 @@ function renderMobileCards(){
     const _goal=state.goals?.[_goalKey(row.id)];
     if(_goal&&!isNaN(_goal)&&_goal>0){
       const _pct=Math.round(_spent/_goal*100);
-      // Darker shades so the white pill text clears WCAG AA (the bright -500 hues used for
-      // the goal-status text elsewhere fail as a white-on-fill badge). Theme-independent.
+
       totalEl.style.background=_pct>=100?'#b91c1c':_pct>=75?'#b45309':'#15803d';
       totalEl.style.color='#fff';
     }
@@ -3318,31 +3147,25 @@ function renderMobileCards(){
 }
 
 function adjustBodyWidth(){
-  // Centring is handled in CSS: the wider .app-canvas.canvas-wide column is centred in the
-  // viewport (margin:0 auto) and the table is centred inside it (margin-inline:auto), and the
-  // .sheet-wrap scrolls horizontally when the table is genuinely wider than that column.
-  // We no longer shrink-wrap the <body> to the table — because the body sits to the right of
-  // the fixed sidebar (margin:0), sizing it to the table jammed the whole block to the left
-  // with dead space on the right, and capped tables couldn't scroll. Clear any stale inline cap.
+
   document.body.style.maxWidth='';
 }
 window.addEventListener('resize',adjustBodyWidth);
 
-// ── Tier 3B: smart week-column visibility on narrow viewports ────────────────
-let _mobileColPair=null; // null=auto, 0=first-half, 1=second-half
+let _mobileColPair=null;
 
 function applyMobileColVisibility(mk){
   const cols=getCols();
   const MOBILE=window.innerWidth<640;
-  // Remove any existing toggle button
+
   const old=document.getElementById('mobile-col-toggle');if(old) old.remove();
-  // On wide screens show everything and clear hidden state
+
   if(!MOBILE||cols.length<3){
     const tbl=document.getElementById('sheet');
     if(tbl) tbl.querySelectorAll('td,th').forEach(el=>el.style.display='');
     return;
   }
-  // Determine which pair to show
+
   let pair=_mobileColPair;
   if(pair===null){
     const today=new Date();
@@ -3353,28 +3176,28 @@ function applyMobileColVisibility(mk){
       pair=0;
     }
   }
-  // Col indices for pair 0: indices 0,1; pair 1: indices 2,3 (or all remaining)
+
   const showSet=new Set();
   const midpoint=Math.floor(cols.length/2);
   const from=pair===0?0:midpoint;
   const to=pair===0?midpoint:cols.length;
   for(let i=from;i<to;i++) showSet.add(cols[i].id);
-  // Apply visibility to every cell column
+
   const tbl=document.getElementById('sheet');
   if(!tbl) return;
   cols.forEach((col,idx)=>{
     const show=showSet.has(col.id);
-    // Header th (has data-col-id), body td (has data-col-id), footer td (nth-child based)
+
     tbl.querySelectorAll('[data-col-id="'+col.id+'"]').forEach(el=>{ el.style.display=show?'':'none'; });
-    // colgroup col elements
+
     const cg=document.getElementById('cg-'+col.id);if(cg) cg.style.display=show?'':'none';
-    // body tds by column position (data cells don't have data-col-id)
-    const colPos=idx+1; // 0=rh-cell/label, 1=first data col
+
+    const colPos=idx+1;
     tbl.querySelectorAll('tbody tr, tfoot tr').forEach(tr=>{
       const td=tr.children[colPos];if(td) td.style.display=show?'':'none';
     });
   });
-  // Render toggle button
+
   const sheetWrap=document.querySelector('.sheet-wrap')||document.getElementById('sheet').parentElement;
   const btn=document.createElement('button');
   btn.id='mobile-col-toggle';
@@ -3390,8 +3213,7 @@ let _lastRenderW=window.innerWidth;
 window.addEventListener('resize',()=>{
   if(window.innerWidth>=640){ _mobileColPair=null; applyMobileColVisibility(currentMK()); }
   else { const ob=document.getElementById('mobile-col-toggle'); if(ob) ob.remove(); }
-  // Only re-render when WIDTH changes (keyboard open/close only changes height — re-rendering
-  // on height-only resize destroys the focused input and closes the keyboard immediately).
+
   const w=window.innerWidth;
   if(w===_lastRenderW) return;
   _lastRenderW=w;
@@ -3399,19 +3221,13 @@ window.addEventListener('resize',()=>{
   _resizeRenderTimer=setTimeout(()=>render(),300);
 });
 
-
-
-
 function expPad(s,n){ s=String(s); return s.length>=n?s:s+' '.repeat(n-s.length); }
 function expCsvEsc(v){
   let s=String(v==null?'':v);
-  // Formula-injection guard: a leading quote neutralizes spreadsheet formula triggers
-  // (=,+,-,@, tab, CR) in free-text cells. Skipped when the cell is a genuine number
-  // (e.g. "-50.00") so legitimate negative amounts aren't corrupted.
+
   if(/^[=+\-@\t\r]/.test(s)&&isNaN(Number(s))) s="'"+s;
   return /[,"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
 }
-
 
 function buildRowsArray(){
   const colLabels=getCols().map(c=>c.label);
@@ -3508,13 +3324,11 @@ function buildTsv(){
     .join('\r\n');
 }
 
-
 function gmailHref(subject, body){
   return 'https://mail.google.com/mail/?view=cm&fs=1&tf=1'
        + '&su='+encodeURIComponent(subject)
        + '&body='+encodeURIComponent(body);
 }
-
 
 function clipboardWrite(text){
   if(navigator.clipboard){
@@ -3530,15 +3344,12 @@ function clipboardWrite(text){
   }
 }
 
-
 function showExportFlash(msg){
   const f=document.getElementById('export-flash');if(!f) return;
   f.textContent=msg;f.classList.add('show');
   clearTimeout(window._exportFlashT);
   window._exportFlashT=setTimeout(()=>f.classList.remove('show'),2500);
 }
-
-
 
 function encodeBlob(obj){
   return 'FIAPP-'+obj.kind+'-V1:'+btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -3563,7 +3374,7 @@ function decodeBlob(str){
   if(obj.kind==='SUBS'){
     if(typeof obj.cells!=='object'||Array.isArray(obj.cells)) throw new Error('Invalid blob: bad cells object.');
   }
-  
+
   if(obj.rows.length>500)  throw new Error('Blob rejected: too many rows (max 500).');
   if(obj.cols.length>52)   throw new Error('Blob rejected: too many columns (max 52).');
   if(obj.kind==='EXP-FULL'){
@@ -3577,11 +3388,9 @@ function decodeBlob(str){
   return migrateBlob(obj);
 }
 function migrateBlob(obj){
-  
-  
+
   return obj;
 }
-
 
 function buildExpMonthBlob(){
   const mk2=currentMK();
@@ -3602,7 +3411,7 @@ function buildExpMonthBlob(){
 }
 
 function buildExpFullBlob(){
-  
+
   const cellsByMonth={};
   Object.keys(state.cells).forEach(k=>{
     const mk2=k.split('|')[0];
@@ -3641,11 +3450,10 @@ function buildExpFullBlob(){
   };
 }
 
-
 function _mergeRowsCols(blobRows, blobCols){
   const labelToId={};
   state.rows.forEach(r=>{ if(!r.parentId) labelToId[r.label]=r.id; });
-  
+
   const childKeyToId={};
   state.rows.forEach(r=>{
     if(r.parentId){
@@ -3654,7 +3462,7 @@ function _mergeRowsCols(blobRows, blobCols){
     }
   });
   const blobRowIdMap={};
-  
+
   blobRows.filter(r=>!r.parentId).forEach(br=>{
     if(labelToId[br.label]){
       blobRowIdMap[br.id]=labelToId[br.label];
@@ -3666,7 +3474,7 @@ function _mergeRowsCols(blobRows, blobCols){
       labelToId[br.label]=newId;
     }
   });
-  
+
   blobRows.filter(r=>r.parentId).forEach(br=>{
     const blobParent=blobRows.find(p=>p.id===br.parentId);
     const parentLabel=blobParent?blobParent.label:'';
@@ -3677,7 +3485,7 @@ function _mergeRowsCols(blobRows, blobCols){
     } else {
       const newId=uid();
       const nr=Object.assign({},br,{id:newId,parentId:localParentId});
-      
+
       const parentIdx=state.rows.findIndex(r=>r.id===localParentId);
       const lastKidIdx=state.rows.reduce((acc,r,i)=>r.parentId===localParentId?i:acc, parentIdx);
       state.rows.splice(lastKidIdx+1,0,nr);
@@ -3685,7 +3493,7 @@ function _mergeRowsCols(blobRows, blobCols){
       childKeyToId[key]=newId;
     }
   });
-  
+
   const colLblToId={};
   state.cols.forEach(c=>colLblToId[c.label]=c.id);
   const blobColIdMap={};
@@ -3725,12 +3533,12 @@ function importExpMonth(blob){
   Object.keys(state.cells).forEach(k=>{ if(k.startsWith(mk2+'|')) delete state.cells[k]; });
   const {blobRowIdMap, blobColIdMap}=_mergeRowsCols(blob.rows||[], blob.cols||[]);
   Object.entries(blob.cells||{}).forEach(([k,v])=>{
-    const parts=k.split('|'); 
+    const parts=k.split('|');
     const rId=blobRowIdMap[parts[1]], cId=blobColIdMap[parts[2]];
     if(rId&&cId) state.cells[mk2+'|'+rId+'|'+cId]=v;
   });
   if(blob.income) state.income[mk2]={gross:blob.income.gross||'',tax:blob.income.tax||''};
-  
+
   if(blob.rowsByMonth&&blob.rowsByMonth[blob.monthKey]){
     if(!state.rowsByMonth) state.rowsByMonth={};
     state.rowsByMonth[mk2]=JSON.parse(JSON.stringify(blob.rowsByMonth[blob.monthKey]));
@@ -3750,7 +3558,7 @@ function importExpFull(blob, selectedMonths){
   if(blob.rowsByMonth){ if(!state.rowsByMonth) state.rowsByMonth={}; Object.assign(state.rowsByMonth, JSON.parse(JSON.stringify(blob.rowsByMonth))); }
   if(blob.colsByMonth){ if(!state.colsByMonth) state.colsByMonth={}; Object.assign(state.colsByMonth, JSON.parse(JSON.stringify(blob.colsByMonth))); }
   selectedMonths.forEach(mk2=>{
-    
+
     Object.keys(state.cells).forEach(k=>{ if(k.startsWith(mk2+'|')) delete state.cells[k]; });
     const blobMonthCells=(blob.cellsByMonth||{})[mk2]||{};
     Object.entries(blobMonthCells).forEach(([k,v])=>{
@@ -3758,10 +3566,10 @@ function importExpFull(blob, selectedMonths){
       const rId=blobRowIdMap[parts[1]], cId=blobColIdMap[parts[2]];
       if(rId&&cId) state.cells[mk2+'|'+rId+'|'+cId]=v;
     });
-    
+
     if(blob.income && blob.income[mk2]) state.income[mk2]={gross:blob.income[mk2].gross||'',tax:blob.income[mk2].tax||''};
   });
-  
+
   if(blob.subsSnapshotByMonth){
     const lr=state.rows.find(r=>r.linked==='subscriptions'||r.snapshotLinkedRow);
     const rel={};
@@ -3769,7 +3577,6 @@ function importExpFull(blob, selectedMonths){
     if(Object.keys(rel).length) applySubsSnapshot(lr,rel);
   }
 }
-
 
 function openPasteModal(){
   const overlay=document.createElement('div');overlay.className='share-overlay';
@@ -3878,15 +3685,13 @@ function downloadText(filename, text, mime){
   downloadBlob(filename,new Blob([text],{type:mime||'text/plain;charset=utf-8'}));
 }
 
-
 let _xlsxLoaded=false,_xlsxLoading=null;
 function lazyLoadXlsx(){
   if(_xlsxLoaded) return Promise.resolve();
   if(_xlsxLoading) return _xlsxLoading;
   _xlsxLoading=new Promise((res,rej)=>{
     const s=document.createElement('script');
-    // ?v= matters here: /static/ is served with a 1-year max-age, so without the stamp a
-    // user who has exported once keeps the old vendored build until the cache expires.
+
     s.src='/static/js/vendor/xlsx.full.min.js?v='+(window.ASSET_V||'');
     s.onload=()=>{_xlsxLoaded=true;res();};
     s.onerror=()=>rej(new Error('Failed to load XLSX library'));
@@ -3904,12 +3709,8 @@ function exportXlsx(filename){
   }).catch(err=>showToast('Could not load XLSX library: '+err.message));
 }
 
-
 let _openExportMenu=null;
-// Hover-to-open, click-to-select: the submenu opens on mouseenter and stays open while
-// the pointer is over either the Export button or the submenu itself, closing shortly
-// after the pointer leaves both - like a native nested menu, instead of requiring a
-// click just to see the options.
+
 let _exportCloseTimer=null;
 function _cancelExportClose(){ if(_exportCloseTimer){clearTimeout(_exportCloseTimer);_exportCloseTimer=null;} }
 function _scheduleExportClose(){ _exportCloseTimer=setTimeout(closeExportMenu,200); }
@@ -3936,11 +3737,7 @@ function showExportMenu(ev){
     btn.addEventListener('click',e=>{e.stopPropagation();closeExportMenu();closeDropdown('dd-more');f.fn();});
     menu.appendChild(btn);
   });
-  // Flyout beside the Export row itself, not up near the "⋯" toggle: the parent overflow
-  // menu now stays open while this submenu is shown (hover-driven), so there's no reason
-  // to anchor near the toggle anymore - that only made sense when opening Export used to
-  // close the parent list out from under it. Anchor to the right edge of the parent menu,
-  // vertically aligned with the Export row, like a native nested menu.
+
   const exportRect=document.getElementById('export-btn').getBoundingClientRect();
   const parentRect=document.getElementById('dd-more-menu').getBoundingClientRect();
   menu.style.top=exportRect.top+'px';
@@ -3957,7 +3754,6 @@ function showExportMenu(ev){
   }
   setTimeout(()=>document.addEventListener('click',closeExportMenu,true),50);
 }
-
 
 async function shareSheet(){
   const text=buildTxt();
@@ -3983,7 +3779,6 @@ function showShareModal(title,text){
   const actions=document.createElement('div');actions.className='share-actions';
   const flash=document.createElement('span');flash.className='share-flash';
 
-  
   const copyBtn=document.createElement('button');copyBtn.className='btn btn-sm';copyBtn.textContent='📋 Copy';
   copyBtn.addEventListener('click',()=>{
     clipboardWrite(tsv).then(ok=>{
@@ -3992,23 +3787,20 @@ function showShareModal(title,text){
     });
   });
 
-  
   const emailTextBtn=document.createElement('a');emailTextBtn.className='btn btn-sm';emailTextBtn.textContent='📧 Email as Text';
   emailTextBtn.href=gmailHref(title,bodyText);emailTextBtn.target='_blank';emailTextBtn.rel='noopener noreferrer';
 
-  
   const emailXlsxBtn=document.createElement('a');emailXlsxBtn.className='btn btn-sm';emailXlsxBtn.textContent='📧 Email as XLSX';
   const ym=String(state.currentYear)+'-'+String(state.currentMonth+1).padStart(2,'0');
   const xlsxBody='I\'m sharing my FiApp expenses spreadsheet. Open FiApp at https://fiapp.onrender.com/expenses to view your own data.\n\nAttached XLSX file (saved to your Downloads folder): expenses-'+ym+'.xlsx';
   emailXlsxBtn.href=gmailHref(title,xlsxBody);emailXlsxBtn.target='_blank';emailXlsxBtn.rel='noopener noreferrer';
   emailXlsxBtn.addEventListener('click',()=>{
-    
+
     exportXlsx('expenses-'+ym+'.xlsx');
     flash.textContent='XLSX downloading - drag it into Gmail to attach.';
     setTimeout(()=>flash.textContent='',5000);
   });
 
-  
   const emailPasteBtn=document.createElement('a');emailPasteBtn.className='btn btn-sm';emailPasteBtn.textContent='📧 Email as Paste-link';
   const blob=encodeBlob(buildExpMonthBlob());
   const pasteBody=('I\'m sharing my FiApp expense data for '+MONTHS_SHORT[state.currentMonth]+' '+state.currentYear+'.\n\nPaste this block into the FiApp Expense Tracker at https://fiapp.onrender.com/expenses using the 📋 Paste button to load the data:\n\n'+blob).slice(0,2000);
@@ -4029,7 +3821,6 @@ function showShareModal(title,text){
   overlay.appendChild(modal);document.body.appendChild(overlay);
 }
 
-
 (function(){
   const tip=document.createElement('div');tip.id='swatch-tip';document.body.appendChild(tip);
   let hideT;
@@ -4038,11 +3829,11 @@ function showShareModal(title,text){
     const label=el.dataset.tip; if(!label) return;
     tip.textContent=label;
     tip.classList.add('show');
-    
+
     const r=el.getBoundingClientRect();
     tip.style.left=(r.left+r.width/2-tip.offsetWidth/2)+'px';
     tip.style.top=(r.top-tip.offsetHeight-6)+'px';
-    
+
     requestAnimationFrame(()=>{
       const r2=el.getBoundingClientRect();
       tip.style.left=Math.max(4,r2.left+r2.width/2-tip.offsetWidth/2)+'px';
@@ -4050,7 +3841,7 @@ function showShareModal(title,text){
     });
   }
   function hide(){ hideT=setTimeout(()=>tip.classList.remove('show'),80); }
-  
+
   document.addEventListener('mouseover',e=>{
     const h=e.target.closest('.tip-host[data-tip]');
     if(h) show(h); else hide();
@@ -4058,10 +3849,10 @@ function showShareModal(title,text){
   document.addEventListener('mouseout',e=>{
     if(!e.target.closest('.tip-host[data-tip]')) hide();
   });
-  
+
   document.addEventListener('touchstart',e=>{
     const h=e.target.closest('.tip-host[data-tip]');
-    
+
     document.querySelectorAll('.tip-host.tip-visible').forEach(el=>{ if(el!==h) el.classList.remove('tip-visible'); });
     if(h){
       h.classList.add('tip-visible');
@@ -4071,19 +3862,15 @@ function showShareModal(title,text){
     }
   },{passive:true});
   document.addEventListener('touchend',e=>{
-    
+
     setTimeout(()=>{ tip.classList.remove('show'); },600);
   },{passive:true});
 })();
 
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
-// Retired _esc (a DOM serializer) in favour of escapeHtml, which this file already
-// defines. _esc only entity-encoded & < >, leaving " and ' intact - safe in a text
-// node, silently unsafe the moment a result is moved into an attribute.
 
 (async()=>{
-  // Local-first: render whatever this device already has BEFORE any network I/O,
-  // so a dead or stalled connection can never blank the tracker.
+
   try{ state=loadState(); }catch(e){ console.warn('FiApp: loadState failed',e); state=freshState(); }
   try{ _monthsWithDataAtLoad=new Set(Object.keys(state.cells||{}).filter(k=>parseFloat(state.cells[k])>0).map(k=>k.split('|')[0])); }catch(e){ _monthsWithDataAtLoad=new Set(); }
   try{ loadHistory(); }catch(e){}
@@ -4093,12 +3880,8 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
   try{ syncIncomeInputs(); }catch(e){}
   try{ render(); }catch(e){ console.error('FiApp: render failed',e); }
 
-  // D (Playful): a one-off, dismissable orientation tip, once per session. No-op for
-  // Default/Quiet (gated inside fiappMascotTip) and skipped while the walkthrough runs.
   try{ if(window.fiappMascotTip && !(typeof isWalkthroughActive==='function'&&isWalkthroughActive())) fiappMascotTip('Tip: each month keeps its own categories and columns. Use the month picker up top to switch.','exp-tip'); }catch(_){}
 
-  // Background: establish auth (bounded - a stalled network must not hang the
-  // page), refresh from the server, and re-render only if the data changed.
   try{
     const me=await window.fiappFetchTimeout('/auth/me',5000).then(r=>r.json());
     window.__currentUser=me.username||null;
@@ -4127,9 +3910,7 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
   const _preSubs=localStorage.getItem(SUBS_KEY);
   try{ await loadFromServer(); }catch(e){ console.warn('FiApp: loadFromServer failed',e); }
   try{ await loadSubsFromServer(); }catch(e){ console.warn('FiApp: loadSubsFromServer failed',e); }
-  // JSONB round-trips reorder object keys, so raw strings can differ even when the
-  // data is identical; compare semantically so a plain online load doesn't force a
-  // focus-destroying cosmetic re-render.
+
   const _blobChanged=(pre,key)=>{
     const post=localStorage.getItem(key);
     if(post===pre) return false;
@@ -4153,7 +3934,6 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
   });
 })();
 
-// Static toolbar event wiring (replaces onclick= attributes)
 document.getElementById('help-open-btn').addEventListener('click',openHelp);
 document.getElementById('guide-btn').addEventListener('click',function(){wtStartEnhanced('expenses');});
 document.getElementById('prev-btn').addEventListener('click',function(){shiftMonth(-1);});
@@ -4174,9 +3954,7 @@ document.getElementById('manage-rec-btn').addEventListener('click',function(){cl
   var exportBtn=document.getElementById('export-btn');
   exportBtn.addEventListener('mouseenter',function(e){ _cancelExportClose(); showExportMenu(e); });
   exportBtn.addEventListener('mouseleave',_scheduleExportClose);
-  // Touch/keyboard fallback: hover events don't fire on tap, so a plain click still
-  // opens the submenu (parent overflow menu is left open so the format list is
-  // reachable - selecting a format closes both, see the click handler in showExportMenu).
+
   exportBtn.addEventListener('click',function(e){ if(!_openExportMenu) showExportMenu(e); });
 })();
 document.getElementById('paste-btn').addEventListener('click',function(){openPasteModal();closeDropdown('dd-more');});
@@ -4188,14 +3966,12 @@ document.getElementById('chart-mode-m').addEventListener('click',function(){setC
 document.getElementById('chart-mode-y').addEventListener('click',function(){setChartMode('yearly');});
 document.getElementById('chart-type-bar').addEventListener('click',function(){setChartType('bar');});
 document.getElementById('chart-type-doughnut').addEventListener('click',function(){setChartType('doughnut');});
-// Help modal: close on overlay click or close button
+
 document.getElementById('help-modal').addEventListener('click',function(e){if(e.target===this)closeHelp();});
 document.getElementById('help-close-btn').addEventListener('click',closeHelp);
-// CSP: bound here instead of inline attributes in expenses.html
+
 document.getElementById('month-jump').addEventListener('change',function(){jumpToMonth(this.value);});
-// close-bar button's click is wired dynamically in updateCloseBar() (reopenMonth when the
-// month is locked, openCloseModal otherwise) — no static listener here, or clicking Reopen
-// would also fire openCloseModal and pop the close dialog.
+
 (function(){var b=document.getElementById('close-modal-cancel');if(b)b.addEventListener('click',cancelClose);})();
 (function(){var b=document.getElementById('close-modal-confirm');if(b)b.addEventListener('click',confirmClose);})();
 document.getElementById('inp-tax').addEventListener('input',onIncomeInput);
@@ -4215,10 +3991,6 @@ function closeDropdown(id){ document.getElementById(id+'-menu').classList.remove
 document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open')); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') document.querySelectorAll('.dropdown-menu.open').forEach(function(m){m.classList.remove('open');}); });
 
-// ── Batch D Wave 4: mobile quick-add sheet ──────────────────────────────
-// Picks the week-column matching today's date (or Week 1 for a non-current
-// month); Save is additive to whatever is already in that cell, per the
-// "I just spent X" mental model rather than overwriting a week's running total.
 function _qaCurrentWeekCol(){
   var cols=getCols();
   if(!cols.length) return null;
@@ -4234,11 +4006,7 @@ function openQuickAdd(){
   if(!sheet||!backdrop) return;
   var chips=document.getElementById('qa-chips');
   chips.innerHTML='';
-  // Offer every directly-editable (leaf) category: childless top-level rows AND
-  // subcategories. A parent that has subcategories is excluded because its cell is a
-  // computed sum of its children; a subscriptions-linked / auto-filled row is excluded too
-  // (a write there is overwritten on the next render). Subcategories are labelled
-  // "Parent > Child" so they read distinctly from top-level categories.
+
   var _qaRows=getRows();
   _qaRows.filter(function(r){
     return !hasChildren(r.id) && r.linked!=='subscriptions' && !r.snapshotLinkedRow;
@@ -4255,7 +4023,7 @@ function openQuickAdd(){
     chips.appendChild(chip);
   });
   document.getElementById('qa-amount').value='';
-  _qaSetSign('add'); // always reopen in Add mode - Subtract never carries over between uses
+  _qaSetSign('add');
   backdrop.classList.add('open'); sheet.classList.add('open');
   document.body.style.overflow='hidden';
   setTimeout(function(){ var a=document.getElementById('qa-amount'); if(a) a.focus(); },50);
@@ -4267,10 +4035,7 @@ function closeQuickAdd(){
   if(backdrop) backdrop.classList.remove('open');
   document.body.style.overflow='';
 }
-// The quick-add FAB's only mode used to be "add to this week's total" - there was no
-// mobile-friendly way to record a refund/correction without opening the row and doing
-// the subtraction by hand. This toggle picks the sign; the amount you type is always
-// entered as a positive magnitude.
+
 function _qaSetSign(sign){
   var addBtn=document.getElementById('qa-sign-add'), subBtn=document.getElementById('qa-sign-sub');
   if(!addBtn||!subBtn) return;
@@ -4286,8 +4051,7 @@ function saveQuickAdd(){
   if(!amt||amt<=0) return;
   var chip=document.querySelector('.qa-chip.selected');
   if(!chip) return;
-  // Belt-and-braces: never write to a subscriptions-linked (auto-filled) row, even if a
-  // stale chip somehow points at one.
+
   var _qaRow=getRows().find(function(r){return r.id===chip.dataset.rowId;});
   if(_qaRow && (_qaRow.linked==='subscriptions'||_qaRow.snapshotLinkedRow)) return;
   var col=_qaCurrentWeekCol();
@@ -4305,10 +4069,7 @@ function saveQuickAdd(){
   var openBtn=document.getElementById('qa-open-btn');
   if(openBtn) openBtn.addEventListener('click',function(){
     if(window.innerWidth<640){ openQuickAdd(); return; }
-    // Desktop already shows the whole spreadsheet - every cell is already visible
-    // and one click away, so there's nothing to "jump to". The one thing that's
-    // genuinely new to add here is a new category row (same action as the
-    // overflow menu's "Add row"), so that's what desktop Add does.
+
     addRow();
     var wrap=document.getElementById('exp-sheet-wrap');
     if(wrap) wrap.scrollIntoView({behavior:'smooth',block:'end'});
@@ -4335,7 +4096,6 @@ function saveQuickAdd(){
   if(signSubBtn) signSubBtn.addEventListener('click',function(){ _qaSetSign('sub'); });
 })();
 
-// ── Voice Input Bridge ──────────────────────────────────────────────────
 window._expVoiceBridge = {
   getRows, getCols, currentMK, snapshot, setCell, updateAll, render,
   addRow, forkCurrentMonth, deleteRow,
@@ -4346,8 +4106,6 @@ window._expVoiceBridge = {
   getCell: function(rId, cId) { return state.cells[currentMK()+'|'+rId+'|'+cId]; },
   isLockedMonth:   function() { return _isClosedMonth(currentMK()); },
   isForecastMonth: function() { return isForecastMonth(); },
-  // Expenses has no per-row currency — every cell is always in the account's home
-  // currency. voice-input.js uses this to convert a spoken amount before committing
-  // it, instead of writing raw digits into a cell it thinks is already home-currency.
+
   homeCurrency: function() { return _homeCur(); },
 };
