@@ -99,7 +99,6 @@ const CURRENCIES = [
   {code:'USD', name:'US Dollar'}, {code:'VND', name:'Vietnamese Dong'},
 ];
 
-
 function populateSelects(){
   ['currency_i','currency_o'].forEach((id,idx)=>{
     const sel=document.getElementById(id);
@@ -154,11 +153,7 @@ async function applyOther(id){
 
   let opt=[...sel.options].find(o=>o.value===raw);
   if(!opt){
-    // Format-valid isn't the same as real - "RRR" passes the regex but isn't an actual
-    // currency, and the converter has no way to know until the exchange API 502s on it.
-    // Check the code against the same USD rates table fiappGetRates already fetches/caches
-    // (mirrors the validated ensureRate()/ratesCache pattern used for custom codes elsewhere
-    // in the app) so an unrecognized code is rejected here instead of failing at conversion.
+
     note.textContent='Checking code…'; note.style.color='#6b7280';
     inp.disabled=true; btn.disabled=true;
     let known;
@@ -166,7 +161,7 @@ async function applyOther(id){
       const {rates}=await fiappGetRates('USD');
       known=Object.prototype.hasOwnProperty.call(rates, raw);
     }catch(e){
-      known=true; // can't verify (offline/API down) - don't block on an infra failure
+      known=true;
     }
     inp.disabled=false; btn.disabled=false;
     if(!known){
@@ -189,11 +184,11 @@ function applyOtherFrom(){ applyOther('currency_i'); }
 function applyOtherTo(){ applyOther('currency_o'); }
 document.getElementById('currency_i_other').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyOtherFrom();}});
 document.getElementById('currency_o_other').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyOtherTo();}});
-// CSP: bound here instead of inline onclick attributes
+
 document.getElementById('currency_i_other_btn').addEventListener('click',applyOtherFrom);
 document.getElementById('currency_o_other_btn').addEventListener('click',applyOtherTo);
 document.getElementById('rates-date-btn').addEventListener('click',function(){toggleRatesPanel();});
-// Rates panel content is rebuilt via innerHTML — delegate its button clicks
+
 document.getElementById('rates-info-panel').addEventListener('click',function(e){
   var rb=e.target.closest('[data-refresh-base]');
   if(rb){_refreshBase(rb.dataset.refreshBase);return;}
@@ -203,10 +198,6 @@ document.getElementById('rates-info-panel').addEventListener('click',function(e)
   else if(act.dataset.action==='close-rates') closeRatesPanel();
 });
 
-// This page does not load analytics_core.js, so it had no escaper at all - which is
-// exactly why the three helpers below were interpolating raw. They are reached with
-// server-derived text (err.message ultimately carries /api/exchange's `error` field) and
-// with localStorage-derived currency codes, neither of which is guaranteed markup-free.
 function escapeHtml(s){
   return String(s==null?'':s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -224,7 +215,6 @@ function showInfo(msg){
 function showWarn(msg){
   document.getElementById('msg-area').innerHTML='<div class="warn">'+escapeHtml(msg)+'</div>';
 }
-
 
 function dropBadCustom(selectId, code){
   const s=document.getElementById(selectId);
@@ -280,7 +270,6 @@ document.getElementById('currency-form').addEventListener('submit', async functi
       +'<br><small style="color:rgba(255,255,255,.85)">Rate: 1 '+fromRaw+' = '+rate.toFixed(4)+' '+toRaw+'</small>';
     document.getElementById('result-box').style.display='block';
 
-
     updateRatesDateBtn(new Date(obj.fetched_at));
 
     if(obj.stale){
@@ -313,9 +302,8 @@ document.addEventListener('DOMContentLoaded', function(){
   if(d) updateRatesDateBtn(d);
 });
 
-
-const _LS_TTL_MS=7*24*3600*1000;    // 7 days  — refresh interval
-const _DEAD_TTL_MS=14*24*3600*1000; // 14 days — delete if unused
+const _LS_TTL_MS=7*24*3600*1000;
+const _DEAD_TTL_MS=14*24*3600*1000;
 let _ratesTick=null;
 
 function updateRatesDateBtn(d){
@@ -340,7 +328,7 @@ function _getCachedBases(){
       const obj=JSON.parse(localStorage.getItem(k));
       if(!obj||!obj.fetched_at) continue;
       const lastUsed=obj.last_used_at?new Date(obj.last_used_at).getTime():new Date(obj.fetched_at).getTime();
-      if(now-lastUsed>_DEAD_TTL_MS){ localStorage.removeItem(k); continue; } // clean up dead entry
+      if(now-lastUsed>_DEAD_TTL_MS){ localStorage.removeItem(k); continue; }
       bases.push({base:k.replace('fiapp_exchange_rates_',''),fetched_at:obj.fetched_at,last_used_at:obj.last_used_at||obj.fetched_at});
     }catch(e){}
   }
@@ -371,9 +359,7 @@ function _buildRatesPanel(){
       const fetched=new Date(b.fetched_at);
       const msRefresh=fetched.getTime()+_LS_TTL_MS-now;
       const msExpire=new Date(b.last_used_at).getTime()+_DEAD_TTL_MS-now;
-      // b.base comes from a localStorage key name, so it is not guaranteed to be a clean
-      // currency code. Two of these four uses sit inside double-quoted attributes, where a
-      // bare " would break out - escape every one.
+
       const base=escapeHtml(b.base);
       html+='<div class="rates-info-row"><span class="rates-info-label">Base: '+base+'</span>'
         +'<span style="display:flex;align-items:center;gap:.5rem;">'
