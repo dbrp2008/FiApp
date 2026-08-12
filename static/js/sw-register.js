@@ -1,16 +1,3 @@
-/* Registers the FiApp service worker at root scope, and hosts the two globals
- * that keep offline data healthy on EVERY page (not just tracker pages):
- *   - window.__fiappFlushDirtyTrackers: pushes offline edits (dirty trackers)
- *     to the server on load / reconnect.
- *   - window.__fiappSeedTrackers: fills EMPTY tracker localStorage keys from
- *     the server while online (never overwrites existing or dirty data).
- *
- * Loaded as an external script (covered by script-src 'self', so no nonce
- * needed). base.html appends ?v={{ ASSET_V }} to THIS script's src; we forward
- * that version onto the /sw.js registration URL so each deploy registers a new
- * scriptURL, which guarantees the browser runs an update check and the new SW
- * purges old caches.
- */
 (function () {
   var _TRACKERS = [
     ['fiapp_expenses_v4', '/api/load/expenses', '/api/save/expenses'],
@@ -18,10 +5,6 @@
     ['fiapp_subs_v4',     '/api/load/subs',     '/api/save/subs'],
   ];
 
-  // Push any tracker with unsynced offline edits (<key>__dirty) to the server.
-  // Skips keys owned by the current page's sync manager (it has richer 409
-  // handling). On 409/401/network failure the flag stays set - the data is safe
-  // in localStorage and the tracker page merges properly on its next open.
   function _flushDirtyTrackers() {
     if (navigator.onLine === false) return;
     _TRACKERS.forEach(function (t) {
@@ -38,7 +21,7 @@
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window._CSRF || '' },
           body: JSON.stringify({ data: blob, base_version: parseInt(localStorage.getItem(key + '__ver') || '0', 10) })
         }).then(function (r) {
-          if (!r.ok) return; // 409/401/...: leave __dirty for the tracker page to resolve
+          if (!r.ok) return;
           return r.json().then(function (resp) {
             if (resp && typeof resp.version === 'number') {
               try { localStorage.setItem(key + '__ver', String(resp.version)); } catch (_) {}
@@ -47,15 +30,11 @@
             if (d && d <= flushedAt) { try { localStorage.removeItem(key + '__dirty'); } catch (_) {} }
           });
         }).catch(function () {});
-      } catch (e) { /* per-tracker best-effort */ }
+      } catch (e) {  }
     });
   }
   window.__fiappFlushDirtyTrackers = _flushDirtyTrackers;
 
-  // Fill any empty tracker localStorage keys from the server while online.
-  // Only runs when a key is missing or has no rows/cells - never overwrites
-  // existing local data. Dirty keys are skipped too: an empty-but-dirty state
-  // can mean "user deleted rows offline", and reseeding would resurrect them.
   function _seedOfflineCache() {
     if (navigator.onLine === false) return;
     _TRACKERS.forEach(function (t) {
@@ -67,7 +46,7 @@
           var p = JSON.parse(raw);
           var hasContent = (Array.isArray(p.rows) && p.rows.length > 0) ||
                            (p.cells && Object.keys(p.cells).length > 0);
-          if (hasContent) return; // already has data, skip
+          if (hasContent) return;
         }
       } catch (e) {}
       fetch(loadApi, { credentials: 'same-origin' }).then(function (res) {
@@ -92,7 +71,7 @@
   });
 
   if (!('serviceWorker' in navigator)) {
-    // No SW support: still flush/seed on load so offline edits sync.
+
     window.addEventListener('load', function () {
       _flushDirtyTrackers();
       _seedOfflineCache();
@@ -104,7 +83,7 @@
   try {
     var me = document.currentScript;
     if (me && me.src) v = new URL(me.src).searchParams.get('v') || '';
-  } catch (e) { /* non-fatal: fall back to an unversioned register */ }
+  } catch (e) {  }
 
   var url = '/sw.js' + (v ? ('?v=' + encodeURIComponent(v)) : '');
   var _reg = null;
@@ -118,8 +97,7 @@
       _reg = reg;
       return navigator.serviceWorker.ready;
     }).then(refreshPrecache).catch(function () {});
-    // Ask the browser not to evict this origin's storage under pressure
-    // (protects localStorage + SW caches on Android; iOS decides for itself).
+
     try {
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     } catch (e) {}
