@@ -22,11 +22,7 @@
   <script src="/static/js/theme-core.js?v={{ ASSET_V }}"></script>
   <script nonce="{{ csp_nonce }}">
     (function(){
-      // theme-core.js (sync, above) supplies fiappThemeBoot: applies light/dark/custom
-      // themes and migrates legacy names (ocean/rose/...) to custom themes pre-paint.
-      // __fiappSrvDark covers the one soft case: a fresh device whose server theme is a
-      // custom id with no local cache yet - base luminance applies now, exact tokens
-      // arrive with the prefs convergence fetch.
+
       window.__fiappSrvDark={{ theme_dark|default(false)|tojson }};
       var t=localStorage.getItem('fiapp_theme')||'{{ theme|default("light") }}';
       if(window.fiappThemeBoot){ t=fiappThemeBoot(t); }
@@ -38,23 +34,12 @@
   </script>
   <script nonce="{{ csp_nonce }}">
   (function(){
-    // Every per-user key in localStorage, in ONE place. Three separate sites clear these -
-    // logout, and two independent "different user" detectors - and they had drifted apart:
-    // the sync markers (__dirty / __ver) were cleared on logout but not on an account
-    // switch, and an earlier gap between two of the lists leaked a previous account's
-    // currency and onboarding state onto the next user. A single list cannot drift.
-    //
-    // The detector keys themselves (fiapp_auth_user, fiapp_last_user) are deliberately NOT
-    // in here: each site owns its own, and wiping another site's detector would silently
-    // disable that site's next comparison.
+
     window.FIAPP_USER_DATA_KEYS=[
       'fiapp_expenses_v4','fiapp_expenses_undo_v4','fiapp_expenses_redo_v4',
       'fiapp_subs_v4','fiapp_subs_undo_v4','fiapp_subs_redo_v4',
       'fiapp_income_v1','fiapp_income_push_v1','fiapp_income_undo_v1','fiapp_income_redo_v1',
-      // Sync markers. __ver is write-only today so a stale one is inert, but a stale
-      // __dirty makes the next user's first load take the merge path instead of a clean
-      // overwrite. No data crosses accounts either way - the server is session-scoped - but
-      // it is a needless wrinkle.
+
       'fiapp_expenses_v4__dirty','fiapp_expenses_v4__ver',
       'fiapp_income_v1__dirty','fiapp_income_v1__ver',
       'fiapp_subs_v4__dirty','fiapp_subs_v4__ver',
@@ -75,12 +60,7 @@
   </script>
   <script nonce="{{ csp_nonce }}">
   (function(){
-    // Unconditional, every authenticated load (not just "if missing") - mirrors the theme
-    // boot pattern. A purge-list gap in any one of this app's several "different user"
-    // detectors previously left a stale cross-account value in place; always overwriting
-    // from the current request's session truth makes that whole class of bug impossible
-    // for this key, regardless of which purge path did or didn't run. Must run before
-    // analytics_core.js (loaded in head_scripts below) computes its module-level default.
+
     try {
       {% if current_user %}
       localStorage.setItem('fiapp_analytics_currency','{{ analytics_currency|default("USD") }}');
@@ -205,9 +185,7 @@
   <script nonce="{{ csp_nonce }}">
   var _CSRF='{{ csrf_token|default("") }}';
   window.ASSET_V='{{ ASSET_V }}';
-  // Fetch with a hard timeout. A stalled connection (mobile with dead data) can
-  // hang a bare fetch() forever; every boot-path fetch goes through this so the
-  // page never blocks on the network.
+
   window.fiappFetchTimeout=function(url,ms,opts){
     var c=new AbortController();
     var t=setTimeout(function(){c.abort();},ms||5000);
@@ -215,9 +193,6 @@
       .finally(function(){clearTimeout(t);});
   };
 
-  // Rebuild the "Your themes" section of the topbar dropdown from the local cache.
-  // Called at boot, after prefs convergence, and whenever the Theme Studio saves
-  // (it dispatches 'fiapp-themes-changed').
   function renderThemeDropdown(){
     var box=document.getElementById('theme-dropdown-customs');
     if(!box||!window.fiappThemesCache) return;
@@ -241,14 +216,7 @@
   window.renderThemeDropdown=renderThemeDropdown;
   window.addEventListener('fiapp-themes-changed',renderThemeDropdown);
   (function(){
-    // Theme convergence. Custom themes add two cases on top of the old string sync:
-    //  - the active theme is custom but its tokens are missing locally (fresh device):
-    //    pull the server list, adopt it wholesale (server wins), re-apply exact tokens.
-    //  - the studio saved or a legacy migration ran (dirty flag): push the full list up
-    //    once. The list is never PATCHed on plain page loads, which keeps the
-    //    last-writer-wins replace semantics rare in practice.
-    // Before pushing a freshly-migrated theme, adopt a server twin with the same preset
-    // flag if one exists (a second device already migrated it) to avoid duplicates.
+
     var _lsT=localStorage.getItem('fiapp_theme');
     var _srvT='{{ theme|default("light") }}';
     if(!_CSRF){ return; }
@@ -265,8 +233,7 @@
         var cache=fiappThemesCache.read();
         var changed=false;
         if(dirty){
-          // Adopt-server-twin: swap any locally-minted preset theme for the server's
-          // existing copy of the same preset before pushing, then merge additions.
+
           cache.themes.forEach(function(loc){
             if(!loc||!loc.preset) return;
             srvThemes.forEach(function(rem){
@@ -294,19 +261,10 @@
         if(b&&window.fiappThemeLabel) b.textContent=fiappThemeLabel(localStorage.getItem('fiapp_theme')||'light');
       }).catch(function(){});
     } else if(_lsT&&_lsT!==_srvT&&!isCustom){
-      // Plain light/dark drift (the pre-custom behavior): push the string up.
+
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})}).catch(function(){});
     } else if(isCustom&&_lsT!==_srvT){
-      // Custom active locally, server points elsewhere. USUALLY the id already exists
-      // server-side, so a string-only PATCH is enough. But when this device's list was
-      // never pushed (or another device replaced it), the server rejects the unknown id
-      // with 400 "Invalid theme" - and with no dirty flag set, nothing ever retries. The
-      // theme is then stuck permanently, re-firing the same failing PATCH on every load.
-      // Self-heal by resending the list once on rejection.
-      //
-      // The retry MERGES the server's themes into ours first: save_prefs does a full-list
-      // replace, so pushing our list alone would delete any theme created on another
-      // device. Merge order matters more than it looks.
+
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({theme:_lsT})})
         .then(function(r){
           if(r.status!==400||!window.fiappThemesCache) return null;
@@ -333,17 +291,14 @@
     }
   })();
   (function(){
-    // The head_scripts hydration above already covers the "no local value yet" case;
-    // this only catches a local value that drifted from the server (e.g. a prior
-    // /api/prefs call failed offline) so it still converges across devices.
+
     var _lsC=localStorage.getItem('fiapp_analytics_currency');
     var _srvC='{{ analytics_currency|default("USD") }}';
     if(_CSRF&&_lsC&&_lsC!==_srvC){
       fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({analytics_currency:_lsC})}).catch(function(){});
     }
   })();
-  // quiet strips motion/celebration; playful adds extra motion, celebration, mascot
-  // presence and warmer copy; balanced (default) is exactly today's behavior.
+
   function setPersonality(name){
     document.documentElement.classList.toggle('personality-quiet', name==='quiet');
     document.documentElement.classList.toggle('personality-playful', name==='playful');
@@ -351,9 +306,7 @@
     if(_CSRF){ fetch('/api/prefs',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRF-Token':_CSRF},body:JSON.stringify({personality:name})}).catch(function(){}); }
   }
   function setTheme(name){
-    // 'light' | 'dark' | 'custom:<id>' - theme-core.js owns class + token application.
-    // The UI updates run inside the same view-transition frame as the theme apply so
-    // the cross-fade captures the fully switched page (dropdown closed, chart recoloured).
+
     var after=function(){
       var _tb=document.getElementById('theme-btn');
       if(_tb) _tb.textContent=window.fiappThemeLabel?fiappThemeLabel(name):name;
@@ -372,9 +325,7 @@
   }
   window.setTheme=setTheme;
   var toggleThemeMenu=toggleAcctMenu;
-  // Logout clears the shared per-user list plus BOTH account-switch detectors: with the
-  // data gone, a stale detector would only cause a redundant purge, whereas leaving one
-  // set could suppress a later one.
+
   var FIAPP_USER_KEYS=(window.FIAPP_USER_DATA_KEYS||[]).concat(['fiapp_auth_user','fiapp_last_user']);
   function logOutStep(btn){
     if(btn.dataset.confirm!=='1'){
@@ -391,21 +342,13 @@
       return;
     }
     FIAPP_USER_KEYS.forEach(function(k){localStorage.removeItem(k);});
-    // Await the purge before navigating: the old fire-and-forget call could lose the
-    // message to the page unload that follows.
+
     fiappClearSWCache().then(function(){
       return fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':_CSRF}});
     }).then(function(){ window.location='/login'; })
       .catch(function(){ window.location='/login'; });
   }
-  // Purge the service-worker page caches (they store authenticated page shells carrying
-  // the CSRF token and username) so nothing of this user survives for the next one.
-  // Resolves once the SW has confirmed, or immediately when there is no SW at all.
-  //
-  // Uses navigator.serviceWorker.ready rather than .controller: on the very first load
-  // after registration the SW is active but not yet controlling this page, so .controller
-  // is null and the old version silently did nothing - exactly when a shared-device user
-  // is most likely to log straight back out.
+
   function fiappClearSWCache(){
     try{
       if(!navigator.serviceWorker) return Promise.resolve();
@@ -419,7 +362,7 @@
             target.postMessage({type:'clear-cache'},[ch.port2]);
           });
         }),
-        // Never block logout on a wedged SW.
+
         new Promise(function(resolve){ setTimeout(resolve,1500); })
       ]);
     }catch(_){ return Promise.resolve(); }
@@ -434,8 +377,7 @@
       setTimeout(function(){ document.addEventListener('click',handler,true); },0);
     }
   }
-  // Mobile pull-up nav drawer (the only nav drawer; the old hamburger/side-drawer
-  // it replaced has been removed).
+
   function openNavDrawer(){
     var d=document.getElementById('nav-drawer');
     document.getElementById('nav-drawer-backdrop').classList.add('open');
@@ -474,7 +416,7 @@
     if(logoutBtn) logoutBtn.addEventListener('click',function(e){logOutStep(e.currentTarget);});
     var themeBtn=document.getElementById('theme-btn');
     if(themeBtn) themeBtn.addEventListener('click',function(e){toggleThemeMenu(e.currentTarget);});
-    // Delegated so custom-theme entries rendered later by renderThemeDropdown work too.
+
     document.querySelectorAll('.theme-dropdown').forEach(function(dd){
       dd.addEventListener('click',function(e){
         var btn=e.target.closest('.theme-opt');
@@ -487,7 +429,6 @@
       if(typeof window.wtStart==='function') window.wtStart();
     });
 
-    // Mobile pull-up nav drawer: tap grabber, tap backdrop, or swipe.
     var navGrabber=document.getElementById('nav-drawer-grabber');
     var navBackdrop=document.getElementById('nav-drawer-backdrop');
     var navDrawerEl=document.getElementById('nav-drawer');
@@ -512,15 +453,14 @@
         });
       });
     });
-    // Swipe-up on the tab bar/grabber opens the drawer; swipe-down on the open
-    // drawer closes it. Simple vertical-delta threshold, no library needed.
+
     (function(){
       var startY=null;
       function onStart(e){ startY=e.touches[0].clientY; }
       function onEnd(e,closing){
         if(startY===null) return;
         var endY=(e.changedTouches&&e.changedTouches[0].clientY)||startY;
-        var dy=startY-endY; // positive = swiped up
+        var dy=startY-endY;
         startY=null;
         if(closing){ if(dy<-40) closeNavDrawer(); }
         else { if(dy>40) openNavDrawer(); }
@@ -543,19 +483,14 @@
       if(a.dataset.path===window.location.pathname){ a.classList.add('tab-active'); a.setAttribute('aria-current','page'); }
     });
   });
-  // Session expiry check — debounced to 30s so rapid tab switches don't spam /auth/me
+
   var _lastAuthCheck=0;
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='visible'){
       var now=Date.now();
       if(now-_lastAuthCheck>30000){
         _lastAuthCheck=now;
-        // A session that ends without an explicit logout (expiry, crash) skips the
-        // clear-cache call logOutStep normally makes - so a prior user's authenticated
-        // page shells (username, and on /account the email) could otherwise sit in the SW
-        // cache for whoever uses this device next. Purge them here too.
-        // Await the purge before navigating, or the redirect can cancel it (same reason
-        // logOutStep awaits it).
+
         fetch('/auth/me').then(function(r){
           if(r.status===401){ fiappClearSWCache().then(function(){ window.location='/login'; }); }
         }).catch(function(){});
@@ -571,7 +506,6 @@
 
   <script nonce="{{ csp_nonce }}">document.querySelectorAll('.rail-link').forEach(function(a){if(a.dataset.path===window.location.pathname)a.classList.add('rail-active');});</script>
 
-  
   <div id="wt-overlay" aria-hidden="true"></div>
   <div id="wt-highlight" aria-hidden="true"></div>
   <div id="wt-bubble" role="dialog" aria-live="polite" aria-label="App guide" style="display:none">
@@ -581,7 +515,6 @@
     <div id="wt-btns"></div>
   </div>
   <canvas id="wt-confetti" aria-hidden="true"></canvas>
-  
 
   <script nonce="{{ csp_nonce }}">
   (function(){
@@ -592,16 +525,12 @@
     var _WT_USER_KEY=_wtUser?'fiapp_wt_u_'+_wtUser:null;
     var _page=window.location.pathname;
 
-    // Clear tracker localStorage when a different user logs in on this device,
-    // preventing data bleed between accounts. Runs synchronously before any
-    // tracker JS reads localStorage.
     (function(){
       if(!_loggedIn||!_wtUser) return;
       var _LAST_USER_KEY='fiapp_last_user';
       var _lastUser=localStorage.getItem(_LAST_USER_KEY);
       if(_lastUser!==_wtUser){
-        // Shares FIAPP_USER_DATA_KEYS with the fiapp_auth_user detector and with logout.
-        // This list used to be maintained separately and had already drifted twice.
+
         (window.FIAPP_USER_DATA_KEYS||[]).forEach(function(k){localStorage.removeItem(k);});
         localStorage.setItem(_LAST_USER_KEY,_wtUser);
       }
@@ -649,8 +578,8 @@
       _toast('🧭 Finish or skip the walkthrough to use this.',undefined,'top');
     }
     var _hlTrackOff=null;
-    var _curTarget=null,_curPin=null; // tracked so resize can reposition
-    var _preTourFocus=null; // element focused before tour opened — restored on close
+    var _curTarget=null,_curPin=null;
+    var _preTourFocus=null;
 
     function _elevate(el){
       if(_elevatedEl){_elevatedEl.style.position='';_elevatedEl.style.zIndex='';}
@@ -658,13 +587,9 @@
       if(el){el.style.position='relative';el.style.zIndex='9502';}
     }
 
-
-
     function _startGuard(targetEl,allowSelectors){
       if(_guardOff){_guardOff();_guardOff=null;}
-      // Exposed so glass-picker.js can ask before ever opening a select's wheel (see its
-      // mousedown/keydown listeners) - a disallowed select's wheel then never appears at all,
-      // instead of opening and needing to be neutralized after the fact. Cleared in _guardOff.
+
       function _selAllowed(sel){return !!sel&&((targetEl&&targetEl.contains(sel))||(allowSelectors&&allowSelectors.some(function(s){return !!sel.closest(s);})));}
       window._wtSelAllowed=_selAllowed;
       function guard(e){
@@ -677,25 +602,14 @@
         if(navLink&&!inBubble){e.stopPropagation();e.preventDefault();_guardToast();return;}
         var inTarget=targetEl&&targetEl.contains(t);
         var inAllowed=allowSelectors&&allowSelectors.some(function(sel){return !!t.closest(sel);});
-        // The glass scroll-wheel picker (static/js/glass-picker.js) renders its open wheel as a
-        // direct child of <body>, outside any step's targetEl, so its clicks were never inTarget/
-        // inAllowed - glass-picker.js now checks _wtSelAllowed above before opening at all, so
-        // this is just a backstop: re-run the same allowance test against the select the overlay
-        // is stamped with (_gpSelect), in case that primary gate is ever missed.
+
         var pickerOverlay=t.closest('.gp-overlay');
         var inPicker=_selAllowed(pickerOverlay&&pickerOverlay._gpSelect);
-        // Opening the glass picker calls preventDefault() on the select's mousedown to suppress
-        // the native dropdown - that disrupts the browser's click-target tracking for the same
-        // gesture, so the click event that follows often resolves to <body>/<html> rather than
-        // the select, slipping past inTarget/inPicker above. Only exempt that while the currently
-        // open wheel belongs to an allowed select, so a real outside click is still blocked.
+
         var strayOverlay=document.querySelector('.gp-overlay');
         var inStrayPickerClick=e.type==='click'&&(t===document.body||t===document.documentElement)&&_selAllowed(strayOverlay&&strayOverlay._gpSelect);
         if(!inBubble&&!inTarget&&!inToast&&!inAllowed&&!inPicker&&!inStrayPickerClick){e.stopPropagation();e.preventDefault();_guardToast();}
       }
-
-
-
 
       var touchEndOpts={capture:true,passive:false};
       document.addEventListener('click',guard,true);
@@ -725,9 +639,9 @@
       try{
         var bk=JSON.parse(localStorage.getItem(WT_BK_KEY)||'null');
         var hadData=bk&&WT_TRACKER_KEYS.some(function(k){return !!bk[k];});
-        // Always wipe tracker keys first — discards any data entered during the walkthrough
+
         WT_TRACKER_KEYS.forEach(function(k){localStorage.removeItem(k);});
-        // Then restore pre-tour data if a backup exists
+
         if(bk){WT_TRACKER_KEYS.forEach(function(k){if(bk[k])localStorage.setItem(k,bk[k]);});}
         localStorage.removeItem(WT_BK_KEY);
         localStorage.removeItem('fiapp_wt_analytics_v1');
@@ -769,9 +683,6 @@
     }
     function _vvOffset(){
 
-
-
-
       return {
         top:  window.visualViewport ? window.visualViewport.offsetTop  : 0,
         left: window.visualViewport ? window.visualViewport.offsetLeft : 0
@@ -793,8 +704,7 @@
         window.visualViewport.addEventListener('resize',h);
         window.visualViewport.addEventListener('scroll',h);
       }
-      // ResizeObserver catches row-height changes (and any other DOM resizes inside
-      // the target) that don't fire scroll/resize on the window.
+
       var _ro=null;
       if(window.ResizeObserver){_ro=new ResizeObserver(h);_ro.observe(el);}
       _hlTrackOff=function(){
@@ -841,19 +751,15 @@
 
     function _wtValidate(key){
       if(key==='hasExpenseData'){
-        // DOM check covers both desktop (.sheet td input) and mobile cards (.mc-ei)
+
         var domHas=[].slice.call(document.querySelectorAll('.sheet td input,.cell input,.mc-ei')).some(function(i){return !!(parseFloat(i.value)||0);});
         if(domHas) return true;
-        // Always fall through to localStorage — on mobile, card inputs are removed from the DOM
-        // when the card is collapsed, so the DOM check above misses data the user already entered.
-        // Stale pre-walkthrough data is not a concern here because _backup() removes
-        // fiapp_expenses_v4 before the tour starts, so anything in that key is genuine session data.
+
         try{var _es=JSON.parse(localStorage.getItem('fiapp_expenses_v4')||'{}');var _c=_es.cells||{};return Object.keys(_c).some(function(k){return !!(parseFloat(_c[k])||0);});}catch(e){}
         return false;
       }
       if(key==='hasSubData'){
-        // During walkthrough check the DOM — loadState() returns freshState so any visible
-        // tr[data-row-id] was added this session, including after a Back navigation.
+
         try{var _wtV2=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtV2&&_wtV2.active)return document.querySelectorAll('tr[data-row-id]').length>0;}catch(_){}
         try{var s=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'{}');var nonSeeded=(s.rows||[]).filter(function(r){return !r.id||r.id.indexOf('wt-seed-sub-')!==0;}).length;return nonSeeded>(window._wtSubsBase!==undefined?window._wtSubsBase:0);}catch(e){return false;}
       }
@@ -878,8 +784,7 @@
     }
 
     function _seedAnalyticsWalkthrough(){
-      // Build standalone demo exp+inc data for analytics during walkthrough.
-      // Written to a temp key so real localStorage is never touched.
+
       var now=new Date();
       function pm(n){var d=new Date(now.getFullYear(),now.getMonth()-n,1);return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);}
       var months=[pm(0),pm(1),pm(2)];
@@ -898,7 +803,7 @@
       var ic=[{id:'wt-a-ic1',label:'Amount',ctype:'number'}];
       var inc={rows:ir,cols:ic,cells:{}};
       months.forEach(function(m){inc.cells[m+'|wt-a-ir1|wt-a-ic1']=String(Math.round((3800+Math.random()*400)*100)/100);});
-      // Demo subs (cols match subscriptions freshState ctypes so calcSubCostForMonth works)
+
       var sc=[
         {id:'wt-a-sc1',label:'Service',    width:155,ctype:'text'},
         {id:'wt-a-sc2',label:'Cost',       width:130,ctype:'number'},
@@ -922,7 +827,7 @@
     }
 
     function _seedHistoryForAnalytics(){
-      // During walkthrough: write standalone demo data to a temp key — never touch real keys.
+
       try{var _wtChk=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');if(_wtChk&&_wtChk.active){_seedAnalyticsWalkthrough();return;}}catch(_){}
 
       var now=new Date();
@@ -939,7 +844,6 @@
           [1,2].forEach(function(n){
             var pk=prevMk(n);
 
-
             if(s.rowsByMonth&&s.rowsByMonth[curMk]&&!s.rowsByMonth[pk])
               s.rowsByMonth[pk]=s.rowsByMonth[curMk].map(function(r){return Object.assign({},r);});
             if(s.colsByMonth&&s.colsByMonth[curMk]&&!s.colsByMonth[pk])
@@ -947,7 +851,7 @@
             curKeys.forEach(function(k){
               var parts=k.split('|');
               var pKey=pk+'|'+parts[1]+'|'+parts[2];
-              if(pKey in s.cells) return; // never overwrite real data
+              if(pKey in s.cells) return;
               var num=parseFloat(s.cells[k]);
               if(!isNaN(num)&&num!==0){
                 var val=singlePoint
@@ -965,9 +869,6 @@
       }
       seedStore('fiapp_expenses_v4');
       seedStore('fiapp_income_v1');
-
-
-
 
       try{
         var ss=JSON.parse(localStorage.getItem('fiapp_subs_v4')||'null');
@@ -1007,9 +908,7 @@
         var _hasUnseen=false;
         if(wt.seen&&wt.seen.length>0){
           var _allVis=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===wt.wantsCurrencyTour;});
-          // If the very last step is already in seen[], the user reached the end of the
-          // tour — fast swipes may have skipped earlier steps without recording them, but
-          // the tour IS complete. Show Restart rather than Continue.
+
           var _lastSt=_allVis[_allVis.length-1];
           if(_lastSt&&wt.seen.indexOf(_lastSt.id)>=0){
             _hasUnseen=false;
@@ -1017,15 +916,13 @@
             _hasUnseen=_allVis.filter(function(s){return wt.seen.indexOf(s.id)<0;}).length>0;
           }
         }
-        // seen=[] (cleared on completion) → always Restart
+
         lbl.textContent=_hasUnseen?'↺ Continue walkthrough':'↺ Restart walkthrough';
       }
     }
 
     function _showDoneCard(text,reloadOnDismiss){
-      // First natural completion (Skip never reaches here), logged-in only: send the user
-      // to confirm their home currency instead of the done card. One-time, guarded by the
-      // fiapp_currency_confirmed flag so restarts and the tax/currency extension never re-fire.
+
       try{
         if(_loggedIn && localStorage.getItem('fiapp_currency_confirmed')!=='1'){
           localStorage.setItem('fiapp_currency_confirm_pending','1');
@@ -1045,29 +942,24 @@
 
     var _goingBack=false;
     function _goBack(state){
-      // Guard against rapid repeated clicks — each call does a page navigation so concurrent
-      // calls would corrupt seen[] (last localStorage write wins, others' removals are lost).
+
       if(_goingBack) return;
       _goingBack=true;
       setTimeout(function(){_goingBack=false;},600);
       state=state||_ld()||_def();
-      // Use full step list (ignore resumeMode filter) so back always reaches prior steps
+
       var allVis=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
       var curIdx=allVis.findIndex(function(s){return s.id===state.stepId;});
       if(curIdx<=0) return;
       var prevIdx=curIdx-1;
       var prev=allVis[prevIdx];
-      // Skip already-completed wait steps — they have no button to advance past and
-      // auto-advance immediately via pre-check, so Back should hop over them to the
-      // nearest prior interactive step instead of landing in a buttonless limbo.
+
       while(prev&&prev.type==='wait'&&(state.seen||[]).indexOf(prev.id)>=0){
         prevIdx--;
         if(prevIdx<0) return;
         prev=allVis[prevIdx];
       }
-      // Skip back over pages that were entirely bypassed via a gotoId skip (e.g. user
-      // clicked "Skip" on exp-subs to jump to analytics — the subscription steps are
-      // never in seen[], so Back from analytics must hop over them to expenses).
+
       while(prev&&prev.page!==_page){
         var _pageHasSeen=allVis.some(function(s){return s.page===prev.page&&(state.seen||[]).indexOf(s.id)>=0;});
         if(_pageHasSeen) break;
@@ -1076,17 +968,15 @@
         prev=allVis[prevIdx];
       }
       state.stepId=prev.id;
-      // Remove prev from seen so _vis() includes it — critical for resumeMode where seen steps
-      // are filtered out, which would cause the page-load init code to find no matching step
+
       if(state.seen){var _si=state.seen.indexOf(prev.id);if(_si>=0)state.seen.splice(_si,1);}
       _sv(state);
       if(prev.page!==_page){
-        // Leaving the income page via Back — clear the session flag so the next visit starts clean.
-        // This handles "went back all the way to home and restarted" without leaking session income.
+
         if(_page==='/income'){try{localStorage.removeItem('fiapp_income_wt_session');localStorage.removeItem('fiapp_income_v1');}catch(_){}}
         window.location.href=prev.page;
       } else {
-        // Recalculate vs after modifying seen so dotIdx is correct
+
         var vs=_vis(state);
         var prevDotIdx=vs.findIndex(function(s){return s.id===prev.id;});
         _showStep(prev,vs.length,prevDotIdx>=0?prevDotIdx:prevIdx);
@@ -1098,8 +988,7 @@
       if(!state.seen) state.seen=[];
       if(action.setWantsTour){state.wantsCurrencyTour=true;_sv(state);}
       if(action.end){
-        // Always clear seen — user explicitly triggered the end action so the tour is done
-        // regardless of which steps were fast-swiped past without being recorded.
+
         state.seen=[];
         state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r0=_restore();
         var completionText=action.end==='soft'
@@ -1122,8 +1011,7 @@
           if(nxt2.page==='/analytics') _seedHistoryForAnalytics();
           window.location.href=nxt2.page;
         } else {
-          // Fallback: position lookup failed (stale state or resumeMode filtered current step).
-          // Find the first unseen step on action.navigate's page rather than ending the tour.
+
           var _wctF=state.wantsCurrencyTour;
           var _navFb=WT_STEPS.filter(function(s){return s.page===action.navigate&&(s.wantsCurrencyTour==null||s.wantsCurrencyTour===_wctF);}).find(function(s){return (state.seen||[]).indexOf(s.id)<0;});
           if(_navFb){state.stepId=_navFb.id;_sv(state);if(action.navigate==='/analytics')_seedHistoryForAnalytics();window.location.href=action.navigate;}
@@ -1135,15 +1023,14 @@
         var vs3=_vis(state),idx3=vs3.findIndex(function(s){return s.id===state.stepId;});
         if(state.stepId&&state.seen.indexOf(state.stepId)<0) state.seen.push(state.stepId);
         var next3=idx3>=0&&idx3<vs3.length-1?vs3[idx3+1]:null;
-        // Fallback: if current step wasn't in _vis (filtered by resumeMode or wantsCurrencyTour mismatch),
-        // search the full wantsCurrencyTour-filtered list so we don't prematurely end the tour.
+
         if(!next3&&idx3<0){
           var _allF=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
           var _allFi=_allF.findIndex(function(s){return s.id===state.stepId;});
           if(_allFi>=0&&_allFi<_allF.length-1) next3=_allF[_allFi+1];
         }
         if(!next3){
-          state.seen=[]; // reached the end — always clear
+          state.seen=[];
           state.resumeMode=false;state.active=false;state.mainCompleted=true;_sv(state);var _r2=_restore();
           _showDoneCard('🎉 <strong>All caught up!</strong><br>You\'ve now seen every section of FiApp.'+(_r2?'<br><em>Your saved data has been restored.</em>':'')+'<br><br>Come back to <strong>Account → Walkthrough</strong> to restart anytime.',_r2);
           return;
@@ -1162,13 +1049,12 @@
         var h=function(){if([].slice.call(document.querySelectorAll('.sheet td input,.cell input,.mc-ei')).some(function(i){var v=parseFloat(i.value||'0');return !isNaN(v)&&v!==0;})){_clearWait();_startGuard(null,null);if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();setTimeout(cb,80);}};
         document.addEventListener('input',h);_waitOff.push(function(){document.removeEventListener('input',h);});
       } else if(cond==='income_saved'){
-        // Pre-check ONLY when navigating back (step was already seen/completed once)
+
         var _incSt=_ld()||_def();
         var _incAlreadySeen=(_incSt.seen||[]).indexOf('inc-enter')>=0;
         var _incPreCheck=function(){try{var _inc=JSON.parse(localStorage.getItem('fiapp_income_v1')||'{}');return Object.values(_inc.cells||{}).some(function(v){return !!(parseFloat(v)||0);});}catch(_){return false;}};
         if(_incAlreadySeen&&_incPreCheck()){setTimeout(cb,450);return;}
-        // Use a persistent listener (not {once}) so currency-only saves don't advance the step.
-        // Only advance when at least one cell has a non-zero value.
+
         var _ish=function(){if(!_incPreCheck())return;_clearWait();setTimeout(cb,80);};
         document.addEventListener('fiapp-income-saved',_ish);
         _waitOff.push(function(){document.removeEventListener('fiapp-income-saved',_ish);});
@@ -1205,7 +1091,7 @@
 
     function _showStep(step,total,dotIdx){
       _clearWait();_elevate(null);
-      // Mobile overrides: swap text/target for narrow viewports
+
       var _mob=window.innerWidth<640;
       if(_mob&&step.skipMobile){
         var _smSt=_ld()||_def(),_smVs=_vis(_smSt),_smI=_smVs.findIndex(function(s){return s.id===step.id;});
@@ -1219,7 +1105,7 @@
       if(step.beforeShow) step.beforeShow();
       var state=_ld()||_def();
       var targetEl=step.target?document.querySelector(step.target):null;
-      // If target is inside a carousel panel that's hidden, switch to that panel
+
       if(targetEl){
         var _mcP=targetEl.closest('[data-mc-panel]');
         if(_mcP&&_mcP.classList.contains('mc-panel-hidden')){
@@ -1250,9 +1136,7 @@
           };
           _btns.appendChild(btn);
         });
-        // Use the step's position in the full (non-resumeMode-filtered) list so the
-        // Back button appears consistently regardless of how many steps are in seen[].
-        // dotIdx from _vis() can be 0 even mid-walkthrough when earlier steps are filtered out.
+
         var _backAllVis=WT_STEPS.filter(function(s){return s.wantsCurrencyTour==null||s.wantsCurrencyTour===state.wantsCurrencyTour;});
         var _backFullIdx=_backAllVis.findIndex(function(s){return s.id===step.id;});
         if(_backFullIdx>0){var backBtn=document.createElement('button');backBtn.className='wt-btn-ghost';backBtn.textContent='← Back';backBtn.style.cssText='font-size:.78rem;opacity:.7;';backBtn.onclick=function(){_goBack(state);};_btns.insertBefore(backBtn,_btns.firstChild);}
@@ -1262,7 +1146,6 @@
       _overlay.className='';_overlay.style.display='block';
       _overlay.style.background=targetEl?'transparent':'rgba(0,0,0,.42)';
       if(step.type==='wait'||step.allowInteract) _overlay.classList.add('wt-allow-scroll');
-
 
       _startGuard(step.type==='wait'||step.allowInteract ? targetEl : null, step.allowSelectors||null);
       function _applyTarget(el){
@@ -1276,7 +1159,6 @@
         _applyTarget(targetEl);
       } else {
         _setHL(null);_posBubble(null);_trackHL(null);
-
 
         if(step.target){
           setTimeout(function(){
@@ -1355,7 +1237,6 @@
       _confCvs=document.getElementById('wt-confetti');
       if(!_overlay||!_bubble) return;
 
-      // Swipe left/right on the walkthrough bubble to navigate steps
       (function(){
         var _swX=null, _lastSwipeTs=0;
         _bubble.addEventListener('touchstart',function(e){_swX=e.touches[0].clientX;},{passive:true});
@@ -1363,37 +1244,31 @@
           if(_swX===null) return;
           var dx=e.changedTouches[0].clientX-_swX; _swX=null;
           if(Math.abs(dx)<60) return;
-          // Debounce: ignore swipes within 400ms of the last one to prevent
-          // fast-swipe chaining that skips steps or fires action.end prematurely
+
           var now=Date.now(); if(now-_lastSwipeTs<400) return; _lastSwipeTs=now;
           var st=_ld()||_def();
-          if(!st.active) return; // tour already ended — don't re-fire the done card
+          if(!st.active) return;
           if(dx>0){
             _goBack(st);
           } else {
             var vs=_vis(st);
             var idx=vs.findIndex(function(s){return s.id===st.stepId;});
             var step=vs[idx]; if(!step) return;
-            // Page guard: only act if this step belongs to the current page.
-            // Prevents fast-swipe chaining where stepId has already advanced to a
-            // future page's step before the current page has finished navigating.
+
             if(step.page!==_page) return;
             var primary=(step.actions||[]).find(function(a){return a.primary;});
-            if(!primary) return; // wait-type step with no actions — can't swipe past
-            if(primary.validate&&!_wtValidate(primary.validate)) return; // guard intact
+            if(!primary) return;
+            if(primary.validate&&!_wtValidate(primary.validate)) return;
             _handleAction(primary,st);
           }
         },{passive:true});
       })();
 
-      // Global resize handler — repositions bubble at any zoom level for ALL step types
       window.addEventListener('resize',_onResize,{passive:true});
       if(window.visualViewport) window.visualViewport.addEventListener('resize',_onResize);
 
       var state=_ld();
 
-      // If a different (or new) user is logged in and has no per-user key, the shared state
-      // belongs to a previous session — discard it so auto-start fires correctly for new users.
       if(state&&_loggedIn&&_WT_USER_KEY&&!localStorage.getItem(_WT_USER_KEY)){
         state=null;
         localStorage.removeItem(WT_KEY);
@@ -1423,7 +1298,6 @@
         _sv(state);
       }
 
-      // If backup key exists but walkthrough is no longer active, auto-restore
       if(localStorage.getItem(WT_BK_KEY)&&(!state||!state.active)) _restore();
 
       if(!state) return;
@@ -1436,8 +1310,7 @@
 
       var vs=_vis(state);
       var step=vs.find(function(s){return s.id===state.stepId&&s.page===_page;});
-      // Self-heal: step not in filtered list — check if a wantsCurrencyTour mismatch is the cause
-      // (e.g. state.wantsCurrencyTour got reset to null after navigating to a tour-specific page)
+
       if(!step){
         var _hs=WT_STEPS.find(function(s){return s.id===state.stepId&&s.page===_page;});
         if(_hs&&_hs.wantsCurrencyTour!=null&&state.wantsCurrencyTour!==_hs.wantsCurrencyTour){
@@ -1447,18 +1320,12 @@
       }
       if(step){
         var dotIdx=vs.findIndex(function(s){return s.id===step.id;});
-        // Mirror _showStep's own guard registration (below) instead of always blocking with a
-        // null target: this call is live for the full 600ms until _showStep re-registers it, so
-        // for an allowInteract/wait step whose target is already in the DOM (most are, since
-        // it's static per-page markup), resolving it immediately closes a 600ms window where the
-        // very first click - e.g. opening the glass-picker select this step is pointing at - was
-        // wrongly treated as outside the target and blocked with the guard toast.
+
         _startGuard(step.type==='wait'||step.allowInteract ? (step.target?document.querySelector(step.target):null) : null, step.allowSelectors||null);
         setTimeout(async function(){
           var _chk=_ld();if(!_chk||!_chk.active) return;
           if(_page==='/'&&!localStorage.getItem(WT_BK_KEY)&&(_chk.seen||[]).length===0){
-            // Only show disclaimer at tour start (no steps seen yet) — not mid-tour when seeded data exists
-            // Check localStorage first; if empty, ask server (handles cleared-localStorage case)
+
             var _hasData=_hasTrackerData();
             if(!_hasData&&_loggedIn){
               try{
@@ -1484,11 +1351,9 @@
       }
     });
 
-
     window._wtSeedAnalytics=_seedHistoryForAnalytics;
     window.wtStart=function(){
-      // The guided tour writes tracker data, so it's account-only. Logged-out users
-      // get the welcome modal (which nudges account creation) instead of the full tour.
+
       if(!_loggedIn){ _showLoggedOutWelcome(); return; }
       var s=_ld()||_def();
       if(!s.seen) s.seen=[];
@@ -1503,7 +1368,7 @@
         if(step.wantsCurrencyTour!=null&&step.wantsCurrencyTour!==s.wantsCurrencyTour) return false;
         return s.seen.indexOf(step.id)<0;
       });
-      // _go() performs the actual navigation — called directly (no data) or after disclaimer
+
       function _go(){
         if(s.mainCompleted&&unseen.length>0){
           if(_hasTrackerData()) _backup();
@@ -1516,7 +1381,7 @@
           _sv(s);window.location.href='/';
         }
       }
-      // Check for existing data — localStorage first, then server (handles cleared-localStorage)
+
       (async function(){
         var _hd=_hasTrackerData();
         if(!_hd&&_loggedIn){
@@ -1592,9 +1457,7 @@
         });
         _overlay.style.display='block';
         if(targetEl){
-          // If beforeShow triggered a render(), its requestAnimationFrame scroll-restore
-          // fires ~16ms later and would undo an immediate scrollIntoView.
-          // Delay past that rAF when beforeShow was present.
+
           var scrollDelay=s.beforeShow?150:0;
           setTimeout(function(){
             targetEl.scrollIntoView({block:'center',behavior:'smooth'});
