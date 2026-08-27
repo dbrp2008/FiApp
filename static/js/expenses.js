@@ -2351,6 +2351,7 @@ function renderChart(){
       type:'doughnut',
       data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:2,borderColor:isDark?'#1e293b':'#fff',hoverOffset:8}]},
       options:{
+        animation:(window.fiappChartAnim?fiappChartAnim():false),
         responsive:true,maintainAspectRatio:true,
         plugins:{
           legend:{display:true,position:'right',labels:{color:fgColor,boxWidth:14,padding:10,font:{size:12}}},
@@ -2363,6 +2364,7 @@ function renderChart(){
       type:'bar',
       data:{labels,datasets:[{label:'$ Amount',data:vals,backgroundColor:colors,borderRadius:4}]},
       options:{
+        animation:(window.fiappChartAnim?fiappChartAnim():false),
         plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+_homePfx()+ctx.parsed.y.toFixed(2)}}},
         scales:{
           x:{ticks:{color:fgColor},grid:{color:gridColor},border:{color:gridColor}},
