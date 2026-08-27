@@ -641,16 +641,10 @@
     var prevTotals = combinedMonthTotals(exp, subs, [pmk]);
     var prevSpent = (prevTotals && prevTotals[pmk]) || 0;
     var prevNet = grossForMonth(pmk) - prevSpent;
-    var _rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var countMoney = function(id, target){
       var e = document.getElementById(id); if(!e) return;
-      if(_rm || !target){ e.textContent = fmtMoney(target); return; }
-      var s = performance.now(), d = 700;
-      (function tick(now){
-        var k = Math.min(1, (now - s) / d), ease = 1 - Math.pow(1 - k, 3);
-        e.textContent = fmtMoney(target * ease);
-        if(k < 1) requestAnimationFrame(tick); else e.textContent = fmtMoney(target);
-      })(performance.now());
+      if(window.fiappCountUp) fiappCountUp(e, target, {format: fmtMoney});
+      else e.textContent = fmtMoney(target);
     };
     heroEl.style.display = '';
     countMoney('hero-net', net);
@@ -1020,7 +1014,7 @@
         {label:'Expenses',data:expData, backgroundColor:expCol, borderRadius:6}]},
       options:{responsive:true, maintainAspectRatio:false,
 
-        animation:(window.fiappPersonality&&fiappPersonality()==='playful')?{duration:(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)?0:1100,easing:'easeOutQuart'}:undefined,
+        animation:(window.fiappChartAnim?fiappChartAnim():false),
         plugins:{legend:{display:true, labels:{boxWidth:10, font:{size:11}, color:muted}}},
         scales:{y:{beginAtZero:true, ticks:{color:muted}}, x:{ticks:{color:muted}}}}});
   };
