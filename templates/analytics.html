@@ -152,6 +152,10 @@
       text-align: center;
     }
 
+    .an-skel-wrap { padding:.5rem 0; }
+    .an-skel-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:1rem; }
+    .an-skel-stat { height:74px; }
+    .an-skel-chart { height:230px; margin-bottom:1rem; }
     .no-data { text-align:center; padding:2.5rem 1rem; color:var(--muted); font-size:.9rem; }
     .no-data a { color:var(--accent); text-decoration:none; }
     .no-data a:hover { text-decoration:underline; }
@@ -271,6 +275,13 @@ function periodOptions(allMonths){
 }
 const charts={};
 function destroyChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
+var _firstLoadPending=false;
+var _chartAnimUsed=false;
+function _chart(cv,cfg){
+  cfg.options=cfg.options||{};
+  cfg.options.animation=(!_chartAnimUsed&&window.fiappChartAnim)?fiappChartAnim():false;
+  return new Chart(cv,cfg);
+}
 
 let trendType    = 'bar';
 let catBreakType = 'doughnut';
@@ -333,7 +344,16 @@ function renderAll(){
   if(headRight) headRight.innerHTML='';
 
   if(!hasAnyData&&!hasSubData){
-    root.innerHTML=`<div class="no-data">
+    root.innerHTML = _firstLoadPending
+      ? `<div class="an-skel-wrap" aria-busy="true" aria-label="Loading your analytics">
+      <div class="an-skel-row">
+        <div class="fi-skel an-skel-stat"></div><div class="fi-skel an-skel-stat"></div>
+        <div class="fi-skel an-skel-stat"></div><div class="fi-skel an-skel-stat"></div>
+      </div>
+      <div class="fi-skel an-skel-chart"></div>
+      <div class="fi-skel an-skel-chart"></div>
+    </div>`
+      : `<div class="no-data">
       <p style="font-size:2rem;margin-bottom:.5rem">📭</p>
       <p>No data yet - add expenses or subscriptions first.</p>
       <p style="margin-top:.5rem"><a href="/expenses">Go to Expense Tracker →</a></p>
@@ -522,6 +542,7 @@ function renderAll(){
     );
   })();
 
+  _chartAnimUsed=true;
 }
 
 function _refreshPeriodCache(){
@@ -827,7 +848,7 @@ function renderTrendChart(){
     backgroundColor:'transparent', fill:false, tension:0.4,
     pointRadius:0, type:'line',
   });
-  charts['trend']=new Chart(trendCanvas,{
+  charts['trend']=_chart(trendCanvas,{
     type:trendType==='bar'?'bar':'line',
     data:{labels,datasets},
     options:{responsive:true,maintainAspectRatio:false,plugins:{
@@ -880,7 +901,7 @@ function renderBreakdownChart(){
             x:{ticks:{color:_cTc.fg},grid:{color:_cTc.grid},border:{color:_cTc.grid}},
             y:{beginAtZero:true,ticks:{color:_cTc.fg,callback:v=>fmtMoneyShort(v)},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
           }}};
-    charts['breakdown']=new Chart(breakCanvas,cfg);
+    charts['breakdown']=_chart(breakCanvas,cfg);
     _setChartAria(breakCanvas,'Category breakdown. Top: '+sorted[0][0]+', '+fmtMoney(sorted[0][1].value)+' ('+(sorted[0][1].value/total*100).toFixed(0)+'% of '+fmtMoney(total)+' total).');
     const card=document.getElementById('card-breakdown');
     let list=card.querySelector('.insight-list');
@@ -910,7 +931,7 @@ function renderCatTrendsChart(){
     .map(([label,d])=>({label,color:d.color,values:d.values,total:d.values.reduce((a,b)=>a+b,0)}))
     .filter(e=>e.total>0).sort((a,b)=>b.total-a.total).slice(0,8);
   if(entries.length){
-    charts['cattrends']=new Chart(catTrendsCanvas,{
+    charts['cattrends']=_chart(catTrendsCanvas,{
       type:'line',
       data:{labels:_cm.map(mkLabel),datasets:entries.map(e=>({
         label:e.label,data:e.values,borderColor:e.color,
@@ -936,7 +957,7 @@ function renderSavingsChart(){
   const incMonths=_cm.filter(m=>_monthIncomes[m]);
   if(!incMonths.length) return _chartNoData(savingsCanvas,'Add income data to see savings chart');
   if(incMonths.length){
-    charts['savings']=new Chart(savingsCanvas,{
+    charts['savings']=_chart(savingsCanvas,{
       type:'bar',
       data:{labels:incMonths.map(mkLabel),datasets:[
         {label:'Income',  data:incMonths.map(m=>parseFloat((_monthIncomes[m]||0).toFixed(2))),
@@ -990,7 +1011,7 @@ function renderSubBreakChart(){
           x:{beginAtZero:true,ticks:{color:_cTc.fg,callback:v=>fmtMoneyShort(v)},grid:{color:_cTc.grid},border:{color:_cTc.grid}},
           y:{ticks:{color:_cTc.fg},grid:{color:_cTc.grid},border:{color:_cTc.grid}}
         }}};
-  charts['subbreak']=new Chart(subBreakCanvas,subCfg);
+  charts['subbreak']=_chart(subBreakCanvas,subCfg);
   _setChartAria(subBreakCanvas,'Subscription cost breakdown, '+_subRows.length+' subscription'+(_subRows.length!==1?'s':'')+' totaling '+fmtMoney(total)+'/month. Largest: '+sorted[0].name+', '+fmtMoney(sorted[0].monthly)+'/mo.');
   const card=document.getElementById('card-subbreak');
   let list=card.querySelector('.insight-list');
@@ -1029,7 +1050,7 @@ function renderSubTrendChart(){
     backgroundColor:'rgba(251,191,36,.08)',borderWidth:2,borderDash:[5,5],
     fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#f59e0b',
   });
-  charts['subtrend']=new Chart(subTrendCanvas,{
+  charts['subtrend']=_chart(subTrendCanvas,{
     type:'line',data:{labels,datasets},
     options:{responsive:true,maintainAspectRatio:false,plugins:{
       legend:{display:hasSubForecast,labels:{color:_cTc.fg,boxWidth:14,padding:10}},
@@ -1297,6 +1318,10 @@ function reRenderCharts(){
   const _wtActive=(function(){try{const w=JSON.parse(localStorage.getItem('fiapp_walkthrough_v1')||'null');return !!(w&&w.active);}catch(e){return false;}})();
   if(_wtActive && typeof window._wtSeedAnalytics==='function') window._wtSeedAnalytics();
 
+  _firstLoadPending = !localStorage.getItem(EXP_KEY) &&
+                      !localStorage.getItem(SUBS_KEY) &&
+                      !localStorage.getItem(INC_KEY);
+
   renderAll();
 
   fiappCoreLoadRates().then(()=>{ if(fiappCoreRatesLoaded()) renderAll(); });
@@ -1339,6 +1364,9 @@ function reRenderCharts(){
       if(_changed) renderAll();
     }
   }catch(e){}
+  finally{
+    if(_firstLoadPending){ _firstLoadPending=false; renderAll(); }
+  }
 })();
 
 window.addEventListener('storage', e=>{
