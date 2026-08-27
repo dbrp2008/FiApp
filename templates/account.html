@@ -881,7 +881,10 @@ async function loadRevisions(tracker){
   const list=document.getElementById('rev-list');
   if(!list) return;
   hideRevFeedback();
-  list.innerHTML='<div class="rev-loading">Loading…</div>';
+  list.innerHTML='<div class="rev-loading" aria-busy="true" aria-label="Loading revision history">'+
+    '<div class="fi-skel fi-skel-line" style="width:70%"></div>'+
+    '<div class="fi-skel fi-skel-line" style="width:85%"></div>'+
+    '<div class="fi-skel fi-skel-line" style="width:60%"></div></div>';
   try{
     const res=await apiFetch('/api/revisions/'+tracker);
     if(!res) return;
