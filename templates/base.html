@@ -132,6 +132,7 @@
   <script src="/static/js/sw-register.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/glass-picker.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/celebrate.js?v={{ ASSET_V }}"></script>
+  <script src="/static/js/motion.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/native-lock-guard.js?v={{ ASSET_V }}"></script>
   <script src="/static/js/native-auth.js?v={{ ASSET_V }}" defer></script>
   <script src="/static/js/native-lock.js?v={{ ASSET_V }}" defer></script>
@@ -726,7 +727,7 @@
         return !!hadData;
       }catch(_){return false;}
     }
-    function _toast(msg,dur,pos){var el=document.createElement('div');el.setAttribute('data-wt-toast','1');var vAnchor=pos==='top'?'top:calc(1rem + env(safe-area-inset-top,0px));':'bottom:1.5rem;';el.style.cssText='position:fixed;'+vAnchor+'left:50%;transform:translateX(-50%);background:var(--panel-bg);border:1.5px solid var(--panel-border);border-radius:8px;padding:.5rem 1rem;font-size:.85rem;color:var(--fg);z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100vw - 2rem);text-align:center;pointer-events:none;';el.textContent=msg;document.body.appendChild(el);setTimeout(function(){el.remove();},dur||3000);}
+    function _toast(msg,dur,pos){var el=document.createElement('div');el.setAttribute('data-wt-toast','1');var vAnchor=pos==='top'?'top:calc(1rem + env(safe-area-inset-top,0px));':'bottom:1.5rem;';el.style.cssText='position:fixed;'+vAnchor+'left:50%;transform:translateX(-50%);background:var(--panel-bg);border:1.5px solid var(--panel-border);border-radius:8px;padding:.5rem 1rem;font-size:.85rem;color:var(--fg);z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100vw - 2rem);text-align:center;pointer-events:none;';el.textContent=msg;document.body.appendChild(el);var _tq=window.fiappMotionReduced&&fiappMotionReduced();if(!_tq){el.style.opacity='0';el.style.transform='translateX(-50%) translateY(8px)';el.style.transition='opacity var(--fi-dur-sm) var(--fi-ease), transform var(--fi-dur-sm) var(--fi-ease-pop)';void el.offsetWidth;el.style.opacity='1';el.style.transform='translateX(-50%)';}setTimeout(function(){if(_tq){el.remove();return;}el.style.opacity='0';el.style.transform='translateX(-50%) translateY(8px)';setTimeout(function(){el.remove();},260);},dur||3000);}
     function _hideAll(){if(_overlay)_overlay.style.display='none';if(_highlight)_highlight.style.display='none';if(_bubble)_bubble.style.display='none';_elevate(null);_clearWait();if(_hlTrackOff){_hlTrackOff();_hlTrackOff=null;}if(_preTourFocus&&typeof _preTourFocus.focus==='function'){try{_preTourFocus.focus();}catch(_){}} _preTourFocus=null;}
     function _posBubble(targetEl,pin){
       _curTarget=targetEl||null; _curPin=pin||null;
