@@ -178,6 +178,8 @@ function freshState(){
     recurringRules:[],
   };
 }
+const MAX_ROWS=20;
+const MAX_COLS=12;
 function loadState(){
   try{
     if(isWalkthroughActive()){
@@ -228,8 +230,6 @@ let state=loadState();
 
 let _monthsWithDataAtLoad=null;
 
-const MAX_ROWS=20;
-const MAX_COLS=12;
 function getRows(mk2){ return effectiveRowsForMonth(state, mk2||currentMK()); }
 function getCols(mk2){ return effectiveColsForMonth(state, mk2||currentMK()); }
 function forkCurrentMonth(){
