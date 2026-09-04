@@ -77,6 +77,8 @@ function freshState(){
     recurringRules:[],
   };
 }
+const MAX_ROWS=20;
+const MAX_COLS=12;
 function loadState(){
   try{
     if(isWalkthroughActive()){
@@ -126,8 +128,6 @@ let state=loadState();
 
 let _monthsWithDataAtLoad=null;
 
-const MAX_ROWS=20;
-const MAX_COLS=12;
 function getRows(mk2){ return effectiveRowsForMonth(state, mk2||currentMK()); }
 function getCols(mk2){ return effectiveColsForMonth(state, mk2||currentMK()); }
 function forkCurrentMonth(){
@@ -740,6 +740,7 @@ var syncToServer=_sync.syncToServer;
 var loadFromServer=_sync.loadFromServer;
 var setSyncStatus=_sync.setSyncStatus;
 var saveLocal=_sync.saveLocal;
+var serverLoaded=_sync.serverLoaded;
 async function loadSubsFromServer(){
 
   if(!window.__currentUser) return;
@@ -1536,7 +1537,7 @@ function syncIncomeInputs(){
       if(state.taxHomeCur!==homeCur && canConv(homeCur)){ state.taxHomeCur=homeCur; changed=true; }
     }
 
-    if(changed){ saveLocal(); syncToServer(); }
+    if(changed){ saveLocal(); if(serverLoaded()) syncToServer(); }
   }
   document.getElementById('inp-gross').value=obj.gross||'';
   document.getElementById('inp-tax').value  =obj.tax  ||'';
