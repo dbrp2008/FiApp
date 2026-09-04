@@ -350,6 +350,7 @@ function createSyncManager(storageKey, saveApiPath, loadApiPath, opts) {
     loadFromServer: loadFromServer,
     setSyncStatus:  setSyncStatus,
     saveLocal:      saveLocal,
-    flushIfDirty:   flushIfDirty
+    flushIfDirty:   flushIfDirty,
+    serverLoaded:   function() { return _serverLoaded; }
   };
 }
