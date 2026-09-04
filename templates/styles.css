@@ -143,12 +143,28 @@ html.theme-switching *::after { transition: none !important; }
 @view-transition { navigation: auto; }
 
 html.theme-switching::view-transition-old(root),
-html.theme-switching::view-transition-new(root) { animation-duration: .22s; }
+html.theme-switching::view-transition-new(root),
+html.theme-switching::view-transition-old(fi-canvas),
+html.theme-switching::view-transition-new(fi-canvas) { animation-duration: .22s; }
 
 html:not(.theme-switching)::view-transition-old(root) {
   animation: fi-fade-in var(--fi-dur-sm) var(--fi-ease) reverse both; }
 html:not(.theme-switching)::view-transition-new(root) {
   animation: fi-fade-in var(--fi-dur-sm) var(--fi-ease) both; }
+
+.app-canvas{ view-transition-name: fi-canvas; }
+@keyframes fi-nav-out{ to{ opacity:0; transform:translateX(calc(var(--fi-nav-dist) * -1)); } }
+@keyframes fi-nav-in{ from{ transform:translateX(var(--fi-nav-dist)); } to{ transform:none; } }
+html:not(.theme-switching)::view-transition-old(fi-canvas) {
+  animation: fi-nav-out var(--fi-dur-sm) var(--fi-ease) both; }
+html:not(.theme-switching)::view-transition-new(fi-canvas) {
+  animation: fi-nav-in var(--fi-dur-md) var(--fi-ease-pop) both; }
+html.personality-quiet:not(.theme-switching)::view-transition-old(fi-canvas),
+html.personality-quiet:not(.theme-switching)::view-transition-new(fi-canvas) { animation: none; }
+@media (prefers-reduced-motion: reduce){
+  ::view-transition-old(fi-canvas),
+  ::view-transition-new(fi-canvas){ animation: none; }
+}
 
 html.personality-quiet:not(.theme-switching)::view-transition-old(root),
 html.personality-quiet:not(.theme-switching)::view-transition-new(root) { animation: none; }
@@ -637,12 +653,14 @@ html.fiapp-lock-pending body { visibility: hidden !important; }
   .stat-card:hover,.glass-panel:hover{transform:translateY(-2px);}
 }
 
-:root{ --fi-dur-xs:.13s; --fi-dur-sm:.2s; --fi-dur-md:.3s;
-  --fi-stagger:.03s; --fi-enter-dist:8px; --fi-ease:ease; --fi-ease-pop:ease-out; }
+:root{ --fi-dur-xs:.17s; --fi-dur-sm:.24s; --fi-dur-md:.32s;
+  --fi-stagger:.035s; --fi-enter-dist:9px; --fi-pop-scale:.96; --fi-nav-dist:16px;
+  --fi-ease:ease; --fi-ease-pop:ease-out; }
 html.personality-quiet{ --fi-dur-xs:0s; --fi-dur-sm:0s; --fi-dur-md:.15s;
-  --fi-stagger:0s; --fi-enter-dist:0px; }
-html.personality-playful{ --fi-dur-xs:.16s; --fi-dur-sm:.28s; --fi-dur-md:.45s;
-  --fi-stagger:.05s; --fi-enter-dist:12px; --fi-ease-pop:cubic-bezier(.34,1.56,.64,1); }
+  --fi-stagger:0s; --fi-enter-dist:0px; --fi-pop-scale:1; --fi-nav-dist:0px; }
+html.personality-playful{ --fi-dur-xs:.24s; --fi-dur-sm:.38s; --fi-dur-md:.62s;
+  --fi-stagger:.085s; --fi-enter-dist:22px; --fi-pop-scale:.90; --fi-nav-dist:34px;
+  --fi-ease-pop:cubic-bezier(.34,1.56,.64,1); }
 
 @keyframes fi-card-in{from{opacity:0;transform:translateY(var(--fi-enter-dist));}to{opacity:1;transform:none;}}
 @media (prefers-reduced-motion: no-preference){
@@ -696,7 +714,7 @@ html.personality-playful .dash-tool{border-radius:14px;}
 }
 @keyframes fi-skel-shimmer{to{transform:translateX(100%);}}
 
-@keyframes fi-pop-in{from{opacity:0;transform:scale(.96);}to{opacity:1;transform:none;}}
+@keyframes fi-pop-in{from{opacity:0;transform:scale(var(--fi-pop-scale));}to{opacity:1;transform:none;}}
 @keyframes fi-fade-in{from{opacity:0;}to{opacity:1;}}
 @keyframes fi-sheet-in{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:none;}}
 @media (prefers-reduced-motion: no-preference){
