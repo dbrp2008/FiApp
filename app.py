@@ -33,52 +33,27 @@ _rates_cache: dict = {}
 _rates_ts: dict = {}
 RATES_TTL = 3600
 
-# In-memory only (per-Gunicorn-worker, like _rates_cache above) — light-touch cache so
-# repeat (income, status) lookups against the same income/status don't re-hit
-# api.taxapi.net every time. No DB tier: tax results are cheap to recompute and this
-# dependency is staying as-is rather than being unified into a local calculator.
 _tax_cache: dict = {}
 TAX_TTL = 3600
 
-# Failed-login lockout. Rate limiting is keyed on IP, so it does nothing against an attacker
-# spread across many sources; this bounds attempts per *account* instead.
-#
-# The threshold is deliberately not tighter, and the window deliberately not longer, because
-# locking by username is itself a denial-of-service vector: anyone who knows a username can
-# trigger it. 10 attempts inside a 15-minute self-healing window makes online guessing
-# useless without handing an attacker a way to lock a real user out for any meaningful time.
 LOCKOUT_THRESHOLD = 10
 LOCKOUT_MINUTES = 15
 
-# Row/column/subscription limits — enforced server-side (via _within_limits) and client-side.
 MAX_SUBS = 100
 MAX_ROWS = 20
 MAX_COLS = 12
 
-# Expenses tracker's per-month budget-panel income/tax figures (data.income in
-# _within_limits) — bounds-checked so a forged /api/save/expenses payload can't stuff
-# the JSONB blob with oversized numbers or an unbounded number of month keys.
 MAX_INCOME_MONTHS = 600
 MAX_INCOME_VALUE = 1_000_000_000
 
-# rowsByMonth/colsByMonth are dicts keyed by month — _within_limits bounded each array's
-# length but not how many month keys could exist, nor the cells dict size or string
-# lengths within the blob. 600 months = 50 years, matching MAX_INCOME_MONTHS's precedent.
-# MAX_CELLS is set to comfortably exceed the legitimate worst case (600 months *
-# MAX_ROWS * MAX_COLS = 144,000) while still bounding a forged payload.
 MAX_TRACKED_MONTHS = MAX_INCOME_MONTHS
 MAX_CELLS = 200_000
 MAX_LABEL_LEN = 200
 
-# Push device tokens retained per account. FCM tokens rotate, so some churn is expected;
-# this only stops unbounded row growth from repeated registration.
 MAX_DEVICE_TOKENS = 20
 
-# Sync conflict detection (W3): how many revisions to retain per (user, tracker).
 _REVISION_KEEP = 20
 
-# Maps each tracker's API name to its JSONB blob column and version-counter column.
-# Used by _save_tracker_versioned/_load_tracker_versioned to build identifier-safe SQL.
 _TRACKER_COLUMNS = {
     'expenses': ('expenses_data', 'expenses_version'),
     'subs':     ('subs_data',     'subs_version'),
@@ -91,61 +66,24 @@ if not app.secret_key:
     raise RuntimeError("SECRET_KEY environment variable is required")
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-# Secure is dropped only for a local debug run over plain http. COOKIE_INSECURE used to be
-# OR'd with app.debug, so setting it on a production deploy silently shipped the session
-# cookie over http; it is now ignored unless debug is on.
 app.config['SESSION_COOKIE_SECURE'] = not app.debug
 if os.environ.get('COOKIE_INSECURE') == '1' and not app.debug:
     app.logger.warning(
         "COOKIE_INSECURE=1 ignored - the Secure cookie flag is only dropped in debug mode.")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 
-# Behind a TLS-terminating proxy (Render) request.remote_addr is the PROXY's address, so
-# every client shares one rate-limit bucket - the 5/min on /auth/register and 10/min on
-# /auth/login become global rather than per-attacker, which both weakens brute-force
-# protection and lets one client exhaust everybody's budget.
-#
-# Gated on TRUST_PROXY because trusting X-Forwarded-For unconditionally is WORSE than not
-# trusting it: a client able to reach the origin directly could then forge its own address
-# and evade the limits entirely. Set TRUST_PROXY=1 only where a proxy really does terminate
-# every request. x_for=1 trusts exactly one hop - the nearest proxy - not the whole chain.
 if os.environ.get('TRUST_PROXY') == '1':
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
-# Werkzeug 3.1 rejects any request whose Host is not listed, before routing. Without it,
-# url_for(..., _external=True) follows the Host header - which is how _google_redirect_uri()
-# builds the OAuth redirect. A forged Host would produce a redirect_uri pointing elsewhere.
-#
-# That was never exploitable: Google refuses any redirect_uri outside the allowlist
-# registered on the OAuth client, so a poisoned value breaks the sign-in rather than sending
-# a code anywhere useful. The point of this is to stop relying on someone else's allowlist
-# for a property this app can assert itself.
-#
-# Comma-separated so a preview or custom domain can be added without a code change. Left
-# unset it is a no-op, because a wrong value here rejects every request - it must be opt-in
-# per environment rather than a default that silently breaks local development.
 _trusted_hosts = [h.strip() for h in os.environ.get('TRUSTED_HOSTS', '').split(',') if h.strip()]
 if _trusted_hosts:
     app.config['TRUSTED_HOSTS'] = _trusted_hosts
-# Password hashing algorithm, stated explicitly rather than inherited from whatever
-# Werkzeug's default happens to be on the deployed version. scrypt is deliberately slow and
-# memory-hard, so a stolen database cannot be brute-forced at speed: N=32768 is the CPU/memory
-# cost, r=8 the block size, p=1 the parallelism.
-#
-# The parameters are stored inside each hash ("scrypt:32768:8:1$<salt>$<digest>"), so
-# check_password_hash reads them back per row - changing this constant does not invalidate
-# existing passwords, it only affects hashes written from then on.
 PWHASH_METHOD = 'scrypt:32768:8:1'
 
 app.config['MAX_CONTENT_LENGTH'] = 1_000_000  # 1 MB — prevents oversized save payloads
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31_536_000  # 1 year — every /static/ asset is
-# loaded with ?v=ASSET_V (bumped each deploy), so the URL changes when the file changes;
-# a long cache is therefore safe and lets repeat visits skip re-downloading (~219 KiB).
 
-# Cache-busting stamp appended to asset URLs as ?v=ASSET_V. Recomputed at startup from the
-# newest static/template file mtime, so each deploy yields a new value and browsers fetch the
-# updated JS/CSS instead of serving a stale cached copy (replaces hand-maintained ?v= dates).
 def _compute_asset_version():
     latest = 0.0
     for _base in (app.static_folder, os.path.join(app.root_path, app.template_folder or 'templates')):
